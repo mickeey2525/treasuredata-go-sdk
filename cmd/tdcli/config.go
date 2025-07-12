@@ -165,8 +165,8 @@ func (c *ConfigShowCmd) Run(ctx *CLIContext) error {
 
 // ConfigSetCmd sets a configuration value
 type ConfigSetCmd struct {
-	Key   string `kong:"arg,help='Configuration key (api_key, region, format, output)'"`
-	Value string `kong:"arg,help='Configuration value'"`
+	Key    string `kong:"arg,help='Configuration key (api_key, region, format, output)'"`
+	Value  string `kong:"arg,help='Configuration value'"`
 	Global bool   `kong:"help='Save to global config (~/.tdcli/.tdcli.toml)'"`
 }
 

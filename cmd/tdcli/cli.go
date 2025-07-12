@@ -563,7 +563,6 @@ type CDPCmd struct {
 	Tokens      CDPTokensCmd      `kong:"cmd,aliases='token',help='CDP token management'"`
 }
 
-
 type CDPSegmentsCmd struct {
 	Create      CDPSegmentsCreateCmd      `kong:"cmd,help='Create a new segment'"`
 	List        CDPSegmentsListCmd        `kong:"cmd,aliases='ls',help='List segments'"`
@@ -814,22 +813,22 @@ func (c *CDPAudiencesBehaviorSamplesCmd) Run(ctx *CLIContext) error {
 }
 
 type CDPActivationsCmd struct {
-	Create               CDPActivationsCreateCmd               `kong:"cmd,help='Create activation'"`
-	CreateWithStruct     CDPActivationsCreateWithStructCmd     `kong:"cmd,help='Create activation with struct'"`
-	List                 CDPActivationsListCmd                 `kong:"cmd,aliases='ls',help='List activations'"`
-	Get                  CDPActivationsGetCmd                  `kong:"cmd,aliases='show',help='Get activation details'"`
-	Update               CDPActivationsUpdateCmd               `kong:"cmd,help='Update activation'"`
-	UpdateStatus         CDPActivationsUpdateStatusCmd         `kong:"cmd,help='Update activation status'"`
-	Delete               CDPActivationsDeleteCmd               `kong:"cmd,aliases='rm',help='Delete activation'"`
-	Execute              CDPActivationsExecuteCmd              `kong:"cmd,help='Execute activation'"`
-	Executions           CDPActivationsExecutionsCmd           `kong:"cmd,help='Get activation executions'"`
-	ListByAudience       CDPActivationsListByAudienceCmd       `kong:"cmd,help='List activations by audience'"`
-	ListBySegmentFolder  CDPActivationsListBySegmentFolderCmd  `kong:"cmd,help='List activations by segment folder'"`
-	RunSegment           CDPActivationsRunSegmentCmd           `kong:"cmd,help='Run activation for segment'"`
-	ListByParentSegment  CDPActivationsListByParentSegmentCmd  `kong:"cmd,help='List activations by parent segment'"`
-	WorkflowProjects     CDPActivationsWorkflowProjectsCmd     `kong:"cmd,help='Get workflow projects for parent segment'"`
-	Workflows            CDPActivationsWorkflowsCmd            `kong:"cmd,help='Get workflows for parent segment'"`
-	MatchedActivations   CDPActivationsMatchedActivationsCmd   `kong:"cmd,help='Get matched activations for parent segment'"`
+	Create              CDPActivationsCreateCmd              `kong:"cmd,help='Create activation'"`
+	CreateWithStruct    CDPActivationsCreateWithStructCmd    `kong:"cmd,help='Create activation with struct'"`
+	List                CDPActivationsListCmd                `kong:"cmd,aliases='ls',help='List activations'"`
+	Get                 CDPActivationsGetCmd                 `kong:"cmd,aliases='show',help='Get activation details'"`
+	Update              CDPActivationsUpdateCmd              `kong:"cmd,help='Update activation'"`
+	UpdateStatus        CDPActivationsUpdateStatusCmd        `kong:"cmd,help='Update activation status'"`
+	Delete              CDPActivationsDeleteCmd              `kong:"cmd,aliases='rm',help='Delete activation'"`
+	Execute             CDPActivationsExecuteCmd             `kong:"cmd,help='Execute activation'"`
+	Executions          CDPActivationsExecutionsCmd          `kong:"cmd,help='Get activation executions'"`
+	ListByAudience      CDPActivationsListByAudienceCmd      `kong:"cmd,help='List activations by audience'"`
+	ListBySegmentFolder CDPActivationsListBySegmentFolderCmd `kong:"cmd,help='List activations by segment folder'"`
+	RunSegment          CDPActivationsRunSegmentCmd          `kong:"cmd,help='Run activation for segment'"`
+	ListByParentSegment CDPActivationsListByParentSegmentCmd `kong:"cmd,help='List activations by parent segment'"`
+	WorkflowProjects    CDPActivationsWorkflowProjectsCmd    `kong:"cmd,help='Get workflow projects for parent segment'"`
+	Workflows           CDPActivationsWorkflowsCmd           `kong:"cmd,help='Get workflows for parent segment'"`
+	MatchedActivations  CDPActivationsMatchedActivationsCmd  `kong:"cmd,help='Get matched activations for parent segment'"`
 }
 
 type CDPActivationsCreateCmd struct {
@@ -1128,7 +1127,6 @@ func (c *CDPTokensListCmd) Run(ctx *CLIContext) error {
 	handleCDPListTokens(ctx.Context, ctx.Client, c, ctx.GlobalFlags)
 	return nil
 }
-
 
 type CDPTokensGetEntityCmd struct {
 	TokenID string `kong:"arg,help='Token ID'"`

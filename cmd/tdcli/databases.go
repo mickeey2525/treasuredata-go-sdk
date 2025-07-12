@@ -233,4 +233,3 @@ func handleDatabaseUpdate(ctx context.Context, client *td.Client, args []string,
 	fmt.Printf("Database update functionality would be implemented here for: %s\n", database.Name)
 	fmt.Println("Note: Check Treasure Data API documentation for updateable database properties")
 }
-

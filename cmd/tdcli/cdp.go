@@ -12,9 +12,6 @@ import (
 	td "github.com/mickeey2525/treasuredata-go-sdk"
 )
 
-
-
-
 // CDP segment handlers
 func handleCDPSegmentCreate(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 4 {
@@ -314,14 +311,14 @@ func handleCDPActivationListWithForce(ctx context.Context, client *td.Client, fl
 	}
 
 	fmt.Printf("Found %d audiences. This will make %d API calls to collect all activations.\n", len(audiences.Audiences), len(audiences.Audiences))
-	
+
 	if !force {
 		fmt.Print("Do you want to continue? This may take a while and put load on the API server. [y/N]: ")
-		
+
 		var response string
 		fmt.Scanln(&response)
 		response = strings.ToLower(strings.TrimSpace(response))
-		
+
 		if response != "y" && response != "yes" {
 			fmt.Println("Operation cancelled.")
 			return
@@ -339,7 +336,7 @@ func handleCDPActivationListWithForce(ctx context.Context, client *td.Client, fl
 		if i%10 == 0 || i == total-1 {
 			fmt.Printf("Progress: %d/%d audiences processed...\n", i+1, total)
 		}
-		
+
 		resp, err := client.CDP.ListActivations(ctx, audience.ID, nil)
 		if err != nil {
 			// Skip this audience if there's an error, but continue with others
@@ -350,7 +347,7 @@ func handleCDPActivationListWithForce(ctx context.Context, client *td.Client, fl
 		}
 		allActivations = append(allActivations, resp.Activations...)
 	}
-	
+
 	fmt.Printf("Completed! Collected %d total activations from %d audiences.\n", len(allActivations), total)
 
 	// Create a response with all collected activations
@@ -1884,7 +1881,6 @@ func handleCDPListTokens(ctx context.Context, client *td.Client, cmd interface{}
 		handleError(err, "Failed to write output", flags.Verbose)
 	}
 }
-
 
 func handleCDPGetEntityToken(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {

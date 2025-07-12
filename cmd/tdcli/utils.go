@@ -39,7 +39,7 @@ func writeOutput(content string, filename string) error {
 // formatAndWriteOutput formats data according to the specified format and writes it
 func formatAndWriteOutput(data interface{}, format, outputFile string, csvHeader string, csvFormatter func(interface{}) string, tableFormatter func(interface{}) string) error {
 	var output string
-	
+
 	switch format {
 	case "json":
 		jsonData, err := json.MarshalIndent(data, "", "  ")
@@ -52,6 +52,6 @@ func formatAndWriteOutput(data interface{}, format, outputFile string, csvHeader
 	default:
 		output = tableFormatter(data)
 	}
-	
+
 	return writeOutput(output, outputFile)
 }
