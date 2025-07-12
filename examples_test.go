@@ -172,7 +172,6 @@ func ExampleBulkImportService() {
 	fmt.Printf("Import job ID: %s\n", job.JobID)
 }
 
-
 func ExampleCDPService_CreateSegment() {
 	client, err := td.NewClient("YOUR_API_KEY")
 	if err != nil {

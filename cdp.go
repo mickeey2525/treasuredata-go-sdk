@@ -11,7 +11,6 @@ type CDPService struct {
 	client *Client
 }
 
-
 // CDPSegment represents a customer segment in CDP
 type CDPSegment struct {
 	ID           string `json:"id"`
@@ -82,16 +81,16 @@ type CDPFolder struct {
 
 // CDPAudienceFolder represents a folder specific to an audience
 type CDPAudienceFolder struct {
-	ID               string   `json:"id"`
-	AudienceID       string   `json:"audienceId"`
-	Name             string   `json:"name"`
-	Description      *string  `json:"description"`
-	ParentFolderID   *string  `json:"parentFolderId"`
-	Path             string   `json:"path,omitempty"`
-	CreatedAt        TDTime   `json:"createdAt"`
-	UpdatedAt        TDTime   `json:"updatedAt"`
-	CreatedBy        *CDPUser `json:"createdBy,omitempty"`
-	UpdatedBy        *CDPUser `json:"updatedBy,omitempty"`
+	ID             string   `json:"id"`
+	AudienceID     string   `json:"audienceId"`
+	Name           string   `json:"name"`
+	Description    *string  `json:"description"`
+	ParentFolderID *string  `json:"parentFolderId"`
+	Path           string   `json:"path,omitempty"`
+	CreatedAt      TDTime   `json:"createdAt"`
+	UpdatedAt      TDTime   `json:"updatedAt"`
+	CreatedBy      *CDPUser `json:"createdBy,omitempty"`
+	UpdatedBy      *CDPUser `json:"updatedBy,omitempty"`
 }
 
 // CDPEntity represents a generic entity in CDP that can be in folders
@@ -237,7 +236,6 @@ type CDPActivationExecution struct {
 	ErrorMessage    string  `json:"error_message,omitempty"`
 }
 
-
 // CDPSegmentListOptions specifies optional parameters to Segment List method
 type CDPSegmentListOptions struct {
 	Limit    int    `url:"limit,omitempty"`
@@ -252,7 +250,6 @@ type CDPSegmentCustomerListOptions struct {
 	Offset int    `url:"offset,omitempty"`
 	Fields string `url:"fields,omitempty"`
 }
-
 
 // CDPSegmentListResponse represents the response from the segment list API
 type CDPSegmentListResponse struct {
@@ -308,7 +305,6 @@ type CDPEntityListResponse struct {
 	Total    int64       `json:"total"`
 }
 
-
 // CDPUserDefinedWorkflowListResponse represents the response from the user-defined workflow list API
 type CDPUserDefinedWorkflowListResponse struct {
 	Workflows []CDPUserDefinedWorkflow `json:"workflows"`
@@ -342,10 +338,10 @@ type CDPFolderCreateRequest struct {
 
 // CDPEntityFolderCreateRequest represents a JSON API request to create an entity folder
 type CDPEntityFolderCreateRequest struct {
-	ID            string                                     `json:"id,omitempty"`
-	Type          string                                     `json:"type"`
-	Attributes    CDPEntityFolderCreateAttributes            `json:"attributes"`
-	Relationships *CDPEntityFolderCreateRelationships       `json:"relationships,omitempty"`
+	ID            string                              `json:"id,omitempty"`
+	Type          string                              `json:"type"`
+	Attributes    CDPEntityFolderCreateAttributes     `json:"attributes"`
+	Relationships *CDPEntityFolderCreateRelationships `json:"relationships,omitempty"`
 }
 
 // CDPEntityFolderCreateAttributes represents the attributes for entity folder creation
@@ -492,9 +488,6 @@ type CDPTokenListOptions struct {
 	Status string `url:"status,omitempty"`
 }
 
-
-
-
 // CreateSegment creates a new customer segment within an audience
 func (s *CDPService) CreateSegment(ctx context.Context, audienceID, name, description, query string) (*CDPSegment, error) {
 	u := fmt.Sprintf("audiences/%s/segments", audienceID)
@@ -504,7 +497,6 @@ func (s *CDPService) CreateSegment(ctx context.Context, audienceID, name, descri
 		"description": description,
 		"query":       query,
 	}
-	
 
 	req, err := s.client.NewCDPRequest("POST", u, body)
 	if err != nil {
