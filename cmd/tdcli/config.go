@@ -367,31 +367,31 @@ func (c *ConfigInitCmd) Run(ctx *CLIContext) error {
 // promptInput prompts the user for text input with optional validation
 func promptInput(prompt, defaultValue string, validator func(string) error) (string, error) {
 	reader := bufio.NewReader(os.Stdin)
-	
+
 	for {
 		if defaultValue != "" {
 			fmt.Printf("%s [%s]: ", prompt, defaultValue)
 		} else {
 			fmt.Printf("%s: ", prompt)
 		}
-		
+
 		input, err := reader.ReadString('\n')
 		if err != nil {
 			return "", fmt.Errorf("failed to read input: %v", err)
 		}
-		
+
 		input = strings.TrimSpace(input)
 		if input == "" && defaultValue != "" {
 			input = defaultValue
 		}
-		
+
 		if validator != nil {
 			if err := validator(input); err != nil {
 				fmt.Printf("Invalid input: %v\n", err)
 				continue
 			}
 		}
-		
+
 		return input, nil
 	}
 }
@@ -399,7 +399,7 @@ func promptInput(prompt, defaultValue string, validator func(string) error) (str
 // promptChoice prompts the user to choose from a list of options
 func promptChoice(prompt string, choices []string, defaultChoice string, descriptions map[string]string) (string, error) {
 	reader := bufio.NewReader(os.Stdin)
-	
+
 	for {
 		fmt.Printf("%s:\n", prompt)
 		for i, choice := range choices {
@@ -414,31 +414,31 @@ func promptChoice(prompt string, choices []string, defaultChoice string, descrip
 			}
 		}
 		fmt.Printf("Enter choice [1-%d] or press Enter for default: ", len(choices))
-		
+
 		input, err := reader.ReadString('\n')
 		if err != nil {
 			return "", fmt.Errorf("failed to read input: %v", err)
 		}
-		
+
 		input = strings.TrimSpace(input)
 		if input == "" {
 			return defaultChoice, nil
 		}
-		
+
 		// Try to parse as number
 		for i, choice := range choices {
 			if input == fmt.Sprintf("%d", i+1) {
 				return choice, nil
 			}
 		}
-		
+
 		// Try to match exact string
 		for _, choice := range choices {
 			if strings.EqualFold(input, choice) {
 				return choice, nil
 			}
 		}
-		
+
 		fmt.Printf("Invalid choice. Please enter a number between 1 and %d, or the exact option name.\n\n", len(choices))
 	}
 }
@@ -446,13 +446,13 @@ func promptChoice(prompt string, choices []string, defaultChoice string, descrip
 // promptConfirmation prompts the user for yes/no confirmation
 func promptConfirmation(prompt string) bool {
 	reader := bufio.NewReader(os.Stdin)
-	
+
 	fmt.Printf("%s [y/N]: ", prompt)
 	input, err := reader.ReadString('\n')
 	if err != nil {
 		return false
 	}
-	
+
 	input = strings.TrimSpace(strings.ToLower(input))
 	return input == "y" || input == "yes"
 }
@@ -462,21 +462,21 @@ func validateAPIKey(apiKey string) error {
 	if apiKey == "" {
 		return fmt.Errorf("API key cannot be empty")
 	}
-	
+
 	// API key should be in format: account_id/api_key
 	if !strings.Contains(apiKey, "/") {
 		return fmt.Errorf("API key must be in format: account_id/api_key")
 	}
-	
+
 	parts := strings.Split(apiKey, "/")
 	if len(parts) != 2 {
 		return fmt.Errorf("API key must be in format: account_id/api_key")
 	}
-	
+
 	if parts[0] == "" || parts[1] == "" {
 		return fmt.Errorf("both account_id and api_key parts must be non-empty")
 	}
-	
+
 	return nil
 }
 
