@@ -1,0 +1,22 @@
+# Treasure Data CLI Configuration Example  
+# Copy this file to ~/.tdcli/.tdcli.toml for global config or ./.tdcli.toml for project-specific config
+
+# Your Treasure Data API key (format: account_id/api_key)
+# You can get this from https://console.treasuredata.com/app/profile/api-keys
+api_key = "your_account_id/your_api_key"
+
+# Region where your Treasure Data account is located
+# Available regions:
+#   - "us"    - United States (api.treasuredata.com)
+#   - "eu"    - Europe (api.eu01.treasuredata.com)  
+#   - "tokyo" - Japan (api.treasuredata.co.jp)
+#   - "ap02"  - Asia Pacific (api.ap02.treasuredata.com)
+region = "us"
+
+# Default output format for CLI commands
+# Available formats: "table", "json", "csv"
+format = "table"
+
+# Default output file (leave empty for stdout)
+# When specified, command output will be written to this file
+output = ""
