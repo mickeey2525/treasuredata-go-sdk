@@ -353,8 +353,15 @@ SUBCOMMANDS:
     list, ls               List access control users
     get, show <user_id>    Get user access control details
 
+OPTIONS:
+    --with-details         Include user email and name details (default: true)
+    --format FORMAT        Output format (json, table, csv)
+    --verbose, -v          Verbose output
+
 EXAMPLES:
     tdcli perms users list
+    tdcli perms users list --no-with-details
+    tdcli perms users list --format json
     tdcli perms users show 12345
 
 `)
@@ -364,13 +371,32 @@ func handleAccessControlUserList(ctx context.Context, client *td.Client, flags F
 	users, err := client.Permissions.ListAccessControlUsers(ctx)
 	handleError(err, "Failed to list access control users", flags.Verbose)
 
+	var userDetailsMap map[int]td.User
+	if flags.WithDetails {
+		// Fetch all users to get email and name information
+		allUsers, err := client.Users.List(ctx)
+		if err != nil && flags.Verbose {
+			fmt.Printf("Warning: Failed to fetch user details: %v\n", err)
+		}
+
+		// Create a map for quick lookup of user details by ID
+		userDetailsMap = make(map[int]td.User)
+		for _, user := range allUsers {
+			userDetailsMap[user.ID] = user
+		}
+	}
+
 	switch flags.Format {
 	case "json":
-		printJSON(users)
+		if flags.WithDetails && userDetailsMap != nil {
+			printAccessControlUsersJSON(users, userDetailsMap)
+		} else {
+			printJSON(users)
+		}
 	case "csv":
-		printAccessControlUsersCSV(users)
+		printAccessControlUsersCSV(users, userDetailsMap)
 	default:
-		printAccessControlUsersTable(users)
+		printAccessControlUsersTable(users, userDetailsMap)
 	}
 }
 
@@ -488,16 +514,35 @@ func printPolicyGroupsCSV(groups []td.AccessControlPolicyGroup) {
 	}
 }
 
-func printAccessControlUsersTable(users []td.AccessControlUser) {
+func printAccessControlUsersTable(users []td.AccessControlUser, userDetailsMap map[int]td.User) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "USER_ID\tACCOUNT_ID\tPOLICIES")
 
-	for _, user := range users {
-		fmt.Fprintf(w, "%d\t%d\t%d\n",
-			user.UserID,
-			user.AccountID,
-			len(user.Policies),
-		)
+	if userDetailsMap != nil {
+		fmt.Fprintln(w, "USER_ID\tEMAIL\tNAME\tACCOUNT_ID\tPOLICIES")
+		for _, user := range users {
+			email := ""
+			name := ""
+			if details, ok := userDetailsMap[user.UserID]; ok {
+				email = details.Email
+				name = details.Name
+			}
+			fmt.Fprintf(w, "%d\t%s\t%s\t%d\t%d\n",
+				user.UserID,
+				email,
+				name,
+				user.AccountID,
+				len(user.Policies),
+			)
+		}
+	} else {
+		fmt.Fprintln(w, "USER_ID\tACCOUNT_ID\tPOLICIES")
+		for _, user := range users {
+			fmt.Fprintf(w, "%d\t%d\t%d\n",
+				user.UserID,
+				user.AccountID,
+				len(user.Policies),
+			)
+		}
 	}
 	w.Flush()
 }
@@ -516,13 +561,63 @@ func printAccessControlUserDetails(user td.AccessControlUser) {
 	}
 }
 
-func printAccessControlUsersCSV(users []td.AccessControlUser) {
-	fmt.Println("user_id,account_id,policy_count")
-	for _, user := range users {
-		fmt.Printf("%d,%d,%d\n",
-			user.UserID,
-			user.AccountID,
-			len(user.Policies),
-		)
+func printAccessControlUsersCSV(users []td.AccessControlUser, userDetailsMap map[int]td.User) {
+	if userDetailsMap != nil {
+		fmt.Println("user_id,email,name,account_id,policy_count")
+		for _, user := range users {
+			email := ""
+			name := ""
+			if details, ok := userDetailsMap[user.UserID]; ok {
+				email = details.Email
+				name = details.Name
+			}
+			fmt.Printf("%d,%s,%s,%d,%d\n",
+				user.UserID,
+				email,
+				name,
+				user.AccountID,
+				len(user.Policies),
+			)
+		}
+	} else {
+		fmt.Println("user_id,account_id,policy_count")
+		for _, user := range users {
+			fmt.Printf("%d,%d,%d\n",
+				user.UserID,
+				user.AccountID,
+				len(user.Policies),
+			)
+		}
 	}
+}
+
+type AccessControlUserWithDetails struct {
+	UserID      int                         `json:"user_id"`
+	AccountID   int                         `json:"account_id"`
+	Email       string                      `json:"email,omitempty"`
+	Name        string                      `json:"name,omitempty"`
+	Permissions td.AccessControlPermissions `json:"permissions"`
+	Policies    []td.AccessControlPolicy    `json:"policies,omitempty"`
+}
+
+func printAccessControlUsersJSON(users []td.AccessControlUser, userDetailsMap map[int]td.User) {
+	var usersWithDetails []AccessControlUserWithDetails
+
+	for _, user := range users {
+		userWithDetails := AccessControlUserWithDetails{
+			UserID:      user.UserID,
+			AccountID:   user.AccountID,
+			Permissions: user.Permissions,
+			Policies:    user.Policies,
+		}
+
+		if details, ok := userDetailsMap[user.UserID]; ok {
+			userWithDetails.Email = details.Email
+			userWithDetails.Name = details.Name
+		}
+
+		usersWithDetails = append(usersWithDetails, userWithDetails)
+	}
+
+	printJSON(usersWithDetails)
 }

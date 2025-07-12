@@ -396,9 +396,12 @@ type PermsUsersCmd struct {
 	Get  PermsUsersGetCmd  `kong:"cmd,aliases='show',help='Get user access control details'"`
 }
 
-type PermsUsersListCmd struct{}
+type PermsUsersListCmd struct {
+	WithDetails bool `kong:"help='Include user email and name details',default=true"`
+}
 
 func (p *PermsUsersListCmd) Run(ctx *CLIContext) error {
+	ctx.GlobalFlags.WithDetails = p.WithDetails
 	handleAccessControlUserList(ctx.Context, ctx.Client, ctx.GlobalFlags)
 	return nil
 }
@@ -536,15 +539,16 @@ func (i *ImportPartsCmd) Run(ctx *CLIContext) error {
 
 // Flags struct for compatibility with existing handlers
 type Flags struct {
-	APIKey   string
-	Region   string
-	Format   string
-	Output   string
-	Verbose  bool
-	Database string
-	Status   string
-	Priority int
-	Limit    int
+	APIKey      string
+	Region      string
+	Format      string
+	Output      string
+	Verbose     bool
+	Database    string
+	Status      string
+	Priority    int
+	Limit       int
+	WithDetails bool
 }
 
 // Context structure for command execution
@@ -1386,14 +1390,15 @@ func (w *WorkflowLogsTaskCmd) Run(ctx *CLIContext) error {
 // Convert Kong CLI to legacy Flags structure for compatibility
 func (cli *CLI) ToFlags() Flags {
 	return Flags{
-		APIKey:   cli.APIKey,
-		Region:   cli.Region,
-		Format:   cli.Format,
-		Output:   cli.Output,
-		Verbose:  cli.Verbose,
-		Database: "", // Will be set by individual commands
-		Status:   "", // Will be set by individual commands
-		Priority: 0,  // Will be set by individual commands
-		Limit:    0,  // Will be set by individual commands
+		APIKey:      cli.APIKey,
+		Region:      cli.Region,
+		Format:      cli.Format,
+		Output:      cli.Output,
+		Verbose:     cli.Verbose,
+		Database:    "",    // Will be set by individual commands
+		Status:      "",    // Will be set by individual commands
+		Priority:    0,     // Will be set by individual commands
+		Limit:       0,     // Will be set by individual commands
+		WithDetails: false, // Will be set by individual commands
 	}
 }
