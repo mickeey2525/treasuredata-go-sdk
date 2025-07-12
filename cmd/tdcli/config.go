@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -278,8 +279,6 @@ type ConfigInitCmd struct {
 }
 
 func (c *ConfigInitCmd) Run(ctx *CLIContext) error {
-	config := DefaultConfig()
-
 	// Determine save path
 	var savePath string
 	if c.Global {
@@ -295,26 +294,188 @@ func (c *ConfigInitCmd) Run(ctx *CLIContext) error {
 	// Check if file already exists
 	if _, err := os.Stat(savePath); err == nil {
 		fmt.Printf("Configuration file already exists: %s\n", savePath)
-		fmt.Print("Overwrite? [y/N]: ")
-		var response string
-		fmt.Scanln(&response)
-		if response != "y" && response != "Y" && response != "yes" && response != "Yes" {
-			fmt.Println("Cancelled")
+		if !promptConfirmation("Overwrite existing configuration?") {
+			fmt.Println("Configuration initialization cancelled.")
 			return nil
 		}
 	}
+
+	fmt.Println("Welcome to Treasure Data CLI configuration setup!")
+	fmt.Println("Please provide the following information to configure your CLI:")
+	fmt.Println()
+
+	config := DefaultConfig()
+
+	// Prompt for API Key
+	apiKey, err := promptInput("API Key (format: account_id/api_key)", "", validateAPIKey)
+	if err != nil {
+		return err
+	}
+	config.APIKey = apiKey
+
+	// Prompt for Region
+	region, err := promptChoice("Region", []string{"us", "eu", "tokyo", "ap02"}, "us", map[string]string{
+		"us":    "United States (api.treasuredata.com)",
+		"eu":    "Europe (api.eu01.treasuredata.com)",
+		"tokyo": "Japan (api.treasuredata.co.jp)",
+		"ap02":  "Asia Pacific (api.ap02.treasuredata.com)",
+	})
+	if err != nil {
+		return err
+	}
+	config.Region = region
+
+	// Prompt for Format
+	format, err := promptChoice("Output Format", []string{"table", "json", "csv"}, "table", map[string]string{
+		"table": "Human-readable table format",
+		"json":  "JSON format for programmatic use",
+		"csv":   "CSV format for spreadsheet import",
+	})
+	if err != nil {
+		return err
+	}
+	config.Format = format
+
+	// Prompt for Output (optional)
+	output, err := promptInput("Output file (leave empty for stdout)", "", nil)
+	if err != nil {
+		return err
+	}
+	config.Output = output
 
 	// Save config
 	if err := SaveConfig(config, savePath); err != nil {
 		return fmt.Errorf("failed to create config: %v", err)
 	}
 
-	fmt.Printf("Configuration file created: %s\n", savePath)
-	fmt.Println("\nExample configuration:")
-	fmt.Println("api_key = \"your_account_id/your_api_key\"")
-	fmt.Println("region = \"us\"")
-	fmt.Println("format = \"table\"")
-	fmt.Println("output = \"\"")
+	fmt.Println()
+	fmt.Printf("✓ Configuration successfully created: %s\n", savePath)
+	fmt.Println()
+	fmt.Println("Your configuration:")
+	fmt.Printf("  API Key: %s\n", maskAPIKey(config.APIKey))
+	fmt.Printf("  Region: %s\n", config.Region)
+	fmt.Printf("  Format: %s\n", config.Format)
+	if config.Output != "" {
+		fmt.Printf("  Output: %s\n", config.Output)
+	} else {
+		fmt.Printf("  Output: stdout\n")
+	}
+
+	return nil
+}
+
+// promptInput prompts the user for text input with optional validation
+func promptInput(prompt, defaultValue string, validator func(string) error) (string, error) {
+	reader := bufio.NewReader(os.Stdin)
+
+	for {
+		if defaultValue != "" {
+			fmt.Printf("%s [%s]: ", prompt, defaultValue)
+		} else {
+			fmt.Printf("%s: ", prompt)
+		}
+
+		input, err := reader.ReadString('\n')
+		if err != nil {
+			return "", fmt.Errorf("failed to read input: %v", err)
+		}
+
+		input = strings.TrimSpace(input)
+		if input == "" && defaultValue != "" {
+			input = defaultValue
+		}
+
+		if validator != nil {
+			if err := validator(input); err != nil {
+				fmt.Printf("Invalid input: %v\n", err)
+				continue
+			}
+		}
+
+		return input, nil
+	}
+}
+
+// promptChoice prompts the user to choose from a list of options
+func promptChoice(prompt string, choices []string, defaultChoice string, descriptions map[string]string) (string, error) {
+	reader := bufio.NewReader(os.Stdin)
+
+	for {
+		fmt.Printf("%s:\n", prompt)
+		for i, choice := range choices {
+			desc := ""
+			if descriptions != nil && descriptions[choice] != "" {
+				desc = fmt.Sprintf(" - %s", descriptions[choice])
+			}
+			if choice == defaultChoice {
+				fmt.Printf("  %d. %s (default)%s\n", i+1, choice, desc)
+			} else {
+				fmt.Printf("  %d. %s%s\n", i+1, choice, desc)
+			}
+		}
+		fmt.Printf("Enter choice [1-%d] or press Enter for default: ", len(choices))
+
+		input, err := reader.ReadString('\n')
+		if err != nil {
+			return "", fmt.Errorf("failed to read input: %v", err)
+		}
+
+		input = strings.TrimSpace(input)
+		if input == "" {
+			return defaultChoice, nil
+		}
+
+		// Try to parse as number
+		for i, choice := range choices {
+			if input == fmt.Sprintf("%d", i+1) {
+				return choice, nil
+			}
+		}
+
+		// Try to match exact string
+		for _, choice := range choices {
+			if strings.EqualFold(input, choice) {
+				return choice, nil
+			}
+		}
+
+		fmt.Printf("Invalid choice. Please enter a number between 1 and %d, or the exact option name.\n\n", len(choices))
+	}
+}
+
+// promptConfirmation prompts the user for yes/no confirmation
+func promptConfirmation(prompt string) bool {
+	reader := bufio.NewReader(os.Stdin)
+
+	fmt.Printf("%s [y/N]: ", prompt)
+	input, err := reader.ReadString('\n')
+	if err != nil {
+		return false
+	}
+
+	input = strings.TrimSpace(strings.ToLower(input))
+	return input == "y" || input == "yes"
+}
+
+// validateAPIKey validates the API key format
+func validateAPIKey(apiKey string) error {
+	if apiKey == "" {
+		return fmt.Errorf("API key cannot be empty")
+	}
+
+	// API key should be in format: account_id/api_key
+	if !strings.Contains(apiKey, "/") {
+		return fmt.Errorf("API key must be in format: account_id/api_key")
+	}
+
+	parts := strings.Split(apiKey, "/")
+	if len(parts) != 2 {
+		return fmt.Errorf("API key must be in format: account_id/api_key")
+	}
+
+	if parts[0] == "" || parts[1] == "" {
+		return fmt.Errorf("both account_id and api_key parts must be non-empty")
+	}
 
 	return nil
 }
