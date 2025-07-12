@@ -73,7 +73,7 @@ changelog:
 
 release:
   github:
-    owner: treasuredata
+    owner: mickeey2525
     name: treasuredata-go-sdk
   name_template: "{{.ProjectName}} v{{.Version}}"
   header: |
@@ -86,48 +86,13 @@ release:
 
     #### Install via Go
     ```bash
-    go install github.com/treasuredata/treasuredata-go-sdk/cmd/tdcli@{{ .Tag }}
+    go install github.com/mickeey2525/treasuredata-go-sdk/cmd/tdcli@{{ .Tag }}
     ```
-
-    #### Install via Homebrew (macOS/Linux)
-    ```bash
-    brew install treasuredata/tap/tdcli
-    ```
-
-brews:
-  - name: tdcli
-    repository:
-      owner: treasuredata
-      name: homebrew-tap
-    folder: Formula
-    homepage: https://github.com/treasuredata/treasuredata-go-sdk
-    description: "Command line interface for Treasure Data"
-    license: "Apache-2.0"
-    test: |
-      system "#{bin}/tdcli", "--version"
-
-winget:
-  - name: tdcli
-    publisher: TreasureData
-    license: Apache-2.0
-    homepage: https://github.com/treasuredata/treasuredata-go-sdk
-    short_description: "Command line interface for Treasure Data"
-    repository:
-      owner: treasuredata
-      name: winget-pkgs
-      branch: "{{.ProjectName}}-{{.Version}}"
-      pull_request:
-        enabled: true
-        draft: true
-        base:
-          owner: microsoft
-          name: winget-pkgs
-          branch: master
 
 dockers:
   - image_templates:
-      - "ghcr.io/treasuredata/tdcli:{{ .Version }}-amd64"
-      - "ghcr.io/treasuredata/tdcli:latest-amd64"
+      - "ghcr.io/mickeey2525/tdcli:{{ .Version }}-amd64"
+      - "ghcr.io/mickeey2525/tdcli:latest-amd64"
     dockerfile: Dockerfile
     use: buildx
     build_flag_templates:
@@ -139,8 +104,8 @@ dockers:
       - "--label=org.opencontainers.image.source={{.GitURL}}"
 
   - image_templates:
-      - "ghcr.io/treasuredata/tdcli:{{ .Version }}-arm64"
-      - "ghcr.io/treasuredata/tdcli:latest-arm64"
+      - "ghcr.io/mickeey2525/tdcli:{{ .Version }}-arm64"
+      - "ghcr.io/mickeey2525/tdcli:latest-arm64"
     dockerfile: Dockerfile
     use: buildx
     goarch: arm64
@@ -153,11 +118,11 @@ dockers:
       - "--label=org.opencontainers.image.source={{.GitURL}}"
 
 docker_manifests:
-  - name_template: "ghcr.io/treasuredata/tdcli:{{ .Version }}"
+  - name_template: "ghcr.io/mickeey2525/tdcli:{{ .Version }}"
     image_templates:
-      - "ghcr.io/treasuredata/tdcli:{{ .Version }}-amd64"
-      - "ghcr.io/treasuredata/tdcli:{{ .Version }}-arm64"
-  - name_template: "ghcr.io/treasuredata/tdcli:latest"
+      - "ghcr.io/mickeey2525/tdcli:{{ .Version }}-amd64"
+      - "ghcr.io/mickeey2525/tdcli:{{ .Version }}-arm64"
+  - name_template: "ghcr.io/mickeey2525/tdcli:latest"
     image_templates:
-      - "ghcr.io/treasuredata/tdcli:latest-amd64"
-      - "ghcr.io/treasuredata/tdcli:latest-arm64"
+      - "ghcr.io/mickeey2525/tdcli:latest-amd64"
+      - "ghcr.io/mickeey2525/tdcli:latest-arm64"
