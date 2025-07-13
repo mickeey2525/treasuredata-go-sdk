@@ -1,11 +1,90 @@
 package treasuredata
 
 import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 )
+
+// createTarGz creates a tar.gz archive from a directory
+func createTarGz(sourceDir string) ([]byte, error) {
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gw)
+
+	err := filepath.Walk(sourceDir, func(filePath string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Get relative path
+		relPath, err := filepath.Rel(sourceDir, filePath)
+		if err != nil {
+			return err
+		}
+
+		// Skip hidden files and directories (starting with .)
+		if strings.HasPrefix(filepath.Base(filePath), ".") {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		// Create tar header
+		header, err := tar.FileInfoHeader(info, "")
+		if err != nil {
+			return err
+		}
+
+		// Use relative path as name
+		header.Name = relPath
+
+		// Write header
+		if err := tw.WriteHeader(header); err != nil {
+			return err
+		}
+
+		// If it's a regular file, write the content
+		if info.Mode().IsRegular() {
+			file, err := os.Open(filePath)
+			if err != nil {
+				return err
+			}
+			defer file.Close()
+
+			if _, err := io.Copy(tw, file); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Close tar writer
+	if err := tw.Close(); err != nil {
+		return nil, err
+	}
+
+	// Close gzip writer
+	if err := gw.Close(); err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
+}
 
 // WorkflowService handles communication with the Workflow related methods of the Treasure Data API.
 type WorkflowService struct {
@@ -91,6 +170,24 @@ type WorkflowSession struct {
 	UpdatedAt   TDTime                 `json:"updated_at"`
 }
 
+// WorkflowProject represents a workflow project
+type WorkflowProject struct {
+	ID          int     `json:"id"`
+	Name        string  `json:"name"`
+	Revision    string  `json:"revision"`
+	ArchiveType string  `json:"archiveType"`
+	ArchiveMD5  string  `json:"archiveMd5"`
+	CreatedAt   TDTime  `json:"createdAt"`
+	UpdatedAt   TDTime  `json:"updatedAt"`
+	DeletedAt   *TDTime `json:"deletedAt"`
+}
+
+// WorkflowProjectSecret represents a project secret
+type WorkflowProjectSecret struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
 // WorkflowListOptions specifies optional parameters to Workflow List method
 type WorkflowListOptions struct {
 	Limit  int `url:"limit,omitempty"`
@@ -120,9 +217,19 @@ type WorkflowTaskListResponse struct {
 	Tasks []WorkflowTask `json:"tasks"`
 }
 
+// WorkflowProjectListResponse represents the response from the workflow project list API
+type WorkflowProjectListResponse struct {
+	Projects []WorkflowProject `json:"projects"`
+}
+
+// WorkflowProjectSecretsResponse represents the response from the workflow project secrets API
+type WorkflowProjectSecretsResponse struct {
+	Secrets map[string]string `json:"secrets"`
+}
+
 // ListWorkflows returns a list of workflows
 func (s *WorkflowService) ListWorkflows(ctx context.Context, opts *WorkflowListOptions) (*WorkflowListResponse, error) {
-	u := fmt.Sprintf("workflows")
+	u := fmt.Sprintf("api/workflows")
 	u, err := addOptions(u, opts)
 	if err != nil {
 		return nil, err
@@ -144,7 +251,7 @@ func (s *WorkflowService) ListWorkflows(ctx context.Context, opts *WorkflowListO
 
 // GetWorkflow retrieves a specific workflow by ID
 func (s *WorkflowService) GetWorkflow(ctx context.Context, workflowID int) (*Workflow, error) {
-	u := fmt.Sprintf("workflows/%d", workflowID)
+	u := fmt.Sprintf("api/workflows/%d", workflowID)
 
 	req, err := s.client.NewWorkflowRequest("GET", u, nil)
 	if err != nil {
@@ -162,7 +269,7 @@ func (s *WorkflowService) GetWorkflow(ctx context.Context, workflowID int) (*Wor
 
 // StartWorkflow starts a workflow manually
 func (s *WorkflowService) StartWorkflow(ctx context.Context, workflowID int, params map[string]interface{}) (*WorkflowAttempt, error) {
-	u := fmt.Sprintf("workflows/%d/attempts", workflowID)
+	u := fmt.Sprintf("api/workflows/%d/attempts", workflowID)
 
 	body := map[string]interface{}{}
 	if params != nil {
@@ -185,7 +292,7 @@ func (s *WorkflowService) StartWorkflow(ctx context.Context, workflowID int, par
 
 // ListWorkflowAttempts returns a list of workflow attempts
 func (s *WorkflowService) ListWorkflowAttempts(ctx context.Context, workflowID int, opts *WorkflowAttemptListOptions) (*WorkflowAttemptListResponse, error) {
-	u := fmt.Sprintf("workflows/%d/attempts", workflowID)
+	u := fmt.Sprintf("api/workflows/%d/attempts", workflowID)
 	u, err := addOptions(u, opts)
 	if err != nil {
 		return nil, err
@@ -207,7 +314,7 @@ func (s *WorkflowService) ListWorkflowAttempts(ctx context.Context, workflowID i
 
 // GetWorkflowAttempt retrieves a specific workflow attempt
 func (s *WorkflowService) GetWorkflowAttempt(ctx context.Context, workflowID int, attemptID int) (*WorkflowAttempt, error) {
-	u := fmt.Sprintf("workflows/%d/attempts/%d", workflowID, attemptID)
+	u := fmt.Sprintf("api/workflows/%d/attempts/%d", workflowID, attemptID)
 
 	req, err := s.client.NewWorkflowRequest("GET", u, nil)
 	if err != nil {
@@ -225,7 +332,7 @@ func (s *WorkflowService) GetWorkflowAttempt(ctx context.Context, workflowID int
 
 // KillWorkflowAttempt kills a running workflow attempt
 func (s *WorkflowService) KillWorkflowAttempt(ctx context.Context, workflowID int, attemptID int) error {
-	u := fmt.Sprintf("workflows/%d/attempts/%d/kill", workflowID, attemptID)
+	u := fmt.Sprintf("api/workflows/%d/attempts/%d/kill", workflowID, attemptID)
 
 	req, err := s.client.NewWorkflowRequest("POST", u, nil)
 	if err != nil {
@@ -246,7 +353,7 @@ func (s *WorkflowService) KillWorkflowAttempt(ctx context.Context, workflowID in
 
 // RetryWorkflowAttempt retries a failed workflow attempt
 func (s *WorkflowService) RetryWorkflowAttempt(ctx context.Context, workflowID int, attemptID int, params map[string]interface{}) (*WorkflowAttempt, error) {
-	u := fmt.Sprintf("workflows/%d/attempts/%d/retry", workflowID, attemptID)
+	u := fmt.Sprintf("api/workflows/%d/attempts/%d/retry", workflowID, attemptID)
 
 	body := map[string]interface{}{}
 	if params != nil {
@@ -269,7 +376,7 @@ func (s *WorkflowService) RetryWorkflowAttempt(ctx context.Context, workflowID i
 
 // ListWorkflowTasks returns a list of tasks for a workflow attempt
 func (s *WorkflowService) ListWorkflowTasks(ctx context.Context, workflowID int, attemptID int) (*WorkflowTaskListResponse, error) {
-	u := fmt.Sprintf("workflows/%d/attempts/%d/tasks", workflowID, attemptID)
+	u := fmt.Sprintf("api/workflows/%d/attempts/%d/tasks", workflowID, attemptID)
 
 	req, err := s.client.NewWorkflowRequest("GET", u, nil)
 	if err != nil {
@@ -287,7 +394,7 @@ func (s *WorkflowService) ListWorkflowTasks(ctx context.Context, workflowID int,
 
 // GetWorkflowTask retrieves a specific workflow task
 func (s *WorkflowService) GetWorkflowTask(ctx context.Context, workflowID int, attemptID int, taskID string) (*WorkflowTask, error) {
-	u := fmt.Sprintf("workflows/%d/attempts/%d/tasks/%s", workflowID, attemptID, taskID)
+	u := fmt.Sprintf("api/workflows/%d/attempts/%d/tasks/%s", workflowID, attemptID, taskID)
 
 	req, err := s.client.NewWorkflowRequest("GET", u, nil)
 	if err != nil {
@@ -305,65 +412,45 @@ func (s *WorkflowService) GetWorkflowTask(ctx context.Context, workflowID int, a
 
 // GetWorkflowAttemptLog retrieves the log for a workflow attempt
 func (s *WorkflowService) GetWorkflowAttemptLog(ctx context.Context, workflowID int, attemptID int) (string, error) {
-	u := fmt.Sprintf("workflows/%d/attempts/%d/log", workflowID, attemptID)
+	u := fmt.Sprintf("api/workflows/%d/attempts/%d/log", workflowID, attemptID)
 
 	req, err := s.client.NewWorkflowRequest("GET", u, nil)
 	if err != nil {
 		return "", err
 	}
 
-	var logContent string
-	resp, err := s.client.Do(ctx, req, &logContent)
+	// Use a bytes.Buffer to capture the response
+	var buf bytes.Buffer
+	_, err = s.client.Do(ctx, req, &buf)
 	if err != nil {
 		return "", err
 	}
 
-	// If response is plain text, read directly
-	if resp.Header.Get("Content-Type") == "text/plain" {
-		defer resp.Body.Close()
-		buf := make([]byte, resp.ContentLength)
-		_, err := resp.Body.Read(buf)
-		if err != nil {
-			return "", err
-		}
-		return string(buf), nil
-	}
-
-	return logContent, nil
+	return buf.String(), nil
 }
 
 // GetWorkflowTaskLog retrieves the log for a specific workflow task
 func (s *WorkflowService) GetWorkflowTaskLog(ctx context.Context, workflowID int, attemptID int, taskID string) (string, error) {
-	u := fmt.Sprintf("workflows/%d/attempts/%d/tasks/%s/log", workflowID, attemptID, taskID)
+	u := fmt.Sprintf("api/workflows/%d/attempts/%d/tasks/%s/log", workflowID, attemptID, taskID)
 
 	req, err := s.client.NewWorkflowRequest("GET", u, nil)
 	if err != nil {
 		return "", err
 	}
 
-	var logContent string
-	resp, err := s.client.Do(ctx, req, &logContent)
+	// Use a bytes.Buffer to capture the response
+	var buf bytes.Buffer
+	_, err = s.client.Do(ctx, req, &buf)
 	if err != nil {
 		return "", err
 	}
 
-	// If response is plain text, read directly
-	if resp.Header.Get("Content-Type") == "text/plain" {
-		defer resp.Body.Close()
-		buf := make([]byte, resp.ContentLength)
-		_, err := resp.Body.Read(buf)
-		if err != nil {
-			return "", err
-		}
-		return string(buf), nil
-	}
-
-	return logContent, nil
+	return buf.String(), nil
 }
 
 // GetWorkflowSchedule retrieves the schedule for a workflow
 func (s *WorkflowService) GetWorkflowSchedule(ctx context.Context, workflowID int) (*WorkflowSchedule, error) {
-	u := fmt.Sprintf("workflows/%d/schedule", workflowID)
+	u := fmt.Sprintf("api/workflows/%d/schedule", workflowID)
 
 	req, err := s.client.NewWorkflowRequest("GET", u, nil)
 	if err != nil {
@@ -381,7 +468,7 @@ func (s *WorkflowService) GetWorkflowSchedule(ctx context.Context, workflowID in
 
 // EnableWorkflowSchedule enables the schedule for a workflow
 func (s *WorkflowService) EnableWorkflowSchedule(ctx context.Context, workflowID int) (*WorkflowSchedule, error) {
-	u := fmt.Sprintf("workflows/%d/schedule/enable", workflowID)
+	u := fmt.Sprintf("api/workflows/%d/schedule/enable", workflowID)
 
 	req, err := s.client.NewWorkflowRequest("POST", u, nil)
 	if err != nil {
@@ -399,7 +486,7 @@ func (s *WorkflowService) EnableWorkflowSchedule(ctx context.Context, workflowID
 
 // DisableWorkflowSchedule disables the schedule for a workflow
 func (s *WorkflowService) DisableWorkflowSchedule(ctx context.Context, workflowID int) (*WorkflowSchedule, error) {
-	u := fmt.Sprintf("workflows/%d/schedule/disable", workflowID)
+	u := fmt.Sprintf("api/workflows/%d/schedule/disable", workflowID)
 
 	req, err := s.client.NewWorkflowRequest("POST", u, nil)
 	if err != nil {
@@ -417,7 +504,7 @@ func (s *WorkflowService) DisableWorkflowSchedule(ctx context.Context, workflowI
 
 // UpdateWorkflowSchedule updates the schedule for a workflow
 func (s *WorkflowService) UpdateWorkflowSchedule(ctx context.Context, workflowID int, cron, timezone string, delay int) (*WorkflowSchedule, error) {
-	u := fmt.Sprintf("workflows/%d/schedule", workflowID)
+	u := fmt.Sprintf("api/workflows/%d/schedule", workflowID)
 
 	body := map[string]interface{}{
 		"cron":     cron,
@@ -441,7 +528,7 @@ func (s *WorkflowService) UpdateWorkflowSchedule(ctx context.Context, workflowID
 
 // CreateWorkflow creates a new workflow
 func (s *WorkflowService) CreateWorkflow(ctx context.Context, name, project, config string) (*Workflow, error) {
-	u := fmt.Sprintf("workflows")
+	u := fmt.Sprintf("api/workflows")
 
 	body := map[string]string{
 		"name":    name,
@@ -465,7 +552,7 @@ func (s *WorkflowService) CreateWorkflow(ctx context.Context, name, project, con
 
 // UpdateWorkflow updates an existing workflow
 func (s *WorkflowService) UpdateWorkflow(ctx context.Context, workflowID int, updates map[string]string) (*Workflow, error) {
-	u := fmt.Sprintf("workflows/%d", workflowID)
+	u := fmt.Sprintf("api/workflows/%d", workflowID)
 
 	req, err := s.client.NewWorkflowRequest("PUT", u, updates)
 	if err != nil {
@@ -483,7 +570,7 @@ func (s *WorkflowService) UpdateWorkflow(ctx context.Context, workflowID int, up
 
 // DeleteWorkflow deletes a workflow
 func (s *WorkflowService) DeleteWorkflow(ctx context.Context, workflowID int) error {
-	u := fmt.Sprintf("workflows/%d", workflowID)
+	u := fmt.Sprintf("api/workflows/%d", workflowID)
 
 	req, err := s.client.NewWorkflowRequest("DELETE", u, nil)
 	if err != nil {
@@ -497,6 +584,153 @@ func (s *WorkflowService) DeleteWorkflow(ctx context.Context, workflowID int) er
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
 		return fmt.Errorf("failed to delete workflow: %s", strconv.Itoa(workflowID))
+	}
+
+	return nil
+}
+
+// ListProjects returns a list of workflow projects
+func (s *WorkflowService) ListProjects(ctx context.Context) (*WorkflowProjectListResponse, error) {
+	u := fmt.Sprintf("api/projects")
+
+	req, err := s.client.NewWorkflowRequest("GET", u, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var resp WorkflowProjectListResponse
+	_, err = s.client.Do(ctx, req, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return &resp, nil
+}
+
+// GetProject retrieves a specific project by ID
+func (s *WorkflowService) GetProject(ctx context.Context, projectID int) (*WorkflowProject, error) {
+	u := fmt.Sprintf("api/projects/%d", projectID)
+
+	req, err := s.client.NewWorkflowRequest("GET", u, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var project WorkflowProject
+	_, err = s.client.Do(ctx, req, &project)
+	if err != nil {
+		return nil, err
+	}
+
+	return &project, nil
+}
+
+// CreateProject creates a new workflow project
+func (s *WorkflowService) CreateProject(ctx context.Context, name string, archive []byte) (*WorkflowProject, error) {
+	u := fmt.Sprintf("api/projects?project=%s", name)
+
+	req, err := s.client.NewWorkflowRequest("PUT", u, archive)
+	if err != nil {
+		return nil, err
+	}
+
+	var project WorkflowProject
+	_, err = s.client.Do(ctx, req, &project)
+	if err != nil {
+		return nil, err
+	}
+
+	return &project, nil
+}
+
+// CreateProjectFromDirectory creates a new workflow project from a directory
+func (s *WorkflowService) CreateProjectFromDirectory(ctx context.Context, name string, dirPath string) (*WorkflowProject, error) {
+	// Create tar.gz archive from directory
+	archive, err := createTarGz(dirPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create archive from directory %s: %w", dirPath, err)
+	}
+
+	return s.CreateProject(ctx, name, archive)
+}
+
+// ListProjectWorkflows returns a list of workflows for a specific project
+func (s *WorkflowService) ListProjectWorkflows(ctx context.Context, projectID int) (*WorkflowListResponse, error) {
+	u := fmt.Sprintf("api/projects/%d/workflows", projectID)
+
+	req, err := s.client.NewWorkflowRequest("GET", u, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var resp WorkflowListResponse
+	_, err = s.client.Do(ctx, req, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return &resp, nil
+}
+
+// GetProjectSecrets retrieves secrets for a project
+func (s *WorkflowService) GetProjectSecrets(ctx context.Context, projectID int) (*WorkflowProjectSecretsResponse, error) {
+	u := fmt.Sprintf("api/projects/%d/secrets", projectID)
+
+	req, err := s.client.NewWorkflowRequest("GET", u, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var resp WorkflowProjectSecretsResponse
+	_, err = s.client.Do(ctx, req, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return &resp, nil
+}
+
+// SetProjectSecret sets a secret for a project
+func (s *WorkflowService) SetProjectSecret(ctx context.Context, projectID int, key, value string) error {
+	u := fmt.Sprintf("api/projects/%d/secrets/%s", projectID, key)
+
+	body := map[string]string{
+		"value": value,
+	}
+
+	req, err := s.client.NewWorkflowRequest("PUT", u, body)
+	if err != nil {
+		return err
+	}
+
+	resp, err := s.client.Do(ctx, req, nil)
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
+		return fmt.Errorf("failed to set project secret: project_id=%d, key=%s", projectID, key)
+	}
+
+	return nil
+}
+
+// DeleteProjectSecret deletes a secret from a project
+func (s *WorkflowService) DeleteProjectSecret(ctx context.Context, projectID int, key string) error {
+	u := fmt.Sprintf("api/projects/%d/secrets/%s", projectID, key)
+
+	req, err := s.client.NewWorkflowRequest("DELETE", u, nil)
+	if err != nil {
+		return err
+	}
+
+	resp, err := s.client.Do(ctx, req, nil)
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
+		return fmt.Errorf("failed to delete project secret: project_id=%d, key=%s", projectID, key)
 	}
 
 	return nil

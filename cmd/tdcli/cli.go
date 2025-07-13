@@ -636,21 +636,22 @@ func (c *CDPSegmentsDeleteCmd) Run(ctx *CLIContext) error {
 }
 
 type CDPSegmentsFoldersCmd struct {
-	FolderID string `kong:"arg,help='Folder ID'"`
+	AudienceID string `kong:"arg,help='Audience ID'"`
+	FolderID   string `kong:"arg,help='Folder ID'"`
 }
 
 func (c *CDPSegmentsFoldersCmd) Run(ctx *CLIContext) error {
-	handleCDPSegmentFolders(ctx.Context, ctx.Client, []string{c.FolderID}, ctx.GlobalFlags)
+	handleCDPSegmentFolders(ctx.Context, ctx.Client, []string{c.AudienceID, c.FolderID}, ctx.GlobalFlags)
 	return nil
 }
 
 type CDPSegmentsQueryCmd struct {
-	AudienceID string `kong:"arg,help='Audience ID'"`
-	SegmentID  string `kong:"arg,help='Segment ID'"`
+	AudienceID    string `kong:"arg,help='Audience ID'"`
+	SegmentRules  string `kong:"arg,help='Segment rules JSON'"`
 }
 
 func (c *CDPSegmentsQueryCmd) Run(ctx *CLIContext) error {
-	handleCDPSegmentQuery(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentID}, ctx.GlobalFlags)
+	handleCDPSegmentQuery(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentRules}, ctx.GlobalFlags)
 	return nil
 }
 
@@ -874,11 +875,13 @@ func (c *CDPActivationsListCmd) Run(ctx *CLIContext) error {
 }
 
 type CDPActivationsGetCmd struct {
+	AudienceID   string `kong:"arg,help='Audience ID'"`
+	SegmentID    string `kong:"arg,help='Segment ID'"`
 	ActivationID string `kong:"arg,help='Activation ID'"`
 }
 
 func (c *CDPActivationsGetCmd) Run(ctx *CLIContext) error {
-	handleCDPActivationGet(ctx.Context, ctx.Client, []string{c.ActivationID}, ctx.GlobalFlags)
+	handleCDPActivationGet(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentID, c.ActivationID}, ctx.GlobalFlags)
 	return nil
 }
 
@@ -922,11 +925,13 @@ func (c *CDPActivationsExecuteCmd) Run(ctx *CLIContext) error {
 }
 
 type CDPActivationsExecutionsCmd struct {
+	AudienceID   string `kong:"arg,help='Audience ID'"`
+	SegmentID    string `kong:"arg,help='Segment ID'"`
 	ActivationID string `kong:"arg,help='Activation ID'"`
 }
 
 func (c *CDPActivationsExecutionsCmd) Run(ctx *CLIContext) error {
-	handleCDPGetActivationExecutions(ctx.Context, ctx.Client, []string{c.ActivationID}, ctx.GlobalFlags)
+	handleCDPGetActivationExecutions(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentID, c.ActivationID}, ctx.GlobalFlags)
 	return nil
 }
 
@@ -1173,6 +1178,7 @@ type WorkflowCmd struct {
 	Schedule WorkflowScheduleCmd `kong:"cmd,help='Workflow schedule management'"`
 	Tasks    WorkflowTasksCmd    `kong:"cmd,aliases='task',help='Workflow task management'"`
 	Logs     WorkflowLogsCmd     `kong:"cmd,aliases='log',help='Workflow log management'"`
+	Projects WorkflowProjectsCmd `kong:"cmd,aliases='project,proj',help='Workflow project management'"`
 }
 
 type WorkflowListCmd struct{}
@@ -1384,6 +1390,96 @@ type WorkflowLogsTaskCmd struct {
 
 func (w *WorkflowLogsTaskCmd) Run(ctx *CLIContext) error {
 	handleWorkflowTaskLog(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID), w.TaskID}, ctx.GlobalFlags)
+	return nil
+}
+
+type WorkflowProjectsCmd struct {
+	List      WorkflowProjectsListCmd      `kong:"cmd,aliases='ls',help='List workflow projects'"`
+	Get       WorkflowProjectsGetCmd       `kong:"cmd,aliases='show',help='Get project details'"`
+	Create    WorkflowProjectsCreateCmd    `kong:"cmd,help='Create a new project'"`
+	Push      WorkflowProjectsPushCmd      `kong:"cmd,help='Push project from directory (alias for create)'"`
+	Workflows WorkflowProjectsWorkflowsCmd `kong:"cmd,aliases='wf',help='List workflows in project'"`
+	Secrets   WorkflowProjectsSecretsCmd   `kong:"cmd,aliases='secret',help='Project secrets management'"`
+}
+
+type WorkflowProjectsListCmd struct{}
+
+func (w *WorkflowProjectsListCmd) Run(ctx *CLIContext) error {
+	handleWorkflowProjectList(ctx.Context, ctx.Client, ctx.GlobalFlags)
+	return nil
+}
+
+type WorkflowProjectsGetCmd struct {
+	ProjectID int `kong:"arg,help='Project ID'"`
+}
+
+func (w *WorkflowProjectsGetCmd) Run(ctx *CLIContext) error {
+	handleWorkflowProjectGet(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.ProjectID)}, ctx.GlobalFlags)
+	return nil
+}
+
+type WorkflowProjectsCreateCmd struct {
+	Name string `kong:"arg,help='Project name'"`
+	Path string `kong:"arg,help='Directory path or archive file path'"`
+}
+
+func (w *WorkflowProjectsCreateCmd) Run(ctx *CLIContext) error {
+	handleWorkflowProjectCreate(ctx.Context, ctx.Client, []string{w.Name, w.Path}, ctx.GlobalFlags)
+	return nil
+}
+
+type WorkflowProjectsPushCmd struct {
+	Name string `kong:"arg,help='Project name'"`
+	Path string `kong:"arg,help='Directory path or archive file path'"`
+}
+
+func (w *WorkflowProjectsPushCmd) Run(ctx *CLIContext) error {
+	handleWorkflowProjectCreate(ctx.Context, ctx.Client, []string{w.Name, w.Path}, ctx.GlobalFlags)
+	return nil
+}
+
+type WorkflowProjectsWorkflowsCmd struct {
+	ProjectID int `kong:"arg,help='Project ID'"`
+}
+
+func (w *WorkflowProjectsWorkflowsCmd) Run(ctx *CLIContext) error {
+	handleWorkflowProjectWorkflows(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.ProjectID)}, ctx.GlobalFlags)
+	return nil
+}
+
+type WorkflowProjectsSecretsCmd struct {
+	List   WorkflowProjectsSecretsListCmd   `kong:"cmd,aliases='ls',help='List project secrets'"`
+	Set    WorkflowProjectsSecretsSetCmd    `kong:"cmd,help='Set project secret'"`
+	Delete WorkflowProjectsSecretsDeleteCmd `kong:"cmd,aliases='rm',help='Delete project secret'"`
+}
+
+type WorkflowProjectsSecretsListCmd struct {
+	ProjectID int `kong:"arg,help='Project ID'"`
+}
+
+func (w *WorkflowProjectsSecretsListCmd) Run(ctx *CLIContext) error {
+	handleWorkflowProjectSecretsList(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.ProjectID)}, ctx.GlobalFlags)
+	return nil
+}
+
+type WorkflowProjectsSecretsSetCmd struct {
+	ProjectID int    `kong:"arg,help='Project ID'"`
+	Key       string `kong:"arg,help='Secret key'"`
+	Value     string `kong:"arg,help='Secret value'"`
+}
+
+func (w *WorkflowProjectsSecretsSetCmd) Run(ctx *CLIContext) error {
+	handleWorkflowProjectSecretsSet(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.ProjectID), w.Key, w.Value}, ctx.GlobalFlags)
+	return nil
+}
+
+type WorkflowProjectsSecretsDeleteCmd struct {
+	ProjectID int    `kong:"arg,help='Project ID'"`
+	Key       string `kong:"arg,help='Secret key'"`
+}
+
+func (w *WorkflowProjectsSecretsDeleteCmd) Run(ctx *CLIContext) error {
+	handleWorkflowProjectSecretsDelete(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.ProjectID), w.Key}, ctx.GlobalFlags)
 	return nil
 }
 

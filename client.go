@@ -57,11 +57,26 @@ type TDTime struct {
 
 // UnmarshalJSON implements the json.Unmarshaler interface for TDTime
 func (t *TDTime) UnmarshalJSON(data []byte) error {
-	// Remove quotes from JSON string
-	timeStr := strings.Trim(string(data), `"`)
+	// First, try to unmarshal as a number (Unix timestamp)
+	var timestamp int64
+	if err := json.Unmarshal(data, &timestamp); err == nil {
+		t.Time = time.Unix(timestamp, 0)
+		return nil
+	}
+
+	// If not a number, try as a string
+	var timeStr string
+	if err := json.Unmarshal(data, &timeStr); err != nil {
+		// Handle null values
+		if string(data) == "null" {
+			t.Time = time.Time{}
+			return nil
+		}
+		return err
+	}
 
 	// Handle empty timestamps
-	if timeStr == "" || timeStr == "null" {
+	if timeStr == "" {
 		t.Time = time.Time{} // Zero time
 		return nil
 	}
@@ -70,6 +85,7 @@ func (t *TDTime) UnmarshalJSON(data []byte) error {
 	formats := []string{
 		"2006-01-02 15:04:05 UTC",  // Original format: "2020-06-11 10:25:10 UTC"
 		time.RFC3339,               // RFC3339 format: "2025-03-28T05:11:24Z"
+		time.RFC3339Nano,           // RFC3339 with nanoseconds: "2024-04-26T00:05:42.783Z"
 		"2006-01-02T15:04:05Z",     // Alternative RFC3339
 		"2006-01-02T15:04:05.000Z", // RFC3339 with milliseconds
 	}
@@ -278,6 +294,40 @@ func (c *Client) NewCDPRequest(method, urlStr string, body interface{}) (*http.R
 	req.Header.Set("Authorization", fmt.Sprintf("TD1 %s", c.APIKey))
 	req.Header.Set("User-Agent", c.UserAgent)
 	req.Header.Set("Accept", "application/json")
+
+	return req, nil
+}
+
+// NewCDPJSONAPIRequest creates an API request for CDP JSON:API endpoints
+func (c *Client) NewCDPJSONAPIRequest(method, urlStr string, body interface{}) (*http.Request, error) {
+	u, err := c.CDPURL.Parse(urlStr)
+	if err != nil {
+		return nil, err
+	}
+
+	var buf io.ReadWriter
+	if body != nil {
+		buf = new(bytes.Buffer)
+		enc := json.NewEncoder(buf)
+		enc.SetEscapeHTML(false)
+		err := enc.Encode(body)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	req, err := http.NewRequest(method, u.String(), buf)
+	if err != nil {
+		return nil, err
+	}
+
+	if body != nil {
+		req.Header.Set("Content-Type", "application/vnd.treasuredata.v1+json")
+	}
+
+	req.Header.Set("Authorization", fmt.Sprintf("TD1 %s", c.APIKey))
+	req.Header.Set("User-Agent", c.UserAgent)
+	req.Header.Set("Accept", "application/vnd.treasuredata.v1+json")
 
 	return req, nil
 }
