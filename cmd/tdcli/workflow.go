@@ -666,7 +666,7 @@ func handleWorkflowProjectCreate(ctx context.Context, client *td.Client, args []
 	}
 
 	var project *td.WorkflowProject
-	
+
 	if fileInfo.IsDir() {
 		// Create project from directory
 		fmt.Printf("Creating project from directory: %s\n", path)
