@@ -235,8 +235,8 @@ type WorkflowTask struct {
 
 // WorkflowSchedule represents a workflow schedule
 type WorkflowSchedule struct {
-	ID               int     `json:"id"`
-	WorkflowID       int     `json:"workflow_id"`
+	ID               string  `json:"id"`
+	WorkflowID       string  `json:"workflow_id"`
 	Cron             string  `json:"cron"`
 	Timezone         string  `json:"timezone"`
 	Delay            int     `json:"delay"`
@@ -250,13 +250,13 @@ type WorkflowSchedule struct {
 // WorkflowSession represents a workflow session
 type WorkflowSession struct {
 	ID          string                 `json:"id"`
-	WorkflowID  int                    `json:"workflow_id"`
-	AttemptID   int                    `json:"attempt_id"`
+	WorkflowID  string                 `json:"workflow_id"`
+	AttemptID   string                 `json:"attempt_id"`
 	SessionID   string                 `json:"session_id"`
 	SessionUUID string                 `json:"session_uuid"`
 	SessionTime TDTime                 `json:"session_time"`
 	Status      string                 `json:"status"`
-	LastAttempt int                    `json:"last_attempt"`
+	LastAttempt string                 `json:"last_attempt"`
 	Params      map[string]interface{} `json:"params"`
 	CreatedAt   TDTime                 `json:"created_at"`
 	UpdatedAt   TDTime                 `json:"updated_at"`

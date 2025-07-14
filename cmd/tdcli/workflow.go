@@ -365,12 +365,12 @@ func handleWorkflowScheduleGet(ctx context.Context, client *td.Client, args []st
 		if schedule.DisabledAt != nil {
 			disabledAt = schedule.DisabledAt.Format("2006-01-02 15:04:05")
 		}
-		fmt.Printf("%d,%d,%s,%s,%d,%s,%s\n",
+		fmt.Printf("%s,%s,%s,%s,%d,%s,%s\n",
 			schedule.ID, schedule.WorkflowID, schedule.Cron, schedule.Timezone,
 			schedule.Delay, nextTime, disabledAt)
 	default:
-		fmt.Printf("ID: %d\n", schedule.ID)
-		fmt.Printf("Workflow ID: %d\n", schedule.WorkflowID)
+		fmt.Printf("ID: %s\n", schedule.ID)
+		fmt.Printf("Workflow ID: %s\n", schedule.WorkflowID)
 		fmt.Printf("Cron: %s\n", schedule.Cron)
 		fmt.Printf("Timezone: %s\n", schedule.Timezone)
 		fmt.Printf("Delay: %d seconds\n", schedule.Delay)

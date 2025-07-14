@@ -655,8 +655,8 @@ func TestWorkflowService_GetWorkflowSchedule(t *testing.T) {
 		testURL(t, r, "/api/workflows/1/schedule")
 
 		fmt.Fprint(w, `{
-			"id": 10,
-			"workflow_id": 1,
+			"id": "10",
+			"workflow_id": "1",
 			"cron": "0 * * * *",
 			"timezone": "UTC",
 			"delay": 0,
@@ -676,8 +676,8 @@ func TestWorkflowService_GetWorkflowSchedule(t *testing.T) {
 	nextTime := TDTime{time.Unix(1609462800, 0)}
 	nextScheduleTime := TDTime{time.Unix(1609462800, 0)}
 	want := &WorkflowSchedule{
-		ID:               10,
-		WorkflowID:       1,
+		ID:               "10",
+		WorkflowID:       "1",
 		Cron:             "0 * * * *",
 		Timezone:         "UTC",
 		Delay:            0,
@@ -701,8 +701,8 @@ func TestWorkflowService_EnableWorkflowSchedule(t *testing.T) {
 		testURL(t, r, "/api/workflows/1/schedule/enable")
 
 		fmt.Fprint(w, `{
-			"id": 10,
-			"workflow_id": 1,
+			"id": "10",
+			"workflow_id": "1",
 			"cron": "0 * * * *",
 			"timezone": "UTC",
 			"delay": 0,
@@ -718,8 +718,8 @@ func TestWorkflowService_EnableWorkflowSchedule(t *testing.T) {
 	}
 
 	want := &WorkflowSchedule{
-		ID:         10,
-		WorkflowID: 1,
+		ID:         "10",
+		WorkflowID: "1",
 		Cron:       "0 * * * *",
 		Timezone:   "UTC",
 		Delay:      0,
@@ -741,8 +741,8 @@ func TestWorkflowService_DisableWorkflowSchedule(t *testing.T) {
 		testURL(t, r, "/api/workflows/1/schedule/disable")
 
 		fmt.Fprint(w, `{
-			"id": 10,
-			"workflow_id": 1,
+			"id": "10",
+			"workflow_id": "1",
 			"cron": "0 * * * *",
 			"timezone": "UTC",
 			"delay": 0,
@@ -760,8 +760,8 @@ func TestWorkflowService_DisableWorkflowSchedule(t *testing.T) {
 
 	disabledAt := TDTime{time.Unix(1609545600, 0)}
 	want := &WorkflowSchedule{
-		ID:         10,
-		WorkflowID: 1,
+		ID:         "10",
+		WorkflowID: "1",
 		Cron:       "0 * * * *",
 		Timezone:   "UTC",
 		Delay:      0,
@@ -797,8 +797,8 @@ func TestWorkflowService_UpdateWorkflowSchedule(t *testing.T) {
 		}
 
 		fmt.Fprint(w, `{
-			"id": 10,
-			"workflow_id": 1,
+			"id": "10",
+			"workflow_id": "1",
 			"cron": "30 * * * *",
 			"timezone": "America/New_York",
 			"delay": 300,
@@ -814,8 +814,8 @@ func TestWorkflowService_UpdateWorkflowSchedule(t *testing.T) {
 	}
 
 	want := &WorkflowSchedule{
-		ID:         10,
-		WorkflowID: 1,
+		ID:         "10",
+		WorkflowID: "1",
 		Cron:       "30 * * * *",
 		Timezone:   "America/New_York",
 		Delay:      300,
