@@ -177,26 +177,32 @@ type WorkflowService struct {
 	client *Client
 }
 
+// WorkflowProjectRef represents a workflow project reference
+type WorkflowProjectRef struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
 // Workflow represents a Treasure Data workflow
 type Workflow struct {
-	ID           int     `json:"id"`
-	Name         string  `json:"name"`
-	Project      string  `json:"project"`
-	Revision     string  `json:"revision"`
-	Status       string  `json:"status"`
-	Config       string  `json:"config"`
-	CreatedAt    TDTime  `json:"created_at"`
-	UpdatedAt    TDTime  `json:"updated_at"`
-	LastAttempt  *int    `json:"last_attempt"`
-	NextSchedule *TDTime `json:"next_schedule"`
-	Timezone     string  `json:"timezone"`
+	ID           string                 `json:"id"`
+	Name         string                 `json:"name"`
+	Project      WorkflowProjectRef     `json:"project"`
+	Revision     string                 `json:"revision"`
+	Status       string                 `json:"status"`
+	Config       map[string]interface{} `json:"config"`
+	CreatedAt    TDTime                 `json:"created_at"`
+	UpdatedAt    TDTime                 `json:"updated_at"`
+	LastAttempt  *int                   `json:"last_attempt"`
+	NextSchedule *TDTime                `json:"next_schedule"`
+	Timezone     string                 `json:"timezone"`
 }
 
 // WorkflowAttempt represents a workflow execution attempt
 type WorkflowAttempt struct {
-	ID          int                    `json:"id"`
+	ID          string                 `json:"id"`
 	Index       int                    `json:"index"`
-	WorkflowID  int                    `json:"workflow_id"`
+	WorkflowID  string                 `json:"workflow_id"`
 	Status      string                 `json:"status"`
 	CreatedAt   TDTime                 `json:"created_at"`
 	FinishedAt  *TDTime                `json:"finished_at"`
@@ -258,7 +264,7 @@ type WorkflowSession struct {
 
 // WorkflowProject represents a workflow project
 type WorkflowProject struct {
-	ID          int     `json:"id"`
+	ID          string  `json:"id"`
 	Name        string  `json:"name"`
 	Revision    string  `json:"revision"`
 	ArchiveType string  `json:"archiveType"`
@@ -336,13 +342,13 @@ func (s *WorkflowService) ListWorkflows(ctx context.Context, opts *WorkflowListO
 }
 
 // GetWorkflow retrieves a specific workflow by ID
-func (s *WorkflowService) GetWorkflow(ctx context.Context, workflowID int) (*Workflow, error) {
+func (s *WorkflowService) GetWorkflow(ctx context.Context, workflowID string) (*Workflow, error) {
 	// Validate input
-	if workflowID <= 0 {
-		return nil, NewValidationError("workflowID", workflowID, "must be a positive integer")
+	if workflowID == "" {
+		return nil, NewValidationError("workflowID", workflowID, "cannot be empty")
 	}
 
-	u := fmt.Sprintf("api/workflows/%d", workflowID)
+	u := fmt.Sprintf("api/workflows/%s", workflowID)
 
 	req, err := s.client.NewWorkflowRequest("GET", u, nil)
 	if err != nil {
@@ -359,13 +365,13 @@ func (s *WorkflowService) GetWorkflow(ctx context.Context, workflowID int) (*Wor
 }
 
 // StartWorkflow starts a workflow manually
-func (s *WorkflowService) StartWorkflow(ctx context.Context, workflowID int, params map[string]interface{}) (*WorkflowAttempt, error) {
+func (s *WorkflowService) StartWorkflow(ctx context.Context, workflowID string, params map[string]interface{}) (*WorkflowAttempt, error) {
 	// Validate input
-	if workflowID <= 0 {
-		return nil, NewValidationError("workflowID", workflowID, "must be a positive integer")
+	if workflowID == "" {
+		return nil, NewValidationError("workflowID", workflowID, "cannot be empty")
 	}
 
-	u := fmt.Sprintf("api/workflows/%d/attempts", workflowID)
+	u := fmt.Sprintf("api/workflows/%s/attempts", workflowID)
 
 	body := map[string]interface{}{}
 	if params != nil {
@@ -387,8 +393,8 @@ func (s *WorkflowService) StartWorkflow(ctx context.Context, workflowID int, par
 }
 
 // ListWorkflowAttempts returns a list of workflow attempts
-func (s *WorkflowService) ListWorkflowAttempts(ctx context.Context, workflowID int, opts *WorkflowAttemptListOptions) (*WorkflowAttemptListResponse, error) {
-	u := fmt.Sprintf("api/workflows/%d/attempts", workflowID)
+func (s *WorkflowService) ListWorkflowAttempts(ctx context.Context, workflowID string, opts *WorkflowAttemptListOptions) (*WorkflowAttemptListResponse, error) {
+	u := fmt.Sprintf("api/workflows/%s/attempts", workflowID)
 	u, err := addOptions(u, opts)
 	if err != nil {
 		return nil, err
@@ -409,8 +415,8 @@ func (s *WorkflowService) ListWorkflowAttempts(ctx context.Context, workflowID i
 }
 
 // GetWorkflowAttempt retrieves a specific workflow attempt
-func (s *WorkflowService) GetWorkflowAttempt(ctx context.Context, workflowID int, attemptID int) (*WorkflowAttempt, error) {
-	u := fmt.Sprintf("api/workflows/%d/attempts/%d", workflowID, attemptID)
+func (s *WorkflowService) GetWorkflowAttempt(ctx context.Context, workflowID string, attemptID string) (*WorkflowAttempt, error) {
+	u := fmt.Sprintf("api/workflows/%s/attempts/%s", workflowID, attemptID)
 
 	req, err := s.client.NewWorkflowRequest("GET", u, nil)
 	if err != nil {
@@ -427,16 +433,16 @@ func (s *WorkflowService) GetWorkflowAttempt(ctx context.Context, workflowID int
 }
 
 // KillWorkflowAttempt kills a running workflow attempt
-func (s *WorkflowService) KillWorkflowAttempt(ctx context.Context, workflowID int, attemptID int) error {
+func (s *WorkflowService) KillWorkflowAttempt(ctx context.Context, workflowID string, attemptID string) error {
 	// Validate input
-	if workflowID <= 0 {
-		return NewValidationError("workflowID", workflowID, "must be a positive integer")
+	if workflowID == "" {
+		return NewValidationError("workflowID", workflowID, "cannot be empty")
 	}
-	if attemptID <= 0 {
-		return NewValidationError("attemptID", attemptID, "must be a positive integer")
+	if attemptID == "" {
+		return NewValidationError("attemptID", attemptID, "cannot be empty")
 	}
 
-	u := fmt.Sprintf("api/workflows/%d/attempts/%d/kill", workflowID, attemptID)
+	u := fmt.Sprintf("api/workflows/%s/attempts/%s/kill", workflowID, attemptID)
 
 	req, err := s.client.NewWorkflowRequest("POST", u, nil)
 	if err != nil {
@@ -462,8 +468,8 @@ func (s *WorkflowService) KillWorkflowAttempt(ctx context.Context, workflowID in
 }
 
 // RetryWorkflowAttempt retries a failed workflow attempt
-func (s *WorkflowService) RetryWorkflowAttempt(ctx context.Context, workflowID int, attemptID int, params map[string]interface{}) (*WorkflowAttempt, error) {
-	u := fmt.Sprintf("api/workflows/%d/attempts/%d/retry", workflowID, attemptID)
+func (s *WorkflowService) RetryWorkflowAttempt(ctx context.Context, workflowID string, attemptID string, params map[string]interface{}) (*WorkflowAttempt, error) {
+	u := fmt.Sprintf("api/workflows/%s/attempts/%s/retry", workflowID, attemptID)
 
 	body := map[string]interface{}{}
 	if params != nil {
@@ -485,8 +491,8 @@ func (s *WorkflowService) RetryWorkflowAttempt(ctx context.Context, workflowID i
 }
 
 // ListWorkflowTasks returns a list of tasks for a workflow attempt
-func (s *WorkflowService) ListWorkflowTasks(ctx context.Context, workflowID int, attemptID int) (*WorkflowTaskListResponse, error) {
-	u := fmt.Sprintf("api/workflows/%d/attempts/%d/tasks", workflowID, attemptID)
+func (s *WorkflowService) ListWorkflowTasks(ctx context.Context, workflowID string, attemptID string) (*WorkflowTaskListResponse, error) {
+	u := fmt.Sprintf("api/workflows/%s/attempts/%s/tasks", workflowID, attemptID)
 
 	req, err := s.client.NewWorkflowRequest("GET", u, nil)
 	if err != nil {
@@ -503,8 +509,8 @@ func (s *WorkflowService) ListWorkflowTasks(ctx context.Context, workflowID int,
 }
 
 // GetWorkflowTask retrieves a specific workflow task
-func (s *WorkflowService) GetWorkflowTask(ctx context.Context, workflowID int, attemptID int, taskID string) (*WorkflowTask, error) {
-	u := fmt.Sprintf("api/workflows/%d/attempts/%d/tasks/%s", workflowID, attemptID, taskID)
+func (s *WorkflowService) GetWorkflowTask(ctx context.Context, workflowID string, attemptID string, taskID string) (*WorkflowTask, error) {
+	u := fmt.Sprintf("api/workflows/%s/attempts/%s/tasks/%s", workflowID, attemptID, taskID)
 
 	req, err := s.client.NewWorkflowRequest("GET", u, nil)
 	if err != nil {
@@ -521,8 +527,8 @@ func (s *WorkflowService) GetWorkflowTask(ctx context.Context, workflowID int, a
 }
 
 // GetWorkflowAttemptLog retrieves the log for a workflow attempt
-func (s *WorkflowService) GetWorkflowAttemptLog(ctx context.Context, workflowID int, attemptID int) (string, error) {
-	u := fmt.Sprintf("api/workflows/%d/attempts/%d/log", workflowID, attemptID)
+func (s *WorkflowService) GetWorkflowAttemptLog(ctx context.Context, workflowID string, attemptID string) (string, error) {
+	u := fmt.Sprintf("api/workflows/%s/attempts/%s/log", workflowID, attemptID)
 
 	req, err := s.client.NewWorkflowRequest("GET", u, nil)
 	if err != nil {
@@ -540,8 +546,8 @@ func (s *WorkflowService) GetWorkflowAttemptLog(ctx context.Context, workflowID 
 }
 
 // GetWorkflowTaskLog retrieves the log for a specific workflow task
-func (s *WorkflowService) GetWorkflowTaskLog(ctx context.Context, workflowID int, attemptID int, taskID string) (string, error) {
-	u := fmt.Sprintf("api/workflows/%d/attempts/%d/tasks/%s/log", workflowID, attemptID, taskID)
+func (s *WorkflowService) GetWorkflowTaskLog(ctx context.Context, workflowID string, attemptID string, taskID string) (string, error) {
+	u := fmt.Sprintf("api/workflows/%s/attempts/%s/tasks/%s/log", workflowID, attemptID, taskID)
 
 	req, err := s.client.NewWorkflowRequest("GET", u, nil)
 	if err != nil {
@@ -559,8 +565,8 @@ func (s *WorkflowService) GetWorkflowTaskLog(ctx context.Context, workflowID int
 }
 
 // GetWorkflowSchedule retrieves the schedule for a workflow
-func (s *WorkflowService) GetWorkflowSchedule(ctx context.Context, workflowID int) (*WorkflowSchedule, error) {
-	u := fmt.Sprintf("api/workflows/%d/schedule", workflowID)
+func (s *WorkflowService) GetWorkflowSchedule(ctx context.Context, workflowID string) (*WorkflowSchedule, error) {
+	u := fmt.Sprintf("api/workflows/%s/schedule", workflowID)
 
 	req, err := s.client.NewWorkflowRequest("GET", u, nil)
 	if err != nil {
@@ -577,8 +583,8 @@ func (s *WorkflowService) GetWorkflowSchedule(ctx context.Context, workflowID in
 }
 
 // EnableWorkflowSchedule enables the schedule for a workflow
-func (s *WorkflowService) EnableWorkflowSchedule(ctx context.Context, workflowID int) (*WorkflowSchedule, error) {
-	u := fmt.Sprintf("api/workflows/%d/schedule/enable", workflowID)
+func (s *WorkflowService) EnableWorkflowSchedule(ctx context.Context, workflowID string) (*WorkflowSchedule, error) {
+	u := fmt.Sprintf("api/workflows/%s/schedule/enable", workflowID)
 
 	req, err := s.client.NewWorkflowRequest("POST", u, nil)
 	if err != nil {
@@ -595,8 +601,8 @@ func (s *WorkflowService) EnableWorkflowSchedule(ctx context.Context, workflowID
 }
 
 // DisableWorkflowSchedule disables the schedule for a workflow
-func (s *WorkflowService) DisableWorkflowSchedule(ctx context.Context, workflowID int) (*WorkflowSchedule, error) {
-	u := fmt.Sprintf("api/workflows/%d/schedule/disable", workflowID)
+func (s *WorkflowService) DisableWorkflowSchedule(ctx context.Context, workflowID string) (*WorkflowSchedule, error) {
+	u := fmt.Sprintf("api/workflows/%s/schedule/disable", workflowID)
 
 	req, err := s.client.NewWorkflowRequest("POST", u, nil)
 	if err != nil {
@@ -613,10 +619,10 @@ func (s *WorkflowService) DisableWorkflowSchedule(ctx context.Context, workflowI
 }
 
 // UpdateWorkflowSchedule updates the schedule for a workflow
-func (s *WorkflowService) UpdateWorkflowSchedule(ctx context.Context, workflowID int, cron, timezone string, delay int) (*WorkflowSchedule, error) {
+func (s *WorkflowService) UpdateWorkflowSchedule(ctx context.Context, workflowID string, cron, timezone string, delay int) (*WorkflowSchedule, error) {
 	// Validate input
-	if workflowID <= 0 {
-		return nil, NewValidationError("workflowID", workflowID, "must be a positive integer")
+	if workflowID == "" {
+		return nil, NewValidationError("workflowID", workflowID, "cannot be empty")
 	}
 	if cron == "" {
 		return nil, NewValidationError("cron", cron, "cannot be empty")
@@ -631,7 +637,7 @@ func (s *WorkflowService) UpdateWorkflowSchedule(ctx context.Context, workflowID
 		return nil, NewValidationError("delay", delay, "cannot be negative")
 	}
 
-	u := fmt.Sprintf("api/workflows/%d/schedule", workflowID)
+	u := fmt.Sprintf("api/workflows/%s/schedule", workflowID)
 
 	body := map[string]interface{}{
 		"cron":     cron,
@@ -689,8 +695,8 @@ func (s *WorkflowService) CreateWorkflow(ctx context.Context, name, project, con
 }
 
 // UpdateWorkflow updates an existing workflow
-func (s *WorkflowService) UpdateWorkflow(ctx context.Context, workflowID int, updates map[string]string) (*Workflow, error) {
-	u := fmt.Sprintf("api/workflows/%d", workflowID)
+func (s *WorkflowService) UpdateWorkflow(ctx context.Context, workflowID string, updates map[string]string) (*Workflow, error) {
+	u := fmt.Sprintf("api/workflows/%s", workflowID)
 
 	req, err := s.client.NewWorkflowRequest("PUT", u, updates)
 	if err != nil {
@@ -707,13 +713,13 @@ func (s *WorkflowService) UpdateWorkflow(ctx context.Context, workflowID int, up
 }
 
 // DeleteWorkflow deletes a workflow
-func (s *WorkflowService) DeleteWorkflow(ctx context.Context, workflowID int) error {
+func (s *WorkflowService) DeleteWorkflow(ctx context.Context, workflowID string) error {
 	// Validate input
-	if workflowID <= 0 {
-		return NewValidationError("workflowID", workflowID, "must be a positive integer")
+	if workflowID == "" {
+		return NewValidationError("workflowID", workflowID, "cannot be empty")
 	}
 
-	u := fmt.Sprintf("api/workflows/%d", workflowID)
+	u := fmt.Sprintf("api/workflows/%s", workflowID)
 
 	req, err := s.client.NewWorkflowRequest("DELETE", u, nil)
 	if err != nil {
@@ -756,8 +762,8 @@ func (s *WorkflowService) ListProjects(ctx context.Context) (*WorkflowProjectLis
 }
 
 // GetProject retrieves a specific project by ID
-func (s *WorkflowService) GetProject(ctx context.Context, projectID int) (*WorkflowProject, error) {
-	u := fmt.Sprintf("api/projects/%d", projectID)
+func (s *WorkflowService) GetProject(ctx context.Context, projectID string) (*WorkflowProject, error) {
+	u := fmt.Sprintf("api/projects/%s", projectID)
 
 	req, err := s.client.NewWorkflowRequest("GET", u, nil)
 	if err != nil {
@@ -803,8 +809,8 @@ func (s *WorkflowService) CreateProjectFromDirectory(ctx context.Context, name s
 }
 
 // ListProjectWorkflows returns a list of workflows for a specific project
-func (s *WorkflowService) ListProjectWorkflows(ctx context.Context, projectID int) (*WorkflowListResponse, error) {
-	u := fmt.Sprintf("api/projects/%d/workflows", projectID)
+func (s *WorkflowService) ListProjectWorkflows(ctx context.Context, projectID string) (*WorkflowListResponse, error) {
+	u := fmt.Sprintf("api/projects/%s/workflows", projectID)
 
 	req, err := s.client.NewWorkflowRequest("GET", u, nil)
 	if err != nil {
@@ -821,8 +827,8 @@ func (s *WorkflowService) ListProjectWorkflows(ctx context.Context, projectID in
 }
 
 // GetProjectSecrets retrieves secrets for a project
-func (s *WorkflowService) GetProjectSecrets(ctx context.Context, projectID int) (*WorkflowProjectSecretsResponse, error) {
-	u := fmt.Sprintf("api/projects/%d/secrets", projectID)
+func (s *WorkflowService) GetProjectSecrets(ctx context.Context, projectID string) (*WorkflowProjectSecretsResponse, error) {
+	u := fmt.Sprintf("api/projects/%s/secrets", projectID)
 
 	req, err := s.client.NewWorkflowRequest("GET", u, nil)
 	if err != nil {
@@ -839,16 +845,16 @@ func (s *WorkflowService) GetProjectSecrets(ctx context.Context, projectID int) 
 }
 
 // SetProjectSecret sets a secret for a project
-func (s *WorkflowService) SetProjectSecret(ctx context.Context, projectID int, key, value string) error {
+func (s *WorkflowService) SetProjectSecret(ctx context.Context, projectID string, key, value string) error {
 	// Validate input
-	if projectID <= 0 {
-		return NewValidationError("projectID", projectID, "must be a positive integer")
+	if projectID == "" {
+		return NewValidationError("projectID", projectID, "cannot be empty")
 	}
 	if key == "" {
 		return NewValidationError("key", key, "cannot be empty")
 	}
 
-	u := fmt.Sprintf("api/projects/%d/secrets/%s", projectID, key)
+	u := fmt.Sprintf("api/projects/%s/secrets/%s", projectID, key)
 
 	body := map[string]string{
 		"value": value,
@@ -878,8 +884,8 @@ func (s *WorkflowService) SetProjectSecret(ctx context.Context, projectID int, k
 }
 
 // DeleteProjectSecret deletes a secret from a project
-func (s *WorkflowService) DeleteProjectSecret(ctx context.Context, projectID int, key string) error {
-	u := fmt.Sprintf("api/projects/%d/secrets/%s", projectID, key)
+func (s *WorkflowService) DeleteProjectSecret(ctx context.Context, projectID string, key string) error {
+	u := fmt.Sprintf("api/projects/%s/secrets/%s", projectID, key)
 
 	req, err := s.client.NewWorkflowRequest("DELETE", u, nil)
 	if err != nil {
@@ -892,7 +898,7 @@ func (s *WorkflowService) DeleteProjectSecret(ctx context.Context, projectID int
 	}
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
-		return fmt.Errorf("failed to delete project secret: project_id=%d, key=%s", projectID, key)
+		return fmt.Errorf("failed to delete project secret: project_id=%s, key=%s", projectID, key)
 	}
 
 	return nil

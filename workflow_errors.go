@@ -8,10 +8,10 @@ import (
 // WorkflowError represents an error that occurred during workflow operations
 type WorkflowError struct {
 	Operation  string
-	WorkflowID int
-	AttemptID  int
+	WorkflowID string
+	AttemptID  string
 	TaskID     string
-	ProjectID  int
+	ProjectID  string
 	StatusCode int
 	Message    string
 	Response   *http.Response
@@ -21,17 +21,17 @@ type WorkflowError struct {
 func (e *WorkflowError) Error() string {
 	msg := fmt.Sprintf("workflow error: %s", e.Operation)
 
-	if e.WorkflowID > 0 {
-		msg += fmt.Sprintf(" (workflow_id=%d", e.WorkflowID)
-		if e.AttemptID > 0 {
-			msg += fmt.Sprintf(", attempt_id=%d", e.AttemptID)
+	if e.WorkflowID != "" {
+		msg += fmt.Sprintf(" (workflow_id=%s", e.WorkflowID)
+		if e.AttemptID != "" {
+			msg += fmt.Sprintf(", attempt_id=%s", e.AttemptID)
 		}
 		if e.TaskID != "" {
 			msg += fmt.Sprintf(", task_id=%s", e.TaskID)
 		}
 		msg += ")"
-	} else if e.ProjectID > 0 {
-		msg += fmt.Sprintf(" (project_id=%d", e.ProjectID)
+	} else if e.ProjectID != "" {
+		msg += fmt.Sprintf(" (project_id=%s", e.ProjectID)
 		msg += ")"
 	}
 

@@ -62,12 +62,12 @@ func TestWorkflowService_ListWorkflows(t *testing.T) {
 		fmt.Fprint(w, `{
 			"workflows": [
 				{
-					"id": 1,
+					"id": "1",
 					"name": "test-workflow",
-					"project": "default",
+					"project": {"id": "default", "name": "default"},
 					"revision": "abc123",
 					"status": "active",
-					"config": "timezone: UTC\n",
+					"config": {"timezone": "UTC"},
 					"created_at": 1609459200,
 					"updated_at": 1609459200,
 					"timezone": "UTC"
@@ -85,12 +85,12 @@ func TestWorkflowService_ListWorkflows(t *testing.T) {
 	want := &WorkflowListResponse{
 		Workflows: []Workflow{
 			{
-				ID:        1,
+				ID:        "1",
 				Name:      "test-workflow",
-				Project:   "default",
+				Project:   WorkflowProjectRef{ID: "default", Name: "default"},
 				Revision:  "abc123",
 				Status:    "active",
-				Config:    "timezone: UTC\n",
+				Config:    map[string]interface{}{"timezone": "UTC"},
 				CreatedAt: TDTime{time.Unix(1609459200, 0)},
 				UpdatedAt: TDTime{time.Unix(1609459200, 0)},
 				Timezone:  "UTC",
@@ -134,12 +134,12 @@ func TestWorkflowService_GetWorkflow(t *testing.T) {
 		testURL(t, r, "/api/workflows/1")
 
 		fmt.Fprint(w, `{
-			"id": 1,
+			"id": "1",
 			"name": "test-workflow",
-			"project": "default",
+			"project": {"id": "default", "name": "default"},
 			"revision": "abc123",
 			"status": "active",
-			"config": "timezone: UTC\n",
+			"config": {"timezone": "UTC"},
 			"created_at": 1609459200,
 			"updated_at": 1609459200,
 			"last_attempt": 10,
@@ -149,7 +149,7 @@ func TestWorkflowService_GetWorkflow(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	workflow, err := client.Workflow.GetWorkflow(ctx, 1)
+	workflow, err := client.Workflow.GetWorkflow(ctx, "1")
 	if err != nil {
 		t.Errorf("Workflows.GetWorkflow returned error: %v", err)
 	}
@@ -157,12 +157,12 @@ func TestWorkflowService_GetWorkflow(t *testing.T) {
 	lastAttempt := 10
 	nextSchedule := TDTime{time.Unix(1609545600, 0)}
 	want := &Workflow{
-		ID:           1,
+		ID:           "1",
 		Name:         "test-workflow",
-		Project:      "default",
+		Project:      WorkflowProjectRef{ID: "default", Name: "default"},
 		Revision:     "abc123",
 		Status:       "active",
-		Config:       "timezone: UTC\n",
+		Config:       map[string]interface{}{"timezone": "UTC"},
 		CreatedAt:    TDTime{time.Unix(1609459200, 0)},
 		UpdatedAt:    TDTime{time.Unix(1609459200, 0)},
 		LastAttempt:  &lastAttempt,
@@ -197,12 +197,12 @@ func TestWorkflowService_CreateWorkflow(t *testing.T) {
 		}
 
 		fmt.Fprint(w, `{
-			"id": 2,
+			"id": "2",
 			"name": "new-workflow",
-			"project": "default",
+			"project": {"id": "default", "name": "default"},
 			"revision": "def456",
 			"status": "active",
-			"config": "timezone: UTC\n",
+			"config": {"timezone": "UTC"},
 			"created_at": 1609459200,
 			"updated_at": 1609459200,
 			"timezone": "UTC"
@@ -216,12 +216,12 @@ func TestWorkflowService_CreateWorkflow(t *testing.T) {
 	}
 
 	want := &Workflow{
-		ID:        2,
+		ID:        "2",
 		Name:      "new-workflow",
-		Project:   "default",
+		Project:   WorkflowProjectRef{ID: "default", Name: "default"},
 		Revision:  "def456",
 		Status:    "active",
-		Config:    "timezone: UTC\n",
+		Config:    map[string]interface{}{"timezone": "UTC"},
 		CreatedAt: TDTime{time.Unix(1609459200, 0)},
 		UpdatedAt: TDTime{time.Unix(1609459200, 0)},
 		Timezone:  "UTC",
@@ -248,12 +248,12 @@ func TestWorkflowService_UpdateWorkflow(t *testing.T) {
 		}
 
 		fmt.Fprint(w, `{
-			"id": 1,
+			"id": "1",
 			"name": "updated-workflow",
-			"project": "default",
+			"project": {"id": "default", "name": "default"},
 			"revision": "def456",
 			"status": "active",
-			"config": "timezone: UTC\n",
+			"config": {"timezone": "UTC"},
 			"created_at": 1609459200,
 			"updated_at": 1609545600,
 			"timezone": "UTC"
@@ -264,18 +264,18 @@ func TestWorkflowService_UpdateWorkflow(t *testing.T) {
 	updates := map[string]string{
 		"name": "updated-workflow",
 	}
-	workflow, err := client.Workflow.UpdateWorkflow(ctx, 1, updates)
+	workflow, err := client.Workflow.UpdateWorkflow(ctx, "1", updates)
 	if err != nil {
 		t.Errorf("Workflows.UpdateWorkflow returned error: %v", err)
 	}
 
 	want := &Workflow{
-		ID:        1,
+		ID:        "1",
 		Name:      "updated-workflow",
-		Project:   "default",
+		Project:   WorkflowProjectRef{ID: "default", Name: "default"},
 		Revision:  "def456",
 		Status:    "active",
-		Config:    "timezone: UTC\n",
+		Config:    map[string]interface{}{"timezone": "UTC"},
 		CreatedAt: TDTime{time.Unix(1609459200, 0)},
 		UpdatedAt: TDTime{time.Unix(1609545600, 0)},
 		Timezone:  "UTC",
@@ -297,7 +297,7 @@ func TestWorkflowService_DeleteWorkflow(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	err := client.Workflow.DeleteWorkflow(ctx, 1)
+	err := client.Workflow.DeleteWorkflow(ctx, "1")
 	if err != nil {
 		t.Errorf("Workflows.DeleteWorkflow returned error: %v", err)
 	}
@@ -321,9 +321,9 @@ func TestWorkflowService_StartWorkflow(t *testing.T) {
 		}
 
 		fmt.Fprint(w, `{
-			"id": 100,
+			"id": "100",
 			"index": 1,
-			"workflow_id": 1,
+			"workflow_id": "1",
 			"status": "running",
 			"created_at": 1609459200,
 			"session_id": "123-456",
@@ -338,7 +338,7 @@ func TestWorkflowService_StartWorkflow(t *testing.T) {
 	params := map[string]interface{}{
 		"key": "value",
 	}
-	attempt, err := client.Workflow.StartWorkflow(ctx, 1, params)
+	attempt, err := client.Workflow.StartWorkflow(ctx, "1", params)
 	if err != nil {
 		t.Errorf("Workflows.StartWorkflow returned error: %v", err)
 	}
@@ -347,9 +347,9 @@ func TestWorkflowService_StartWorkflow(t *testing.T) {
 	sessionUUID := "uuid-123"
 	sessionTime := TDTime{time.Unix(1609459200, 0)}
 	want := &WorkflowAttempt{
-		ID:          100,
+		ID:          "100",
 		Index:       1,
-		WorkflowID:  1,
+		WorkflowID:  "1",
 		Status:      "running",
 		CreatedAt:   TDTime{time.Unix(1609459200, 0)},
 		SessionID:   &sessionID,
@@ -375,9 +375,9 @@ func TestWorkflowService_ListWorkflowAttempts(t *testing.T) {
 		fmt.Fprint(w, `{
 			"attempts": [
 				{
-					"id": 100,
+					"id": "100",
 					"index": 1,
-					"workflow_id": 1,
+					"workflow_id": "1",
 					"status": "success",
 					"created_at": 1609459200,
 					"finished_at": 1609462800,
@@ -394,7 +394,7 @@ func TestWorkflowService_ListWorkflowAttempts(t *testing.T) {
 		LastID: 50,
 		Status: "success",
 	}
-	resp, err := client.Workflow.ListWorkflowAttempts(ctx, 1, opts)
+	resp, err := client.Workflow.ListWorkflowAttempts(ctx, "1", opts)
 	if err != nil {
 		t.Errorf("Workflows.ListWorkflowAttempts returned error: %v", err)
 	}
@@ -404,9 +404,9 @@ func TestWorkflowService_ListWorkflowAttempts(t *testing.T) {
 	want := &WorkflowAttemptListResponse{
 		Attempts: []WorkflowAttempt{
 			{
-				ID:         100,
+				ID:         "100",
 				Index:      1,
-				WorkflowID: 1,
+				WorkflowID: "1",
 				Status:     "success",
 				CreatedAt:  TDTime{time.Unix(1609459200, 0)},
 				FinishedAt: &finishedAt,
@@ -430,9 +430,9 @@ func TestWorkflowService_GetWorkflowAttempt(t *testing.T) {
 		testURL(t, r, "/api/workflows/1/attempts/100")
 
 		fmt.Fprint(w, `{
-			"id": 100,
+			"id": "100",
 			"index": 1,
-			"workflow_id": 1,
+			"workflow_id": "1",
 			"status": "success",
 			"created_at": 1609459200,
 			"finished_at": 1609462800,
@@ -443,7 +443,7 @@ func TestWorkflowService_GetWorkflowAttempt(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	attempt, err := client.Workflow.GetWorkflowAttempt(ctx, 1, 100)
+	attempt, err := client.Workflow.GetWorkflowAttempt(ctx, "1", "100")
 	if err != nil {
 		t.Errorf("Workflows.GetWorkflowAttempt returned error: %v", err)
 	}
@@ -452,9 +452,9 @@ func TestWorkflowService_GetWorkflowAttempt(t *testing.T) {
 	logFileSize := int64(1024)
 	success := true
 	want := &WorkflowAttempt{
-		ID:          100,
+		ID:          "100",
 		Index:       1,
-		WorkflowID:  1,
+		WorkflowID:  "1",
 		Status:      "success",
 		CreatedAt:   TDTime{time.Unix(1609459200, 0)},
 		FinishedAt:  &finishedAt,
@@ -479,7 +479,7 @@ func TestWorkflowService_KillWorkflowAttempt(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	err := client.Workflow.KillWorkflowAttempt(ctx, 1, 100)
+	err := client.Workflow.KillWorkflowAttempt(ctx, "1", "100")
 	if err != nil {
 		t.Errorf("Workflows.KillWorkflowAttempt returned error: %v", err)
 	}
@@ -503,9 +503,9 @@ func TestWorkflowService_RetryWorkflowAttempt(t *testing.T) {
 		}
 
 		fmt.Fprint(w, `{
-			"id": 101,
+			"id": "101",
 			"index": 2,
-			"workflow_id": 1,
+			"workflow_id": "1",
 			"status": "running",
 			"created_at": 1609545600,
 			"params": {"retry": "true"},
@@ -517,15 +517,15 @@ func TestWorkflowService_RetryWorkflowAttempt(t *testing.T) {
 	params := map[string]interface{}{
 		"retry": "true",
 	}
-	attempt, err := client.Workflow.RetryWorkflowAttempt(ctx, 1, 100, params)
+	attempt, err := client.Workflow.RetryWorkflowAttempt(ctx, "1", "100", params)
 	if err != nil {
 		t.Errorf("Workflows.RetryWorkflowAttempt returned error: %v", err)
 	}
 
 	want := &WorkflowAttempt{
-		ID:         101,
+		ID:         "101",
 		Index:      2,
-		WorkflowID: 1,
+		WorkflowID: "1",
 		Status:     "running",
 		CreatedAt:  TDTime{time.Unix(1609545600, 0)},
 		Params:     map[string]interface{}{"retry": "true"},
@@ -565,7 +565,7 @@ func TestWorkflowService_ListWorkflowTasks(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	resp, err := client.Workflow.ListWorkflowTasks(ctx, 1, 100)
+	resp, err := client.Workflow.ListWorkflowTasks(ctx, "1", "100")
 	if err != nil {
 		t.Errorf("Workflows.ListWorkflowTasks returned error: %v", err)
 	}
@@ -619,7 +619,7 @@ func TestWorkflowService_GetWorkflowTask(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	task, err := client.Workflow.GetWorkflowTask(ctx, 1, 100, "task-1")
+	task, err := client.Workflow.GetWorkflowTask(ctx, "1", "100", "task-1")
 	if err != nil {
 		t.Errorf("Workflows.GetWorkflowTask returned error: %v", err)
 	}
@@ -668,7 +668,7 @@ func TestWorkflowService_GetWorkflowSchedule(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	schedule, err := client.Workflow.GetWorkflowSchedule(ctx, 1)
+	schedule, err := client.Workflow.GetWorkflowSchedule(ctx, "1")
 	if err != nil {
 		t.Errorf("Workflows.GetWorkflowSchedule returned error: %v", err)
 	}
@@ -712,7 +712,7 @@ func TestWorkflowService_EnableWorkflowSchedule(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	schedule, err := client.Workflow.EnableWorkflowSchedule(ctx, 1)
+	schedule, err := client.Workflow.EnableWorkflowSchedule(ctx, "1")
 	if err != nil {
 		t.Errorf("Workflows.EnableWorkflowSchedule returned error: %v", err)
 	}
@@ -753,7 +753,7 @@ func TestWorkflowService_DisableWorkflowSchedule(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	schedule, err := client.Workflow.DisableWorkflowSchedule(ctx, 1)
+	schedule, err := client.Workflow.DisableWorkflowSchedule(ctx, "1")
 	if err != nil {
 		t.Errorf("Workflows.DisableWorkflowSchedule returned error: %v", err)
 	}
@@ -808,7 +808,7 @@ func TestWorkflowService_UpdateWorkflowSchedule(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	schedule, err := client.Workflow.UpdateWorkflowSchedule(ctx, 1, "30 * * * *", "America/New_York", 300)
+	schedule, err := client.Workflow.UpdateWorkflowSchedule(ctx, "1", "30 * * * *", "America/New_York", 300)
 	if err != nil {
 		t.Errorf("Workflows.UpdateWorkflowSchedule returned error: %v", err)
 	}
@@ -843,7 +843,7 @@ func TestWorkflowService_GetWorkflowAttemptLog(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	log, err := client.Workflow.GetWorkflowAttemptLog(ctx, 1, 100)
+	log, err := client.Workflow.GetWorkflowAttemptLog(ctx, "1", "100")
 	if err != nil {
 		t.Errorf("Workflows.GetWorkflowAttemptLog returned error: %v", err)
 	}
@@ -868,7 +868,7 @@ func TestWorkflowService_GetWorkflowTaskLog(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	log, err := client.Workflow.GetWorkflowTaskLog(ctx, 1, 100, "task-1")
+	log, err := client.Workflow.GetWorkflowTaskLog(ctx, "1", "100", "task-1")
 	if err != nil {
 		t.Errorf("Workflows.GetWorkflowTaskLog returned error: %v", err)
 	}
@@ -892,7 +892,7 @@ func TestWorkflowService_ErrorResponse(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	_, err := client.Workflow.GetWorkflow(ctx, 999)
+	_, err := client.Workflow.GetWorkflow(ctx, "999")
 	if err == nil {
 		t.Error("Expected error to be returned")
 	}
@@ -920,7 +920,7 @@ func ExampleWorkflowService_ListWorkflows() {
 	}
 
 	for _, workflow := range resp.Workflows {
-		fmt.Printf("Workflow: %s (ID: %d, Status: %s)\n", workflow.Name, workflow.ID, workflow.Status)
+		fmt.Printf("Workflow: %s (ID: %s, Status: %s)\n", workflow.Name, workflow.ID, workflow.Status)
 	}
 }
 
@@ -945,7 +945,7 @@ _export:
 		return
 	}
 
-	fmt.Printf("Created workflow: %s (ID: %d)\n", workflow.Name, workflow.ID)
+	fmt.Printf("Created workflow: %s (ID: %s)\n", workflow.Name, workflow.ID)
 }
 
 func ExampleWorkflowService_StartWorkflow() {
@@ -958,13 +958,13 @@ func ExampleWorkflowService_StartWorkflow() {
 		"run_type":    "manual",
 	}
 
-	attempt, err := client.Workflow.StartWorkflow(ctx, 123, params)
+	attempt, err := client.Workflow.StartWorkflow(ctx, "123", params)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return
 	}
 
-	fmt.Printf("Started workflow attempt: %d (Status: %s)\n", attempt.ID, attempt.Status)
+	fmt.Printf("Started workflow attempt: %s (Status: %s)\n", attempt.ID, attempt.Status)
 }
 
 func ExampleWorkflowService_GetWorkflowAttempt() {
@@ -972,13 +972,13 @@ func ExampleWorkflowService_GetWorkflowAttempt() {
 	ctx := context.Background()
 
 	// Monitor workflow execution
-	attempt, err := client.Workflow.GetWorkflowAttempt(ctx, 123, 456)
+	attempt, err := client.Workflow.GetWorkflowAttempt(ctx, "123", "456")
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return
 	}
 
-	fmt.Printf("Attempt %d status: %s\n", attempt.ID, attempt.Status)
+	fmt.Printf("Attempt %s status: %s\n", attempt.ID, attempt.Status)
 	if attempt.Done {
 		if attempt.Success != nil && *attempt.Success {
 			fmt.Println("Workflow completed successfully")
@@ -993,7 +993,7 @@ func ExampleWorkflowService_UpdateWorkflowSchedule() {
 	ctx := context.Background()
 
 	// Update workflow schedule to run daily at 2 AM UTC
-	schedule, err := client.Workflow.UpdateWorkflowSchedule(ctx, 123, "0 2 * * *", "UTC", 0)
+	schedule, err := client.Workflow.UpdateWorkflowSchedule(ctx, "123", "0 2 * * *", "UTC", 0)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return
@@ -1007,7 +1007,7 @@ func ExampleWorkflowService_GetWorkflowAttemptLog() {
 	ctx := context.Background()
 
 	// Get logs for a workflow attempt
-	log, err := client.Workflow.GetWorkflowAttemptLog(ctx, 123, 456)
+	log, err := client.Workflow.GetWorkflowAttemptLog(ctx, "123", "456")
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return
@@ -1027,7 +1027,7 @@ func TestWorkflowService_ListProjects(t *testing.T) {
 		fmt.Fprint(w, `{
 			"projects": [
 				{
-					"id": 1,
+					"id": "1",
 					"name": "test-project",
 					"revision": "v1",
 					"archiveType": "db",
@@ -1049,7 +1049,7 @@ func TestWorkflowService_ListProjects(t *testing.T) {
 	want := &WorkflowProjectListResponse{
 		Projects: []WorkflowProject{
 			{
-				ID:          1,
+				ID:          "1",
 				Name:        "test-project",
 				Revision:    "v1",
 				ArchiveType: "db",
@@ -1075,7 +1075,7 @@ func TestWorkflowService_GetProject(t *testing.T) {
 		testURL(t, r, "/api/projects/1")
 
 		fmt.Fprint(w, `{
-			"id": 1,
+			"id": "1",
 			"name": "test-project",
 			"revision": "v2",
 			"archiveType": "db",
@@ -1087,13 +1087,13 @@ func TestWorkflowService_GetProject(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	project, err := client.Workflow.GetProject(ctx, 1)
+	project, err := client.Workflow.GetProject(ctx, "1")
 	if err != nil {
 		t.Errorf("Workflow.GetProject returned error: %v", err)
 	}
 
 	want := &WorkflowProject{
-		ID:          1,
+		ID:          "1",
 		Name:        "test-project",
 		Revision:    "v2",
 		ArchiveType: "db",
@@ -1117,7 +1117,7 @@ func TestWorkflowService_CreateProject(t *testing.T) {
 		testURL(t, r, "/api/projects?project=new-project")
 
 		fmt.Fprint(w, `{
-			"id": 2,
+			"id": "2",
 			"name": "new-project",
 			"revision": "v1",
 			"archiveType": "db",
@@ -1136,7 +1136,7 @@ func TestWorkflowService_CreateProject(t *testing.T) {
 	}
 
 	want := &WorkflowProject{
-		ID:          2,
+		ID:          "2",
 		Name:        "new-project",
 		Revision:    "v1",
 		ArchiveType: "db",
@@ -1162,12 +1162,12 @@ func TestWorkflowService_ListProjectWorkflows(t *testing.T) {
 		fmt.Fprint(w, `{
 			"workflows": [
 				{
-					"id": 10,
+					"id": "10",
 					"name": "project-workflow",
-					"project": "test-project",
+					"project": {"id": "test-project", "name": "test-project"},
 					"revision": "abc123",
 					"status": "active",
-					"config": "timezone: UTC\n",
+					"config": {"timezone": "UTC"},
 					"created_at": 1609459200,
 					"updated_at": 1609459200,
 					"timezone": "UTC"
@@ -1177,7 +1177,7 @@ func TestWorkflowService_ListProjectWorkflows(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	resp, err := client.Workflow.ListProjectWorkflows(ctx, 1)
+	resp, err := client.Workflow.ListProjectWorkflows(ctx, "1")
 	if err != nil {
 		t.Errorf("Workflow.ListProjectWorkflows returned error: %v", err)
 	}
@@ -1185,12 +1185,12 @@ func TestWorkflowService_ListProjectWorkflows(t *testing.T) {
 	want := &WorkflowListResponse{
 		Workflows: []Workflow{
 			{
-				ID:        10,
+				ID:        "10",
 				Name:      "project-workflow",
-				Project:   "test-project",
+				Project:   WorkflowProjectRef{ID: "test-project", Name: "test-project"},
 				Revision:  "abc123",
 				Status:    "active",
-				Config:    "timezone: UTC\n",
+				Config:    map[string]interface{}{"timezone": "UTC"},
 				CreatedAt: TDTime{time.Unix(1609459200, 0)},
 				UpdatedAt: TDTime{time.Unix(1609459200, 0)},
 				Timezone:  "UTC",
@@ -1220,7 +1220,7 @@ func TestWorkflowService_GetProjectSecrets(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	resp, err := client.Workflow.GetProjectSecrets(ctx, 1)
+	resp, err := client.Workflow.GetProjectSecrets(ctx, "1")
 	if err != nil {
 		t.Errorf("Workflow.GetProjectSecrets returned error: %v", err)
 	}
@@ -1256,7 +1256,7 @@ func TestWorkflowService_SetProjectSecret(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	err := client.Workflow.SetProjectSecret(ctx, 1, "test_secret", "secret_value")
+	err := client.Workflow.SetProjectSecret(ctx, "1", "test_secret", "secret_value")
 	if err != nil {
 		t.Errorf("Workflow.SetProjectSecret returned error: %v", err)
 	}
@@ -1273,7 +1273,7 @@ func TestWorkflowService_DeleteProjectSecret(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	err := client.Workflow.DeleteProjectSecret(ctx, 1, "test_secret")
+	err := client.Workflow.DeleteProjectSecret(ctx, "1", "test_secret")
 	if err != nil {
 		t.Errorf("Workflow.DeleteProjectSecret returned error: %v", err)
 	}
@@ -1291,7 +1291,7 @@ func ExampleWorkflowService_ListProjects() {
 	}
 
 	for _, project := range resp.Projects {
-		fmt.Printf("Project: %s (ID: %d, Revision: %s)\n", project.Name, project.ID, project.Revision)
+		fmt.Printf("Project: %s (ID: %s, Revision: %s)\n", project.Name, project.ID, project.Revision)
 	}
 }
 
@@ -1307,7 +1307,7 @@ func ExampleWorkflowService_CreateProject() {
 		return
 	}
 
-	fmt.Printf("Created project: %s (ID: %d)\n", project.Name, project.ID)
+	fmt.Printf("Created project: %s (ID: %s)\n", project.Name, project.ID)
 }
 
 func ExampleWorkflowService_SetProjectSecret() {
@@ -1315,7 +1315,7 @@ func ExampleWorkflowService_SetProjectSecret() {
 	ctx := context.Background()
 
 	// Set a secret for a project
-	err := client.Workflow.SetProjectSecret(ctx, 123, "database_password", "my_secret_password")
+	err := client.Workflow.SetProjectSecret(ctx, "123", "database_password", "my_secret_password")
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return
@@ -1338,7 +1338,7 @@ func TestWorkflowService_CreateProjectFromDirectory(t *testing.T) {
 		}
 
 		fmt.Fprint(w, `{
-			"id": 3,
+			"id": "3",
 			"name": "test-project",
 			"revision": "v1",
 			"archiveType": "db",
@@ -1364,7 +1364,7 @@ func TestWorkflowService_CreateProjectFromDirectory(t *testing.T) {
 	}
 
 	want := &WorkflowProject{
-		ID:          3,
+		ID:          "3",
 		Name:        "test-project",
 		Revision:    "v1",
 		ArchiveType: "db",
