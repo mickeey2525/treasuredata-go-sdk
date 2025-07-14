@@ -9,9 +9,16 @@ import (
 	"strconv"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	td "github.com/mickeey2525/treasuredata-go-sdk"
 )
+
+// formatTimeJST formats time in JST timezone for display
+func formatTimeJST(t time.Time) string {
+	jst := time.FixedZone("JST", 9*3600) // JST is UTC+9
+	return t.In(jst).Format("2006-01-02 15:04:05")
+}
 
 // Workflow handlers
 func handleWorkflowList(ctx context.Context, client *td.Client, flags Flags) {
@@ -635,4 +642,242 @@ func handleWorkflowTaskLog(ctx context.Context, client *td.Client, args []string
 	}
 
 	fmt.Print(logContent)
+}
+
+// Workflow project handlers
+func handleWorkflowProjectList(ctx context.Context, client *td.Client, flags Flags) {
+	resp, err := client.Workflow.ListProjects(ctx)
+	if err != nil {
+		handleError(err, "Failed to list workflow projects", flags.Verbose)
+	}
+
+	switch flags.Format {
+	case "json":
+		printJSON(resp)
+	case "csv":
+		fmt.Println("id,name,revision,archive_type,created_at,updated_at")
+		for _, project := range resp.Projects {
+			fmt.Printf("%d,%s,%s,%s,%s,%s\n",
+				project.ID, project.Name, project.Revision, project.ArchiveType,
+				formatTimeJST(project.CreatedAt.Time),
+				formatTimeJST(project.UpdatedAt.Time))
+		}
+	default:
+		if len(resp.Projects) == 0 {
+			fmt.Println("No projects found")
+			return
+		}
+
+		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+		fmt.Fprintln(w, "ID\tNAME\tREVISION\tTYPE\tCREATED")
+		for _, project := range resp.Projects {
+			fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\n",
+				project.ID, project.Name, project.Revision, project.ArchiveType,
+				formatTimeJST(project.CreatedAt.Time))
+		}
+		w.Flush()
+		fmt.Printf("\nTotal: %d projects\n", len(resp.Projects))
+	}
+}
+
+func handleWorkflowProjectGet(ctx context.Context, client *td.Client, args []string, flags Flags) {
+	if len(args) < 1 {
+		log.Fatal("Project ID required")
+	}
+
+	projectID, err := strconv.Atoi(args[0])
+	if err != nil {
+		log.Fatalf("Invalid project ID: %s", args[0])
+	}
+
+	project, err := client.Workflow.GetProject(ctx, projectID)
+	if err != nil {
+		handleError(err, "Failed to get workflow project", flags.Verbose)
+	}
+
+	switch flags.Format {
+	case "json":
+		printJSON(project)
+	case "csv":
+		fmt.Println("id,name,revision,archive_type,archive_md5,created_at,updated_at,deleted_at")
+		deletedAt := ""
+		if project.DeletedAt != nil {
+			deletedAt = formatTimeJST(project.DeletedAt.Time)
+		}
+		fmt.Printf("%d,%s,%s,%s,%s,%s,%s,%s\n",
+			project.ID, project.Name, project.Revision, project.ArchiveType,
+			project.ArchiveMD5,
+			formatTimeJST(project.CreatedAt.Time),
+			formatTimeJST(project.UpdatedAt.Time),
+			deletedAt)
+	default:
+		fmt.Printf("ID: %d\n", project.ID)
+		fmt.Printf("Name: %s\n", project.Name)
+		fmt.Printf("Revision: %s\n", project.Revision)
+		fmt.Printf("Archive Type: %s\n", project.ArchiveType)
+		fmt.Printf("Archive MD5: %s\n", project.ArchiveMD5)
+		fmt.Printf("Created: %s\n", formatTimeJST(project.CreatedAt.Time))
+		fmt.Printf("Updated: %s\n", formatTimeJST(project.UpdatedAt.Time))
+		if project.DeletedAt != nil {
+			fmt.Printf("Deleted: %s\n", formatTimeJST(project.DeletedAt.Time))
+		}
+	}
+}
+
+func handleWorkflowProjectCreate(ctx context.Context, client *td.Client, args []string, flags Flags) {
+	if len(args) < 2 {
+		log.Fatal("Project name and path (directory or archive file) required")
+	}
+
+	path := args[1]
+	var project *td.WorkflowProject
+	var err error
+
+	// Check if the path is a directory or file
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		log.Fatalf("Failed to access path %s: %v", path, err)
+	}
+
+	if fileInfo.IsDir() {
+		// Create project from directory
+		fmt.Printf("Creating project from directory: %s\n", path)
+		project, err = client.Workflow.CreateProjectFromDirectory(ctx, args[0], path)
+	} else {
+		// Create project from archive file
+		fmt.Printf("Creating project from archive file: %s\n", path)
+		archiveData, readErr := os.ReadFile(path)
+		if readErr != nil {
+			log.Fatalf("Failed to read archive file: %v", readErr)
+		}
+		project, err = client.Workflow.CreateProject(ctx, args[0], archiveData)
+	}
+
+	if err != nil {
+		handleError(err, "Failed to create workflow project", flags.Verbose)
+	}
+
+	fmt.Printf("Project created successfully\n")
+	fmt.Printf("ID: %d\n", project.ID)
+	fmt.Printf("Name: %s\n", project.Name)
+	fmt.Printf("Revision: %s\n", project.Revision)
+}
+
+func handleWorkflowProjectWorkflows(ctx context.Context, client *td.Client, args []string, flags Flags) {
+	if len(args) < 1 {
+		log.Fatal("Project ID required")
+	}
+
+	projectID, err := strconv.Atoi(args[0])
+	if err != nil {
+		log.Fatalf("Invalid project ID: %s", args[0])
+	}
+
+	resp, err := client.Workflow.ListProjectWorkflows(ctx, projectID)
+	if err != nil {
+		handleError(err, "Failed to list project workflows", flags.Verbose)
+	}
+
+	switch flags.Format {
+	case "json":
+		printJSON(resp)
+	case "csv":
+		fmt.Println("id,name,project,status,created_at,updated_at")
+		for _, workflow := range resp.Workflows {
+			fmt.Printf("%d,%s,%s,%s,%s,%s\n",
+				workflow.ID, workflow.Name, workflow.Project, workflow.Status,
+				workflow.CreatedAt.Format("2006-01-02 15:04:05"),
+				workflow.UpdatedAt.Format("2006-01-02 15:04:05"))
+		}
+	default:
+		if len(resp.Workflows) == 0 {
+			fmt.Println("No workflows found in this project")
+			return
+		}
+
+		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+		fmt.Fprintln(w, "ID\tNAME\tSTATUS\tCREATED")
+		for _, workflow := range resp.Workflows {
+			fmt.Fprintf(w, "%d\t%s\t%s\t%s\n",
+				workflow.ID, workflow.Name, workflow.Status,
+				workflow.CreatedAt.Format("2006-01-02 15:04:05"))
+		}
+		w.Flush()
+		fmt.Printf("\nTotal: %d workflows\n", len(resp.Workflows))
+	}
+}
+
+func handleWorkflowProjectSecretsList(ctx context.Context, client *td.Client, args []string, flags Flags) {
+	if len(args) < 1 {
+		log.Fatal("Project ID required")
+	}
+
+	projectID, err := strconv.Atoi(args[0])
+	if err != nil {
+		log.Fatalf("Invalid project ID: %s", args[0])
+	}
+
+	resp, err := client.Workflow.GetProjectSecrets(ctx, projectID)
+	if err != nil {
+		handleError(err, "Failed to list project secrets", flags.Verbose)
+	}
+
+	switch flags.Format {
+	case "json":
+		printJSON(resp)
+	case "csv":
+		fmt.Println("key,value")
+		for key, value := range resp.Secrets {
+			fmt.Printf("%s,%s\n", key, value)
+		}
+	default:
+		if len(resp.Secrets) == 0 {
+			fmt.Println("No secrets found in this project")
+			return
+		}
+
+		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+		fmt.Fprintln(w, "KEY\tVALUE")
+		for key, value := range resp.Secrets {
+			fmt.Fprintf(w, "%s\t%s\n", key, value)
+		}
+		w.Flush()
+		fmt.Printf("\nTotal: %d secrets\n", len(resp.Secrets))
+	}
+}
+
+func handleWorkflowProjectSecretsSet(ctx context.Context, client *td.Client, args []string, flags Flags) {
+	if len(args) < 3 {
+		log.Fatal("Project ID, secret key, and secret value required")
+	}
+
+	projectID, err := strconv.Atoi(args[0])
+	if err != nil {
+		log.Fatalf("Invalid project ID: %s", args[0])
+	}
+
+	err = client.Workflow.SetProjectSecret(ctx, projectID, args[1], args[2])
+	if err != nil {
+		handleError(err, "Failed to set project secret", flags.Verbose)
+	}
+
+	fmt.Printf("Secret '%s' set successfully for project %d\n", args[1], projectID)
+}
+
+func handleWorkflowProjectSecretsDelete(ctx context.Context, client *td.Client, args []string, flags Flags) {
+	if len(args) < 2 {
+		log.Fatal("Project ID and secret key required")
+	}
+
+	projectID, err := strconv.Atoi(args[0])
+	if err != nil {
+		log.Fatalf("Invalid project ID: %s", args[0])
+	}
+
+	err = client.Workflow.DeleteProjectSecret(ctx, projectID, args[1])
+	if err != nil {
+		handleError(err, "Failed to delete project secret", flags.Verbose)
+	}
+
+	fmt.Printf("Secret '%s' deleted successfully from project %d\n", args[1], projectID)
 }
