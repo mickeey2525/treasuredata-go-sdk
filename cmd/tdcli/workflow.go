@@ -9,9 +9,16 @@ import (
 	"strconv"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	td "github.com/mickeey2525/treasuredata-go-sdk"
 )
+
+// formatTimeJST formats time in JST timezone for display
+func formatTimeJST(t time.Time) string {
+	jst := time.FixedZone("JST", 9*3600) // JST is UTC+9
+	return t.In(jst).Format("2006-01-02 15:04:05")
+}
 
 // Workflow handlers
 func handleWorkflowList(ctx context.Context, client *td.Client, flags Flags) {
@@ -652,8 +659,8 @@ func handleWorkflowProjectList(ctx context.Context, client *td.Client, flags Fla
 		for _, project := range resp.Projects {
 			fmt.Printf("%d,%s,%s,%s,%s,%s\n",
 				project.ID, project.Name, project.Revision, project.ArchiveType,
-				project.CreatedAt.Format("2006-01-02 15:04:05"),
-				project.UpdatedAt.Format("2006-01-02 15:04:05"))
+				formatTimeJST(project.CreatedAt.Time),
+				formatTimeJST(project.UpdatedAt.Time))
 		}
 	default:
 		if len(resp.Projects) == 0 {
@@ -666,7 +673,7 @@ func handleWorkflowProjectList(ctx context.Context, client *td.Client, flags Fla
 		for _, project := range resp.Projects {
 			fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\n",
 				project.ID, project.Name, project.Revision, project.ArchiveType,
-				project.CreatedAt.Format("2006-01-02 15:04:05"))
+				formatTimeJST(project.CreatedAt.Time))
 		}
 		w.Flush()
 		fmt.Printf("\nTotal: %d projects\n", len(resp.Projects))
@@ -695,13 +702,13 @@ func handleWorkflowProjectGet(ctx context.Context, client *td.Client, args []str
 		fmt.Println("id,name,revision,archive_type,archive_md5,created_at,updated_at,deleted_at")
 		deletedAt := ""
 		if project.DeletedAt != nil {
-			deletedAt = project.DeletedAt.Format("2006-01-02 15:04:05")
+			deletedAt = formatTimeJST(project.DeletedAt.Time)
 		}
 		fmt.Printf("%d,%s,%s,%s,%s,%s,%s,%s\n",
 			project.ID, project.Name, project.Revision, project.ArchiveType,
 			project.ArchiveMD5,
-			project.CreatedAt.Format("2006-01-02 15:04:05"),
-			project.UpdatedAt.Format("2006-01-02 15:04:05"),
+			formatTimeJST(project.CreatedAt.Time),
+			formatTimeJST(project.UpdatedAt.Time),
 			deletedAt)
 	default:
 		fmt.Printf("ID: %d\n", project.ID)
@@ -709,10 +716,10 @@ func handleWorkflowProjectGet(ctx context.Context, client *td.Client, args []str
 		fmt.Printf("Revision: %s\n", project.Revision)
 		fmt.Printf("Archive Type: %s\n", project.ArchiveType)
 		fmt.Printf("Archive MD5: %s\n", project.ArchiveMD5)
-		fmt.Printf("Created: %s\n", project.CreatedAt.Format("2006-01-02 15:04:05"))
-		fmt.Printf("Updated: %s\n", project.UpdatedAt.Format("2006-01-02 15:04:05"))
+		fmt.Printf("Created: %s\n", formatTimeJST(project.CreatedAt.Time))
+		fmt.Printf("Updated: %s\n", formatTimeJST(project.UpdatedAt.Time))
 		if project.DeletedAt != nil {
-			fmt.Printf("Deleted: %s\n", project.DeletedAt.Format("2006-01-02 15:04:05"))
+			fmt.Printf("Deleted: %s\n", formatTimeJST(project.DeletedAt.Time))
 		}
 	}
 }
