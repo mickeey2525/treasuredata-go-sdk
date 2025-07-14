@@ -565,8 +565,8 @@ func printActivationDetails(activation *td.CDPActivation, flags Flags) {
 				if exec.FinishedAt != nil {
 					finishedTime = exec.FinishedAt.Format("2006-01-02 15:04:05")
 				}
-				fmt.Printf("  %s: %s -> %s (%s)\n", 
-					exec.SyndicationID, exec.CreatedAt.Format("2006-01-02 15:04:05"), 
+				fmt.Printf("  %s: %s -> %s (%s)\n",
+					exec.SyndicationID, exec.CreatedAt.Format("2006-01-02 15:04:05"),
 					finishedTime, exec.Status)
 			}
 		}
@@ -2810,7 +2810,7 @@ func handleCDPUpdateEntityFunnel(ctx context.Context, client *td.Client, args []
 		if len(parts) != 2 {
 			log.Fatalf("Invalid update format: %s (expected key=value)", arg)
 		}
-		
+
 		switch parts[0] {
 		case "stages":
 			var stages []interface{}

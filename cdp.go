@@ -13,27 +13,27 @@ type CDPService struct {
 
 // CDPSegment represents a customer segment in CDP
 type CDPSegment struct {
-	ID               string  `json:"id"`
-	AudienceID       string  `json:"audienceId"`
-	Name             string  `json:"name"`
-	Description      string  `json:"description"`
-	Realtime         bool    `json:"realtime"`
-	IsVisible        bool    `json:"isVisible"`
-	NumSyndications  int     `json:"numSyndications"`
-	SegmentFolderID  string  `json:"segmentFolderId,omitempty"`
-	Population       int64   `json:"population"`
-	CreatedAt        TDTime  `json:"createdAt"`
-	UpdatedAt        TDTime  `json:"updatedAt"`
-	CreatedBy        *CDPUser `json:"createdBy,omitempty"`
-	UpdatedBy        *CDPUser `json:"updatedBy,omitempty"`
-	Kind             int     `json:"kind"`
-	Rule             interface{} `json:"rule,omitempty"`
+	ID              string      `json:"id"`
+	AudienceID      string      `json:"audienceId"`
+	Name            string      `json:"name"`
+	Description     string      `json:"description"`
+	Realtime        bool        `json:"realtime"`
+	IsVisible       bool        `json:"isVisible"`
+	NumSyndications int         `json:"numSyndications"`
+	SegmentFolderID string      `json:"segmentFolderId,omitempty"`
+	Population      int64       `json:"population"`
+	CreatedAt       TDTime      `json:"createdAt"`
+	UpdatedAt       TDTime      `json:"updatedAt"`
+	CreatedBy       *CDPUser    `json:"createdBy,omitempty"`
+	UpdatedBy       *CDPUser    `json:"updatedBy,omitempty"`
+	Kind            int         `json:"kind"`
+	Rule            interface{} `json:"rule,omitempty"`
 	// Legacy fields for compatibility
-	Query            string  `json:"query,omitempty"`
-	ProfileCount     int64   `json:"profile_count,omitempty"`
-	FolderID         string  `json:"folder_id,omitempty"`
-	Status           string  `json:"status,omitempty"`
-	QueryID          string  `json:"query_id,omitempty"`
+	Query        string `json:"query,omitempty"`
+	ProfileCount int64  `json:"profile_count,omitempty"`
+	FolderID     string `json:"folder_id,omitempty"`
+	Status       string `json:"status,omitempty"`
+	QueryID      string `json:"query_id,omitempty"`
 }
 
 // CDPSegmentFolder represents a segment folder in CDP
@@ -239,17 +239,17 @@ type CDPBehaviorSchemaField struct {
 
 // CDPActivationColumn represents a column mapping in an activation
 type CDPActivationColumn struct {
-	ID     string                         `json:"id"`
-	Column string                         `json:"column"`
-	Source CDPActivationColumnSource      `json:"source"`
+	ID     string                    `json:"id"`
+	Column string                    `json:"column"`
+	Source CDPActivationColumnSource `json:"source"`
 }
 
 // CDPActivationColumnSource represents the source mapping for an activation column
 type CDPActivationColumnSource struct {
-	Column     string                              `json:"column,omitempty"`
-	Parameters []CDPActivationColumnParameter     `json:"parameters,omitempty"`
-	String     string                             `json:"string,omitempty"`
-	Functions  []interface{}                      `json:"functions,omitempty"`
+	Column     string                         `json:"column,omitempty"`
+	Parameters []CDPActivationColumnParameter `json:"parameters,omitempty"`
+	String     string                         `json:"string,omitempty"`
+	Functions  []interface{}                  `json:"functions,omitempty"`
 }
 
 // CDPActivationColumnParameter represents a parameter in an activation column source
@@ -261,31 +261,31 @@ type CDPActivationColumnParameter struct {
 
 // CDPActivation represents an activation configuration
 type CDPActivation struct {
-	ID                     string                 `json:"id"`
-	Name                   string                 `json:"name"`
-	Type                   string                 `json:"type"`
-	Description            string                 `json:"description"`
-	SegmentID              string                 `json:"segmentId"`
-	AudienceID             string                 `json:"audienceId"`
-	ActivationTemplateID   string                 `json:"activationTemplateId"`
-	AllColumns             bool                   `json:"allColumns"`
-	ConnectionID           string                 `json:"connectionId"`
-	ScheduleType           string                 `json:"scheduleType"`
-	ScheduleOption         *string                `json:"scheduleOption"`
-	RepeatSubFrequency     []int                  `json:"repeatSubFrequency"`
-	Timezone               string                 `json:"timezone"`
-	CreatedBy              *CDPUser               `json:"createdBy"`
-	UpdatedBy              *CDPUser               `json:"updatedBy"`
-	NotifyOn               []string               `json:"notifyOn"`
-	EmailRecipients        []int                  `json:"emailRecipients"`
-	ConnectorConfig        map[string]interface{} `json:"connectorConfig"`
-	Columns                []CDPActivationColumn  `json:"columns"`
-	Valid                  bool                   `json:"valid"`
-	Executions             []CDPActivationExecution `json:"executions"`
-	Configuration          map[string]interface{} `json:"configuration"`
-	Status                 string                 `json:"status"`
-	CreatedAt              TDTime                 `json:"createdAt"`
-	UpdatedAt              TDTime                 `json:"updatedAt"`
+	ID                   string                   `json:"id"`
+	Name                 string                   `json:"name"`
+	Type                 string                   `json:"type"`
+	Description          string                   `json:"description"`
+	SegmentID            string                   `json:"segmentId"`
+	AudienceID           string                   `json:"audienceId"`
+	ActivationTemplateID string                   `json:"activationTemplateId"`
+	AllColumns           bool                     `json:"allColumns"`
+	ConnectionID         string                   `json:"connectionId"`
+	ScheduleType         string                   `json:"scheduleType"`
+	ScheduleOption       *string                  `json:"scheduleOption"`
+	RepeatSubFrequency   []int                    `json:"repeatSubFrequency"`
+	Timezone             string                   `json:"timezone"`
+	CreatedBy            *CDPUser                 `json:"createdBy"`
+	UpdatedBy            *CDPUser                 `json:"updatedBy"`
+	NotifyOn             []string                 `json:"notifyOn"`
+	EmailRecipients      []int                    `json:"emailRecipients"`
+	ConnectorConfig      map[string]interface{}   `json:"connectorConfig"`
+	Columns              []CDPActivationColumn    `json:"columns"`
+	Valid                bool                     `json:"valid"`
+	Executions           []CDPActivationExecution `json:"executions"`
+	Configuration        map[string]interface{}   `json:"configuration"`
+	Status               string                   `json:"status"`
+	CreatedAt            TDTime                   `json:"createdAt"`
+	UpdatedAt            TDTime                   `json:"updatedAt"`
 	// Legacy fields for compatibility
 	Audience_ID string `json:"audience_id,omitempty"`
 }
@@ -301,9 +301,9 @@ type CDPActivationExecution struct {
 	FinishedAt        *TDTime `json:"finishedAt"`
 	Status            string  `json:"status"`
 	// Legacy fields for compatibility
-	ActivationID    string  `json:"activation_id,omitempty"`
-	RecordsExported int64   `json:"records_exported,omitempty"`
-	ErrorMessage    string  `json:"error_message,omitempty"`
+	ActivationID    string `json:"activation_id,omitempty"`
+	RecordsExported int64  `json:"records_exported,omitempty"`
+	ErrorMessage    string `json:"error_message,omitempty"`
 }
 
 // CDPSegmentListOptions specifies optional parameters to Segment List method
@@ -1167,7 +1167,6 @@ func (s *CDPService) GetActivation(ctx context.Context, audienceID, segmentID, a
 
 	return &activation, nil
 }
-
 
 // UpdateActivationStatus updates the status of an activation (syndication)
 func (s *CDPService) UpdateActivationStatus(ctx context.Context, audienceID, segmentID, activationID, status string) (*CDPActivation, error) {

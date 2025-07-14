@@ -373,16 +373,27 @@ func handleAccessControlUserList(ctx context.Context, client *td.Client, flags F
 
 	var userDetailsMap map[int]td.User
 	if flags.WithDetails {
-		// Fetch all users to get email and name information
+		// Only fetch user details for the access control users we have
+		userDetailsMap = make(map[int]td.User)
+
+		// Get all users first to avoid N+1 query problem
+		// TODO: Add a method to get user details by specific IDs to optimize further
 		allUsers, err := client.Users.List(ctx)
 		if err != nil && flags.Verbose {
 			fmt.Printf("Warning: Failed to fetch user details: %v\n", err)
-		}
+		} else {
+			// Create a set of user IDs we need
+			neededUserIDs := make(map[int]bool)
+			for _, user := range users {
+				neededUserIDs[user.UserID] = true
+			}
 
-		// Create a map for quick lookup of user details by ID
-		userDetailsMap = make(map[int]td.User)
-		for _, user := range allUsers {
-			userDetailsMap[user.ID] = user
+			// Only add users we actually need to the map
+			for _, user := range allUsers {
+				if neededUserIDs[user.ID] {
+					userDetailsMap[user.ID] = user
+				}
+			}
 		}
 	}
 

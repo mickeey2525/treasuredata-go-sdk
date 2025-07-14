@@ -10,25 +10,88 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
+	"regexp"
 	"strings"
 )
 
+// validateCronExpression validates a cron expression
+func validateCronExpression(cron string) error {
+	// Basic cron expression validation
+	// Standard cron format: minute hour day month weekday
+	// Extended format with seconds: second minute hour day month weekday
+	// Special strings: @yearly, @annually, @monthly, @weekly, @daily, @midnight, @hourly
+
+	// Check for special strings first
+	specialStrings := []string{"@yearly", "@annually", "@monthly", "@weekly", "@daily", "@midnight", "@hourly"}
+	for _, special := range specialStrings {
+		if cron == special {
+			return nil
+		}
+	}
+
+	// Split cron expression into fields
+	fields := strings.Fields(cron)
+	if len(fields) < 5 || len(fields) > 6 {
+		return fmt.Errorf("cron expression must have 5 or 6 fields, got %d", len(fields))
+	}
+
+	// Basic validation for each field
+	for i, field := range fields {
+		if field == "" {
+			return fmt.Errorf("field %d cannot be empty", i+1)
+		}
+		// Allow common cron characters
+		if !regexp.MustCompile(`^[\*0-9,\-\/]+$`).MatchString(field) {
+			return fmt.Errorf("field %d contains invalid characters: %s", i+1, field)
+		}
+	}
+
+	return nil
+}
+
 // createTarGz creates a tar.gz archive from a directory
 func createTarGz(sourceDir string) ([]byte, error) {
-	var buf bytes.Buffer
+	// Define reasonable limits
+	const (
+		maxFileSize  = 100 * 1024 * 1024 // 100MB per file
+		maxTotalSize = 500 * 1024 * 1024 // 500MB total archive size
+		maxFiles     = 10000             // Maximum number of files
+	)
+
+	var (
+		buf       bytes.Buffer
+		totalSize int64
+		fileCount int
+	)
+
+	// Ensure sourceDir is absolute
+	absSourceDir, err := filepath.Abs(sourceDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
 	gw := gzip.NewWriter(&buf)
 	tw := tar.NewWriter(gw)
 
-	err := filepath.Walk(sourceDir, func(filePath string, info os.FileInfo, err error) error {
+	err = filepath.Walk(absSourceDir, func(filePath string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 
+		// Security check: reject symlinks
+		if info.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("symlinks not allowed: %s", filePath)
+		}
+
 		// Get relative path
-		relPath, err := filepath.Rel(sourceDir, filePath)
+		relPath, err := filepath.Rel(absSourceDir, filePath)
 		if err != nil {
 			return err
+		}
+
+		// Security check: ensure path doesn't escape source directory
+		if strings.HasPrefix(relPath, "..") || filepath.IsAbs(relPath) {
+			return fmt.Errorf("path traversal detected: %s", relPath)
 		}
 
 		// Skip hidden files and directories (starting with .)
@@ -37,6 +100,23 @@ func createTarGz(sourceDir string) ([]byte, error) {
 				return filepath.SkipDir
 			}
 			return nil
+		}
+
+		// Check file count limit
+		fileCount++
+		if fileCount > maxFiles {
+			return fmt.Errorf("too many files: maximum %d files allowed", maxFiles)
+		}
+
+		// Check file size limit
+		if info.Mode().IsRegular() && info.Size() > maxFileSize {
+			return fmt.Errorf("file too large: %s (size: %d bytes, max: %d bytes)", filePath, info.Size(), maxFileSize)
+		}
+
+		// Check total size limit
+		totalSize += info.Size()
+		if totalSize > maxTotalSize {
+			return fmt.Errorf("archive too large: total size %d bytes exceeds maximum %d bytes", totalSize, maxTotalSize)
 		}
 
 		// Create tar header
@@ -59,10 +139,16 @@ func createTarGz(sourceDir string) ([]byte, error) {
 			if err != nil {
 				return err
 			}
-			defer file.Close()
 
-			if _, err := io.Copy(tw, file); err != nil {
-				return err
+			// Ensure file is closed even if io.Copy fails
+			_, copyErr := io.Copy(tw, file)
+			closeErr := file.Close()
+
+			if copyErr != nil {
+				return copyErr
+			}
+			if closeErr != nil {
+				return closeErr
 			}
 		}
 
@@ -251,6 +337,11 @@ func (s *WorkflowService) ListWorkflows(ctx context.Context, opts *WorkflowListO
 
 // GetWorkflow retrieves a specific workflow by ID
 func (s *WorkflowService) GetWorkflow(ctx context.Context, workflowID int) (*Workflow, error) {
+	// Validate input
+	if workflowID <= 0 {
+		return nil, NewValidationError("workflowID", workflowID, "must be a positive integer")
+	}
+
 	u := fmt.Sprintf("api/workflows/%d", workflowID)
 
 	req, err := s.client.NewWorkflowRequest("GET", u, nil)
@@ -269,6 +360,11 @@ func (s *WorkflowService) GetWorkflow(ctx context.Context, workflowID int) (*Wor
 
 // StartWorkflow starts a workflow manually
 func (s *WorkflowService) StartWorkflow(ctx context.Context, workflowID int, params map[string]interface{}) (*WorkflowAttempt, error) {
+	// Validate input
+	if workflowID <= 0 {
+		return nil, NewValidationError("workflowID", workflowID, "must be a positive integer")
+	}
+
 	u := fmt.Sprintf("api/workflows/%d/attempts", workflowID)
 
 	body := map[string]interface{}{}
@@ -332,6 +428,14 @@ func (s *WorkflowService) GetWorkflowAttempt(ctx context.Context, workflowID int
 
 // KillWorkflowAttempt kills a running workflow attempt
 func (s *WorkflowService) KillWorkflowAttempt(ctx context.Context, workflowID int, attemptID int) error {
+	// Validate input
+	if workflowID <= 0 {
+		return NewValidationError("workflowID", workflowID, "must be a positive integer")
+	}
+	if attemptID <= 0 {
+		return NewValidationError("attemptID", attemptID, "must be a positive integer")
+	}
+
 	u := fmt.Sprintf("api/workflows/%d/attempts/%d/kill", workflowID, attemptID)
 
 	req, err := s.client.NewWorkflowRequest("POST", u, nil)
@@ -345,7 +449,13 @@ func (s *WorkflowService) KillWorkflowAttempt(ctx context.Context, workflowID in
 	}
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
-		return fmt.Errorf("failed to kill workflow attempt: workflow_id=%d, attempt_id=%d", workflowID, attemptID)
+		return &WorkflowError{
+			Operation:  "kill workflow attempt",
+			WorkflowID: workflowID,
+			AttemptID:  attemptID,
+			StatusCode: resp.StatusCode,
+			Response:   resp,
+		}
 	}
 
 	return nil
@@ -504,6 +614,23 @@ func (s *WorkflowService) DisableWorkflowSchedule(ctx context.Context, workflowI
 
 // UpdateWorkflowSchedule updates the schedule for a workflow
 func (s *WorkflowService) UpdateWorkflowSchedule(ctx context.Context, workflowID int, cron, timezone string, delay int) (*WorkflowSchedule, error) {
+	// Validate input
+	if workflowID <= 0 {
+		return nil, NewValidationError("workflowID", workflowID, "must be a positive integer")
+	}
+	if cron == "" {
+		return nil, NewValidationError("cron", cron, "cannot be empty")
+	}
+	if err := validateCronExpression(cron); err != nil {
+		return nil, NewValidationError("cron", cron, err.Error())
+	}
+	if timezone == "" {
+		return nil, NewValidationError("timezone", timezone, "cannot be empty")
+	}
+	if delay < 0 {
+		return nil, NewValidationError("delay", delay, "cannot be negative")
+	}
+
 	u := fmt.Sprintf("api/workflows/%d/schedule", workflowID)
 
 	body := map[string]interface{}{
@@ -528,7 +655,18 @@ func (s *WorkflowService) UpdateWorkflowSchedule(ctx context.Context, workflowID
 
 // CreateWorkflow creates a new workflow
 func (s *WorkflowService) CreateWorkflow(ctx context.Context, name, project, config string) (*Workflow, error) {
-	u := fmt.Sprintf("api/workflows")
+	// Validate input
+	if name == "" {
+		return nil, NewValidationError("name", name, "cannot be empty")
+	}
+	if project == "" {
+		return nil, NewValidationError("project", project, "cannot be empty")
+	}
+	if config == "" {
+		return nil, NewValidationError("config", config, "cannot be empty")
+	}
+
+	u := "api/workflows"
 
 	body := map[string]string{
 		"name":    name,
@@ -570,6 +708,11 @@ func (s *WorkflowService) UpdateWorkflow(ctx context.Context, workflowID int, up
 
 // DeleteWorkflow deletes a workflow
 func (s *WorkflowService) DeleteWorkflow(ctx context.Context, workflowID int) error {
+	// Validate input
+	if workflowID <= 0 {
+		return NewValidationError("workflowID", workflowID, "must be a positive integer")
+	}
+
 	u := fmt.Sprintf("api/workflows/%d", workflowID)
 
 	req, err := s.client.NewWorkflowRequest("DELETE", u, nil)
@@ -583,7 +726,12 @@ func (s *WorkflowService) DeleteWorkflow(ctx context.Context, workflowID int) er
 	}
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
-		return fmt.Errorf("failed to delete workflow: %s", strconv.Itoa(workflowID))
+		return &WorkflowError{
+			Operation:  "delete workflow",
+			WorkflowID: workflowID,
+			StatusCode: resp.StatusCode,
+			Response:   resp,
+		}
 	}
 
 	return nil
@@ -692,6 +840,14 @@ func (s *WorkflowService) GetProjectSecrets(ctx context.Context, projectID int) 
 
 // SetProjectSecret sets a secret for a project
 func (s *WorkflowService) SetProjectSecret(ctx context.Context, projectID int, key, value string) error {
+	// Validate input
+	if projectID <= 0 {
+		return NewValidationError("projectID", projectID, "must be a positive integer")
+	}
+	if key == "" {
+		return NewValidationError("key", key, "cannot be empty")
+	}
+
 	u := fmt.Sprintf("api/projects/%d/secrets/%s", projectID, key)
 
 	body := map[string]string{
@@ -709,7 +865,13 @@ func (s *WorkflowService) SetProjectSecret(ctx context.Context, projectID int, k
 	}
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
-		return fmt.Errorf("failed to set project secret: project_id=%d, key=%s", projectID, key)
+		return &WorkflowError{
+			Operation:  "set project secret",
+			ProjectID:  projectID,
+			StatusCode: resp.StatusCode,
+			Message:    fmt.Sprintf("key=%s", key),
+			Response:   resp,
+		}
 	}
 
 	return nil

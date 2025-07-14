@@ -646,8 +646,8 @@ func (c *CDPSegmentsFoldersCmd) Run(ctx *CLIContext) error {
 }
 
 type CDPSegmentsQueryCmd struct {
-	AudienceID    string `kong:"arg,help='Audience ID'"`
-	SegmentRules  string `kong:"arg,help='Segment rules JSON'"`
+	AudienceID   string `kong:"arg,help='Audience ID'"`
+	SegmentRules string `kong:"arg,help='Segment rules JSON'"`
 }
 
 func (c *CDPSegmentsQueryCmd) Run(ctx *CLIContext) error {
