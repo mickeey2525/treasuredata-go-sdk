@@ -95,13 +95,12 @@ func (d *DatabasesUpdateCmd) Run(ctx *CLIContext) error {
 
 // Table commands
 type TablesCmd struct {
-	List          TablesListCmd          `kong:"cmd,aliases='ls',help='List tables in database'"`
-	Get           TablesGetCmd           `kong:"cmd,aliases='show',help='Get table details'"`
-	Create        TablesCreateCmd        `kong:"cmd,help='Create a table'"`
-	Delete        TablesDeleteCmd        `kong:"cmd,aliases='rm',help='Delete a table'"`
-	Swap          TablesSwapCmd          `kong:"cmd,help='Swap two tables'"`
-	Rename        TablesRenameCmd        `kong:"cmd,aliases='mv',help='Rename a table'"`
-	PartialDelete TablesPartialDeleteCmd `kong:"cmd,help='Delete partial data'"`
+	List   TablesListCmd   `kong:"cmd,aliases='ls',help='List tables in database'"`
+	Get    TablesGetCmd    `kong:"cmd,aliases='show',help='Get table details'"`
+	Create TablesCreateCmd `kong:"cmd,help='Create a table'"`
+	Delete TablesDeleteCmd `kong:"cmd,aliases='rm',help='Delete a table'"`
+	Swap   TablesSwapCmd   `kong:"cmd,help='Swap two tables'"`
+	Rename TablesRenameCmd `kong:"cmd,aliases='mv',help='Rename a table'"`
 }
 
 type TablesListCmd struct {
@@ -162,16 +161,6 @@ type TablesRenameCmd struct {
 
 func (t *TablesRenameCmd) Run(ctx *CLIContext) error {
 	handleTableRename(ctx.Context, ctx.Client, []string{t.Database, t.OldName, t.NewName}, ctx.GlobalFlags)
-	return nil
-}
-
-type TablesPartialDeleteCmd struct {
-	Database string `kong:"arg,help='Database name'"`
-	Table    string `kong:"arg,help='Table name'"`
-}
-
-func (t *TablesPartialDeleteCmd) Run(ctx *CLIContext) error {
-	handleTablePartialDelete(ctx.Context, ctx.Client, []string{t.Database, t.Table}, ctx.GlobalFlags)
 	return nil
 }
 

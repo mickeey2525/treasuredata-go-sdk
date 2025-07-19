@@ -146,12 +146,6 @@ err := client.Tables.Swap(ctx, "my_database", "table1", "table2")
 // Rename a table
 err := client.Tables.Rename(ctx, "my_database", "old_name", "new_name")
 
-// Partial delete
-opts := &td.PartialDeleteOptions{
-    From: 1609459200, // Unix timestamp
-    To:   1609545600,
-}
-resp, err := client.Tables.PartialDelete(ctx, "my_database", "my_table", opts)
 ```
 
 ### Query Execution
