@@ -86,6 +86,7 @@ func handleQuerySubmit(ctx context.Context, client *td.Client, args []string, fl
 
 	query := args[0]
 	database := flags.Database
+	var engine td.QueryType
 
 	if database == "" {
 		fmt.Println("Error: Database name required")
@@ -93,15 +94,27 @@ func handleQuerySubmit(ctx context.Context, client *td.Client, args []string, fl
 		os.Exit(1)
 	}
 
-	// Determine query engine
-	var engine td.QueryType
-	switch strings.ToLower(os.Getenv("TD_QUERY_ENGINE")) {
-	case "hive":
-		engine = td.QueryTypeHive
-	case "presto":
-		engine = td.QueryTypePresto
-	default:
-		engine = td.QueryTypeTrino // Default to Trino
+	// Determine query engine - check flag first, then env var, then default
+	if flags.Engine != "" {
+		switch strings.ToLower(flags.Engine) {
+		case "hive":
+			engine = td.QueryTypeHive
+		case "presto":
+			engine = td.QueryTypePresto
+		case "trino":
+			engine = td.QueryTypeTrino
+		default:
+			engine = td.QueryTypeTrino
+		}
+	} else {
+		switch strings.ToLower(os.Getenv("TD_QUERY_ENGINE")) {
+		case "hive":
+			engine = td.QueryTypeHive
+		case "presto":
+			engine = td.QueryTypePresto
+		default:
+			engine = td.QueryTypeTrino // Default to Trino
+		}
 	}
 
 	opts := &td.IssueQueryOptions{

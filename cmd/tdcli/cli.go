@@ -197,6 +197,7 @@ func (q *QuerySubmitCmd) Run(ctx *CLIContext) error {
 	// Set database in global flags for compatibility
 	ctx.GlobalFlags.Database = q.Database
 	ctx.GlobalFlags.Priority = q.Priority
+	ctx.GlobalFlags.Engine = q.Engine
 	handleQuerySubmit(ctx.Context, ctx.Client, []string{q.Query}, ctx.GlobalFlags)
 	return nil
 }
@@ -549,6 +550,7 @@ type Flags struct {
 	Priority    int
 	Limit       int
 	WithDetails bool
+	Engine      string
 }
 
 // Context structure for command execution
