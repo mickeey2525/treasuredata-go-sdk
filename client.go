@@ -298,6 +298,34 @@ func (c *Client) NewCDPRequest(method, urlStr string, body interface{}) (*http.R
 	return req, nil
 }
 
+// NewWorkflowBinaryRequest creates a workflow API request for binary data
+func (c *Client) NewWorkflowBinaryRequest(method, urlStr string, data []byte, contentType string) (*http.Request, error) {
+	u, err := c.WorkflowURL.Parse(urlStr)
+	if err != nil {
+		return nil, err
+	}
+
+	var body io.Reader
+	if data != nil {
+		body = bytes.NewReader(data)
+	}
+
+	req, err := http.NewRequest(method, u.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	if data != nil && contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+
+	req.Header.Set("Authorization", fmt.Sprintf("TD1 %s", c.APIKey))
+	req.Header.Set("User-Agent", c.UserAgent)
+	req.Header.Set("Accept", "application/json")
+
+	return req, nil
+}
+
 // NewCDPJSONAPIRequest creates an API request for CDP JSON:API endpoints
 func (c *Client) NewCDPJSONAPIRequest(method, urlStr string, body interface{}) (*http.Request, error) {
 	u, err := c.CDPURL.Parse(urlStr)

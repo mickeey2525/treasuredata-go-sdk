@@ -5,6 +5,8 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
@@ -779,11 +781,27 @@ func (s *WorkflowService) GetProject(ctx context.Context, projectID string) (*Wo
 	return &project, nil
 }
 
-// CreateProject creates a new workflow project
+// CreateProject creates a new workflow project with auto-generated revision based on content hash
 func (s *WorkflowService) CreateProject(ctx context.Context, name string, archive []byte) (*WorkflowProject, error) {
-	u := fmt.Sprintf("api/projects?project=%s", name)
+	// Generate MD5 hash of the archive content as revision
+	hash := md5.Sum(archive)
+	revision := hex.EncodeToString(hash[:])
 
-	req, err := s.client.NewWorkflowRequest("PUT", u, archive)
+	return s.CreateProjectWithRevision(ctx, name, revision, archive)
+}
+
+// CreateProjectWithRevision creates a new workflow project with a specific revision
+func (s *WorkflowService) CreateProjectWithRevision(ctx context.Context, name, revision string, archive []byte) (*WorkflowProject, error) {
+	// If revision is empty, generate it from content hash
+	if revision == "" {
+		hash := md5.Sum(archive)
+		revision = hex.EncodeToString(hash[:])
+	}
+
+	u := fmt.Sprintf("api/projects?project=%s&revision=%s", name, revision)
+
+	// Use binary request with appropriate content type for tar.gz archives
+	req, err := s.client.NewWorkflowBinaryRequest("PUT", u, archive, "application/gzip")
 	if err != nil {
 		return nil, err
 	}
@@ -797,7 +815,7 @@ func (s *WorkflowService) CreateProject(ctx context.Context, name string, archiv
 	return &project, nil
 }
 
-// CreateProjectFromDirectory creates a new workflow project from a directory
+// CreateProjectFromDirectory creates a new workflow project from a directory with auto-generated revision
 func (s *WorkflowService) CreateProjectFromDirectory(ctx context.Context, name string, dirPath string) (*WorkflowProject, error) {
 	// Create tar.gz archive from directory
 	archive, err := createTarGz(dirPath)
@@ -805,7 +823,23 @@ func (s *WorkflowService) CreateProjectFromDirectory(ctx context.Context, name s
 		return nil, fmt.Errorf("failed to create archive from directory %s: %w", dirPath, err)
 	}
 
-	return s.CreateProject(ctx, name, archive)
+	// Generate MD5 hash of the archive content as revision
+	hash := md5.Sum(archive)
+	revision := hex.EncodeToString(hash[:])
+
+	return s.CreateProjectWithRevision(ctx, name, revision, archive)
+}
+
+// CreateProjectFromDirectoryWithRevision creates a new workflow project from a directory with a specific revision
+func (s *WorkflowService) CreateProjectFromDirectoryWithRevision(ctx context.Context, name, revision, dirPath string) (*WorkflowProject, error) {
+	// Create tar.gz archive from directory
+	archive, err := createTarGz(dirPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create archive from directory %s: %w", dirPath, err)
+	}
+
+	// If revision is empty, it will be auto-generated in CreateProjectWithRevision
+	return s.CreateProjectWithRevision(ctx, name, revision, archive)
 }
 
 // ListProjectWorkflows returns a list of workflows for a specific project

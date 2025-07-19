@@ -2,6 +2,8 @@ package treasuredata
 
 import (
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -10,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -1112,9 +1115,14 @@ func TestWorkflowService_CreateProject(t *testing.T) {
 	client, mux, teardown := setup()
 	defer teardown()
 
+	// Calculate expected MD5 hash for test archive data
+	archive := []byte("sample archive data")
+	hash := md5.Sum(archive)
+	expectedRevision := hex.EncodeToString(hash[:])
+
 	mux.HandleFunc("/api/projects", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "PUT")
-		testURL(t, r, "/api/projects?project=new-project")
+		testURL(t, r, fmt.Sprintf("/api/projects?project=new-project&revision=%s", expectedRevision))
 
 		fmt.Fprint(w, `{
 			"id": "2",
@@ -1129,7 +1137,6 @@ func TestWorkflowService_CreateProject(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	archive := []byte("sample archive data")
 	project, err := client.Workflow.CreateProject(ctx, "new-project", archive)
 	if err != nil {
 		t.Errorf("Workflow.CreateProject returned error: %v", err)
@@ -1148,6 +1155,49 @@ func TestWorkflowService_CreateProject(t *testing.T) {
 
 	if !reflect.DeepEqual(project, want) {
 		t.Errorf("Workflow.CreateProject returned %+v, want %+v", project, want)
+	}
+}
+
+func TestWorkflowService_CreateProjectWithRevision(t *testing.T) {
+	client, mux, teardown := setup()
+	defer teardown()
+
+	mux.HandleFunc("/api/projects", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, "PUT")
+		testURL(t, r, "/api/projects?project=new-project&revision=v2.0")
+
+		fmt.Fprint(w, `{
+			"id": "2",
+			"name": "new-project",
+			"revision": "v2.0",
+			"archiveType": "db",
+			"archiveMd5": "new123archive456",
+			"createdAt": 1609459200,
+			"updatedAt": 1609459200,
+			"deletedAt": null
+		}`)
+	})
+
+	ctx := context.Background()
+	archive := []byte("sample archive data")
+	project, err := client.Workflow.CreateProjectWithRevision(ctx, "new-project", "v2.0", archive)
+	if err != nil {
+		t.Errorf("Workflow.CreateProjectWithRevision returned error: %v", err)
+	}
+
+	want := &WorkflowProject{
+		ID:          "2",
+		Name:        "new-project",
+		Revision:    "v2.0",
+		ArchiveType: "db",
+		ArchiveMD5:  "new123archive456",
+		CreatedAt:   TDTime{time.Unix(1609459200, 0)},
+		UpdatedAt:   TDTime{time.Unix(1609459200, 0)},
+		DeletedAt:   nil,
+	}
+
+	if !reflect.DeepEqual(project, want) {
+		t.Errorf("Workflow.CreateProjectWithRevision returned %+v, want %+v", project, want)
 	}
 }
 
@@ -1330,7 +1380,10 @@ func TestWorkflowService_CreateProjectFromDirectory(t *testing.T) {
 
 	mux.HandleFunc("/api/projects", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "PUT")
-		testURL(t, r, "/api/projects?project=test-project")
+		// We can't predict exact hash due to tar timestamps, so just check prefix
+		if !strings.HasPrefix(r.URL.String(), "/api/projects?project=test-project&revision=") {
+			t.Errorf("Expected URL to start with /api/projects?project=test-project&revision=, got %s", r.URL.String())
+		}
 
 		// Verify we received some archive data
 		if r.ContentLength == 0 {
@@ -1376,6 +1429,61 @@ func TestWorkflowService_CreateProjectFromDirectory(t *testing.T) {
 
 	if !reflect.DeepEqual(project, want) {
 		t.Errorf("Workflow.CreateProjectFromDirectory returned %+v, want %+v", project, want)
+	}
+}
+
+func TestWorkflowService_CreateProjectFromDirectoryWithRevision(t *testing.T) {
+	client, mux, teardown := setup()
+	defer teardown()
+
+	mux.HandleFunc("/api/projects", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, "PUT")
+		testURL(t, r, "/api/projects?project=test-project&revision=custom-rev")
+
+		// Verify we received some archive data
+		if r.ContentLength == 0 {
+			t.Error("Expected non-empty request body")
+		}
+
+		fmt.Fprint(w, `{
+			"id": "3",
+			"name": "test-project",
+			"revision": "custom-rev",
+			"archiveType": "db",
+			"archiveMd5": "directory123hash456",
+			"createdAt": 1609459200,
+			"updatedAt": 1609459200,
+			"deletedAt": null
+		}`)
+	})
+
+	// Create a temporary directory with test files
+	tempDir := t.TempDir()
+	testFile := filepath.Join(tempDir, "test.txt")
+	err := os.WriteFile(testFile, []byte("test content"), 0644)
+	if err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	ctx := context.Background()
+	project, err := client.Workflow.CreateProjectFromDirectoryWithRevision(ctx, "test-project", "custom-rev", tempDir)
+	if err != nil {
+		t.Errorf("Workflow.CreateProjectFromDirectoryWithRevision returned error: %v", err)
+	}
+
+	want := &WorkflowProject{
+		ID:          "3",
+		Name:        "test-project",
+		Revision:    "custom-rev",
+		ArchiveType: "db",
+		ArchiveMD5:  "directory123hash456",
+		CreatedAt:   TDTime{time.Unix(1609459200, 0)},
+		UpdatedAt:   TDTime{time.Unix(1609459200, 0)},
+		DeletedAt:   nil,
+	}
+
+	if !reflect.DeepEqual(project, want) {
+		t.Errorf("Workflow.CreateProjectFromDirectoryWithRevision returned %+v, want %+v", project, want)
 	}
 }
 
