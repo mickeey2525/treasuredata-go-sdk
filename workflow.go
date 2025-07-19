@@ -786,7 +786,7 @@ func (s *WorkflowService) CreateProject(ctx context.Context, name string, archiv
 	// Generate MD5 hash of the archive content as revision
 	hash := md5.Sum(archive)
 	revision := hex.EncodeToString(hash[:])
-	
+
 	return s.CreateProjectWithRevision(ctx, name, revision, archive)
 }
 
@@ -797,7 +797,7 @@ func (s *WorkflowService) CreateProjectWithRevision(ctx context.Context, name, r
 		hash := md5.Sum(archive)
 		revision = hex.EncodeToString(hash[:])
 	}
-	
+
 	u := fmt.Sprintf("api/projects?project=%s&revision=%s", name, revision)
 
 	// Use binary request with appropriate content type for tar.gz archives
@@ -826,7 +826,7 @@ func (s *WorkflowService) CreateProjectFromDirectory(ctx context.Context, name s
 	// Generate MD5 hash of the archive content as revision
 	hash := md5.Sum(archive)
 	revision := hex.EncodeToString(hash[:])
-	
+
 	return s.CreateProjectWithRevision(ctx, name, revision, archive)
 }
 
