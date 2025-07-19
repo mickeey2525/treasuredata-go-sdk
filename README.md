@@ -4,9 +4,38 @@ A Go client library for interacting with the Treasure Data REST API.
 
 ## Installation
 
+### Go SDK
+
 ```bash
 go get github.com/treasuredata/treasuredata-go-sdk
 ```
+
+### CLI Tool (tdcli)
+
+You can also install the command-line interface tool for direct API access:
+
+```bash
+go install github.com/treasuredata/treasuredata-go-sdk/cmd/tdcli@latest
+```
+
+The CLI provides convenient access to all Treasure Data API operations:
+
+```bash
+# Configure your API key
+export TD_API_KEY="your_account_id/your_api_key"
+
+# List databases
+tdcli databases list
+
+# Submit a query
+tdcli queries submit --database my_db --query "SELECT COUNT(*) FROM my_table"
+
+# Get help for any command
+tdcli --help
+tdcli databases --help
+```
+
+For more CLI usage examples, see the [CLI documentation](cmd/tdcli/README.md).
 
 ## Quick Start
 
