@@ -31,8 +31,6 @@ func handleTableCommands(ctx context.Context, client *td.Client, args []string, 
 		handleTableSwap(ctx, client, subArgs, flags)
 	case "rename", "mv":
 		handleTableRename(ctx, client, subArgs, flags)
-	case "partial-delete":
-		handleTablePartialDelete(ctx, client, subArgs, flags)
 	default:
 		fmt.Printf("Unknown table subcommand: %s\n", subcommand)
 		printTableUsage()
@@ -54,7 +52,6 @@ SUBCOMMANDS:
     delete, rm <database> <table> Delete a table
     swap <database> <table1> <table2>  Swap two tables
     rename, mv <database> <from> <to>  Rename a table
-    partial-delete <database> <table> Delete partial data
 
 OPTIONS:
     --database DATABASE   Database name (alternative to positional arg)
@@ -242,27 +239,6 @@ func handleTableRename(ctx context.Context, client *td.Client, args []string, fl
 		fmt.Printf("Renamed table: %s.%s -> %s.%s\n",
 			database, oldName, database, newName)
 	}
-}
-
-func handleTablePartialDelete(_ context.Context, _ *td.Client, args []string, _ Flags) {
-	if len(args) < 2 {
-		fmt.Println("Error: Database and table names required")
-		fmt.Println("Usage: tdcli table partial-delete <database> <table>")
-		os.Exit(1)
-	}
-
-	database := args[0]
-	tableName := args[1]
-
-	fmt.Printf("Partial delete for table '%s.%s'\n", database, tableName)
-	fmt.Println("Note: This command requires additional parameters like time range.")
-	fmt.Println("Please refer to the Treasure Data API documentation for partial delete options.")
-
-	// The actual implementation would require additional parameters like:
-	// - from time
-	// - to time
-	// - specific conditions
-	// This is left as a placeholder for now
 }
 
 func printTablesTable(tables []td.Table, database string) {

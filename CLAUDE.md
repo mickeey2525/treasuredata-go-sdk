@@ -70,7 +70,7 @@ Each service follows the same pattern:
 
 #### Services
 - **DatabasesService**: Database CRUD operations
-- **TablesService**: Table management including swap, rename, partial delete
+- **TablesService**: Table management including swap, rename
 - **QueriesService**: Query submission (Presto/Hive)
 - **JobsService**: Job lifecycle management and monitoring
 - **ResultsService**: Query result retrieval in multiple formats
@@ -150,8 +150,7 @@ tdcli
 │   ├── create                       # Create a new table
 │   ├── delete (rm)                  # Delete a table
 │   ├── swap                         # Swap two tables
-│   ├── rename (mv)                  # Rename a table
-│   └── partial-delete               # Delete partial data
+│   └── rename (mv)                  # Rename a table
 ├── queries (query, q)                # Query execution
 │   ├── submit (run)                 # Submit a query for execution
 │   ├── status                       # Check query execution status

@@ -205,47 +205,6 @@ func (s *TablesService) Rename(ctx context.Context, database, oldName, newName s
 	return nil
 }
 
-// PartialDeleteOptions represents options for partial deletion
-type PartialDeleteOptions struct {
-	From int64 `url:"from"`
-	To   int64 `url:"to"`
-}
-
-// PartialDeleteResponse represents the response from partial delete
-type PartialDeleteResponse struct {
-	JobID    string `json:"job_id"`
-	Database string `json:"database"`
-	Table    string `json:"table"`
-	From     int64  `json:"from"`
-	To       int64  `json:"to"`
-}
-
-// PartialDelete creates a job to partially delete table contents
-func (s *TablesService) PartialDelete(ctx context.Context, database, table string, opts *PartialDeleteOptions) (*PartialDeleteResponse, error) {
-	u := fmt.Sprintf("%s/table/partialdelete/%s/%s", apiVersion, database, table)
-
-	if opts != nil {
-		var err error
-		u, err = addOptions(u, opts)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	req, err := s.client.NewRequest("POST", u, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	var resp PartialDeleteResponse
-	_, err = s.client.Do(ctx, req, &resp)
-	if err != nil {
-		return nil, err
-	}
-
-	return &resp, nil
-}
-
 // UpdateOptions represents options for updating a table
 type UpdateOptions struct {
 	Schema     string `json:"schema,omitempty"`
