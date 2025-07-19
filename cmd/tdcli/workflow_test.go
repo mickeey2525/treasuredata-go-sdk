@@ -43,7 +43,7 @@ func TestHandleWorkflowProjectList(t *testing.T) {
 			mockResponse: `{
 				"projects": [
 					{
-						"id": 1,
+						"id": "1",
 						"name": "test-project",
 						"revision": "v1",
 						"archiveType": "db",
@@ -51,7 +51,7 @@ func TestHandleWorkflowProjectList(t *testing.T) {
 						"updatedAt": 1609459200
 					},
 					{
-						"id": 2,
+						"id": "2",
 						"name": "another-project",
 						"revision": "v2",
 						"archiveType": "db",
@@ -73,7 +73,7 @@ func TestHandleWorkflowProjectList(t *testing.T) {
 			mockResponse: `{
 				"projects": [
 					{
-						"id": 1,
+						"id": "1",
 						"name": "test-project",
 						"revision": "v1",
 						"archiveType": "db",
@@ -150,7 +150,7 @@ func TestHandleWorkflowProjectGet(t *testing.T) {
 			args:   []string{"123"},
 			format: "table",
 			mockResponse: `{
-				"id": 123,
+				"id": "123",
 				"name": "my-project",
 				"revision": "v3",
 				"archiveType": "db",
@@ -174,7 +174,7 @@ func TestHandleWorkflowProjectGet(t *testing.T) {
 			args:   []string{"456"},
 			format: "csv",
 			mockResponse: `{
-				"id": 456,
+				"id": "456",
 				"name": "csv-project",
 				"revision": "v1",
 				"archiveType": "db",
@@ -248,7 +248,7 @@ func TestHandleWorkflowProjectCreate(t *testing.T) {
 				return os.WriteFile(filepath.Join(dir, "query.sql"), []byte("SELECT 1"), 0644)
 			},
 			mockResponse: `{
-				"id": 789,
+				"id": "789",
 				"name": "test-project",
 				"revision": "v1",
 				"archiveType": "db",
@@ -341,17 +341,17 @@ func TestHandleWorkflowProjectWorkflows(t *testing.T) {
 			mockResponse: `{
 				"workflows": [
 					{
-						"id": 1,
+						"id": "1",
 						"name": "daily-etl",
-						"project": "test-project",
+						"project": {"id": "test-project", "name": "test-project"},
 						"status": "active",
 						"createdAt": 1609459200,
 						"updatedAt": 1609459200
 					},
 					{
-						"id": 2,
+						"id": "2",
 						"name": "hourly-sync",
-						"project": "test-project", 
+						"project": {"id": "test-project", "name": "test-project"}, 
 						"status": "inactive",
 						"createdAt": 1609545600,
 						"updatedAt": 1609545600
@@ -586,7 +586,7 @@ func TestHandleWorkflowProjectListJSON(t *testing.T) {
 		fmt.Fprint(w, `{
 			"projects": [
 				{
-					"id": 1,
+					"id": "1",
 					"name": "json-test-project",
 					"revision": "v1",
 					"archiveType": "db",
@@ -615,7 +615,7 @@ func TestHandleWorkflowProjectListJSON(t *testing.T) {
 	// Verify JSON output contains expected fields
 	expectedFields := []string{
 		`"projects"`,
-		`"id": 1`,
+		`"id": "1"`,
 		`"name": "json-test-project"`,
 		`"revision": "v1"`,
 		`"archiveType": "db"`,
@@ -635,7 +635,7 @@ func TestHandleWorkflowProjectCreateArchiveFile(t *testing.T) {
 
 	mux.HandleFunc("/api/projects", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, `{
-			"id": 999,
+			"id": "999",
 			"name": "archive-project",
 			"revision": "v1"
 		}`)

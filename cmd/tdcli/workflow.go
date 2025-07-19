@@ -38,8 +38,8 @@ func handleWorkflowList(ctx context.Context, client *td.Client, flags Flags) {
 	case "csv":
 		fmt.Println("id,name,project,status,created_at,updated_at")
 		for _, workflow := range resp.Workflows {
-			fmt.Printf("%d,%s,%s,%s,%s,%s\n",
-				workflow.ID, workflow.Name, workflow.Project, workflow.Status,
+			fmt.Printf("%s,%s,%s,%s,%s,%s\n",
+				workflow.ID, workflow.Name, workflow.Project.Name, workflow.Status,
 				workflow.CreatedAt.Format("2006-01-02 15:04:05"),
 				workflow.UpdatedAt.Format("2006-01-02 15:04:05"))
 		}
@@ -52,8 +52,8 @@ func handleWorkflowList(ctx context.Context, client *td.Client, flags Flags) {
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 		fmt.Fprintln(w, "ID\tNAME\tPROJECT\tSTATUS\tCREATED")
 		for _, workflow := range resp.Workflows {
-			fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\n",
-				workflow.ID, workflow.Name, workflow.Project, workflow.Status,
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+				workflow.ID, workflow.Name, workflow.Project.Name, workflow.Status,
 				workflow.CreatedAt.Format("2006-01-02 15:04:05"))
 		}
 		w.Flush()
@@ -66,10 +66,7 @@ func handleWorkflowGet(ctx context.Context, client *td.Client, args []string, fl
 		log.Fatal("Workflow ID required")
 	}
 
-	workflowID, err := strconv.Atoi(args[0])
-	if err != nil {
-		log.Fatalf("Invalid workflow ID: %s", args[0])
-	}
+	workflowID := args[0]
 
 	workflow, err := client.Workflow.GetWorkflow(ctx, workflowID)
 	if err != nil {
@@ -81,15 +78,15 @@ func handleWorkflowGet(ctx context.Context, client *td.Client, args []string, fl
 		printJSON(workflow)
 	case "csv":
 		fmt.Println("id,name,project,status,revision,timezone,created_at,updated_at")
-		fmt.Printf("%d,%s,%s,%s,%s,%s,%s,%s\n",
-			workflow.ID, workflow.Name, workflow.Project, workflow.Status,
+		fmt.Printf("%s,%s,%s,%s,%s,%s,%s,%s\n",
+			workflow.ID, workflow.Name, workflow.Project.Name, workflow.Status,
 			workflow.Revision, workflow.Timezone,
 			workflow.CreatedAt.Format("2006-01-02 15:04:05"),
 			workflow.UpdatedAt.Format("2006-01-02 15:04:05"))
 	default:
-		fmt.Printf("ID: %d\n", workflow.ID)
+		fmt.Printf("ID: %s\n", workflow.ID)
 		fmt.Printf("Name: %s\n", workflow.Name)
-		fmt.Printf("Project: %s\n", workflow.Project)
+		fmt.Printf("Project: %s (%s)\n", workflow.Project.Name, workflow.Project.ID)
 		fmt.Printf("Status: %s\n", workflow.Status)
 		fmt.Printf("Revision: %s\n", workflow.Revision)
 		fmt.Printf("Timezone: %s\n", workflow.Timezone)
@@ -101,8 +98,8 @@ func handleWorkflowGet(ctx context.Context, client *td.Client, args []string, fl
 		if workflow.NextSchedule != nil {
 			fmt.Printf("Next Schedule: %s\n", workflow.NextSchedule.Format("2006-01-02 15:04:05"))
 		}
-		if workflow.Config != "" {
-			fmt.Printf("\nConfig:\n%s\n", workflow.Config)
+		if len(workflow.Config) > 0 {
+			fmt.Printf("\nConfig:\n%+v\n", workflow.Config)
 		}
 	}
 }
@@ -118,7 +115,7 @@ func handleWorkflowCreate(ctx context.Context, client *td.Client, args []string,
 	}
 
 	fmt.Printf("Workflow created successfully\n")
-	fmt.Printf("ID: %d\n", workflow.ID)
+	fmt.Printf("ID: %s\n", workflow.ID)
 	fmt.Printf("Name: %s\n", workflow.Name)
 }
 
@@ -127,10 +124,7 @@ func handleWorkflowUpdate(ctx context.Context, client *td.Client, args []string,
 		log.Fatal("Workflow ID and updates (key=value) required")
 	}
 
-	workflowID, err := strconv.Atoi(args[0])
-	if err != nil {
-		log.Fatalf("Invalid workflow ID: %s", args[0])
-	}
+	workflowID := args[0]
 
 	updates := make(map[string]string)
 	// Parse key=value pairs
@@ -147,7 +141,7 @@ func handleWorkflowUpdate(ctx context.Context, client *td.Client, args []string,
 		handleError(err, "Failed to update workflow", flags.Verbose)
 	}
 
-	fmt.Printf("Workflow %d updated successfully\n", workflow.ID)
+	fmt.Printf("Workflow %s updated successfully\n", workflow.ID)
 }
 
 func handleWorkflowDelete(ctx context.Context, client *td.Client, args []string, flags Flags) {
@@ -155,17 +149,14 @@ func handleWorkflowDelete(ctx context.Context, client *td.Client, args []string,
 		log.Fatal("Workflow ID required")
 	}
 
-	workflowID, err := strconv.Atoi(args[0])
-	if err != nil {
-		log.Fatalf("Invalid workflow ID: %s", args[0])
-	}
+	workflowID := args[0]
 
-	err = client.Workflow.DeleteWorkflow(ctx, workflowID)
+	err := client.Workflow.DeleteWorkflow(ctx, workflowID)
 	if err != nil {
 		handleError(err, "Failed to delete workflow", flags.Verbose)
 	}
 
-	fmt.Printf("Workflow %d deleted successfully\n", workflowID)
+	fmt.Printf("Workflow %s deleted successfully\n", workflowID)
 }
 
 func handleWorkflowStart(ctx context.Context, client *td.Client, args []string, flags Flags) {
@@ -173,14 +164,11 @@ func handleWorkflowStart(ctx context.Context, client *td.Client, args []string, 
 		log.Fatal("Workflow ID required")
 	}
 
-	workflowID, err := strconv.Atoi(args[0])
-	if err != nil {
-		log.Fatalf("Invalid workflow ID: %s", args[0])
-	}
+	workflowID := args[0]
 
 	var params map[string]interface{}
 	if len(args) > 1 {
-		err = json.Unmarshal([]byte(args[1]), &params)
+		err := json.Unmarshal([]byte(args[1]), &params)
 		if err != nil {
 			log.Fatalf("Invalid parameters JSON: %v", err)
 		}
@@ -192,7 +180,7 @@ func handleWorkflowStart(ctx context.Context, client *td.Client, args []string, 
 	}
 
 	fmt.Printf("Workflow started successfully\n")
-	fmt.Printf("Attempt ID: %d\n", attempt.ID)
+	fmt.Printf("Attempt ID: %s\n", attempt.ID)
 	fmt.Printf("Status: %s\n", attempt.Status)
 }
 
@@ -202,10 +190,7 @@ func handleWorkflowAttemptList(ctx context.Context, client *td.Client, args []st
 		log.Fatal("Workflow ID required")
 	}
 
-	workflowID, err := strconv.Atoi(args[0])
-	if err != nil {
-		log.Fatalf("Invalid workflow ID: %s", args[0])
-	}
+	workflowID := args[0]
 
 	opts := &td.WorkflowAttemptListOptions{
 		Limit:  100,
@@ -227,7 +212,7 @@ func handleWorkflowAttemptList(ctx context.Context, client *td.Client, args []st
 			if attempt.FinishedAt != nil {
 				finishedAt = attempt.FinishedAt.Format("2006-01-02 15:04:05")
 			}
-			fmt.Printf("%d,%d,%s,%s,%s\n",
+			fmt.Printf("%s,%d,%s,%s,%s\n",
 				attempt.ID, attempt.Index, attempt.Status,
 				attempt.CreatedAt.Format("2006-01-02 15:04:05"),
 				finishedAt)
@@ -245,7 +230,7 @@ func handleWorkflowAttemptList(ctx context.Context, client *td.Client, args []st
 			if attempt.FinishedAt != nil {
 				finishedAt = attempt.FinishedAt.Format("2006-01-02 15:04:05")
 			}
-			fmt.Fprintf(w, "%d\t%d\t%s\t%s\t%s\n",
+			fmt.Fprintf(w, "%s\t%d\t%s\t%s\t%s\n",
 				attempt.ID, attempt.Index, attempt.Status,
 				attempt.CreatedAt.Format("2006-01-02 15:04:05"),
 				finishedAt)
@@ -260,15 +245,9 @@ func handleWorkflowAttemptGet(ctx context.Context, client *td.Client, args []str
 		log.Fatal("Workflow ID and attempt ID required")
 	}
 
-	workflowID, err := strconv.Atoi(args[0])
-	if err != nil {
-		log.Fatalf("Invalid workflow ID: %s", args[0])
-	}
+	workflowID := args[0]
 
-	attemptID, err := strconv.Atoi(args[1])
-	if err != nil {
-		log.Fatalf("Invalid attempt ID: %s", args[1])
-	}
+	attemptID := args[1]
 
 	attempt, err := client.Workflow.GetWorkflowAttempt(ctx, workflowID, attemptID)
 	if err != nil {
@@ -288,14 +267,14 @@ func handleWorkflowAttemptGet(ctx context.Context, client *td.Client, args []str
 		if attempt.Success != nil {
 			success = fmt.Sprintf("%t", *attempt.Success)
 		}
-		fmt.Printf("%d,%d,%s,%s,%s,%t,%s\n",
+		fmt.Printf("%s,%d,%s,%s,%s,%t,%s\n",
 			attempt.ID, attempt.Index, attempt.Status,
 			attempt.CreatedAt.Format("2006-01-02 15:04:05"),
 			finishedAt, attempt.Done, success)
 	default:
-		fmt.Printf("ID: %d\n", attempt.ID)
+		fmt.Printf("ID: %s\n", attempt.ID)
 		fmt.Printf("Index: %d\n", attempt.Index)
-		fmt.Printf("Workflow ID: %d\n", attempt.WorkflowID)
+		fmt.Printf("Workflow ID: %s\n", attempt.WorkflowID)
 		fmt.Printf("Status: %s\n", attempt.Status)
 		fmt.Printf("Created: %s\n", attempt.CreatedAt.Format("2006-01-02 15:04:05"))
 		if attempt.FinishedAt != nil {
@@ -321,22 +300,16 @@ func handleWorkflowAttemptKill(ctx context.Context, client *td.Client, args []st
 		log.Fatal("Workflow ID and attempt ID required")
 	}
 
-	workflowID, err := strconv.Atoi(args[0])
-	if err != nil {
-		log.Fatalf("Invalid workflow ID: %s", args[0])
-	}
+	workflowID := args[0]
 
-	attemptID, err := strconv.Atoi(args[1])
-	if err != nil {
-		log.Fatalf("Invalid attempt ID: %s", args[1])
-	}
+	attemptID := args[1]
 
-	err = client.Workflow.KillWorkflowAttempt(ctx, workflowID, attemptID)
+	err := client.Workflow.KillWorkflowAttempt(ctx, workflowID, attemptID)
 	if err != nil {
 		handleError(err, "Failed to kill workflow attempt", flags.Verbose)
 	}
 
-	fmt.Printf("Workflow attempt %d killed successfully\n", attemptID)
+	fmt.Printf("Workflow attempt %s killed successfully\n", attemptID)
 }
 
 func handleWorkflowAttemptRetry(ctx context.Context, client *td.Client, args []string, flags Flags) {
@@ -344,19 +317,13 @@ func handleWorkflowAttemptRetry(ctx context.Context, client *td.Client, args []s
 		log.Fatal("Workflow ID and attempt ID required")
 	}
 
-	workflowID, err := strconv.Atoi(args[0])
-	if err != nil {
-		log.Fatalf("Invalid workflow ID: %s", args[0])
-	}
+	workflowID := args[0]
 
-	attemptID, err := strconv.Atoi(args[1])
-	if err != nil {
-		log.Fatalf("Invalid attempt ID: %s", args[1])
-	}
+	attemptID := args[1]
 
 	var params map[string]interface{}
 	if len(args) > 2 {
-		err = json.Unmarshal([]byte(args[2]), &params)
+		err := json.Unmarshal([]byte(args[2]), &params)
 		if err != nil {
 			log.Fatalf("Invalid parameters JSON: %v", err)
 		}
@@ -368,7 +335,7 @@ func handleWorkflowAttemptRetry(ctx context.Context, client *td.Client, args []s
 	}
 
 	fmt.Printf("Workflow attempt retried successfully\n")
-	fmt.Printf("New Attempt ID: %d\n", attempt.ID)
+	fmt.Printf("New Attempt ID: %s\n", attempt.ID)
 	fmt.Printf("Status: %s\n", attempt.Status)
 }
 
@@ -378,10 +345,7 @@ func handleWorkflowScheduleGet(ctx context.Context, client *td.Client, args []st
 		log.Fatal("Workflow ID required")
 	}
 
-	workflowID, err := strconv.Atoi(args[0])
-	if err != nil {
-		log.Fatalf("Invalid workflow ID: %s", args[0])
-	}
+	workflowID := args[0]
 
 	schedule, err := client.Workflow.GetWorkflowSchedule(ctx, workflowID)
 	if err != nil {
@@ -401,12 +365,12 @@ func handleWorkflowScheduleGet(ctx context.Context, client *td.Client, args []st
 		if schedule.DisabledAt != nil {
 			disabledAt = schedule.DisabledAt.Format("2006-01-02 15:04:05")
 		}
-		fmt.Printf("%d,%d,%s,%s,%d,%s,%s\n",
+		fmt.Printf("%s,%s,%s,%s,%d,%s,%s\n",
 			schedule.ID, schedule.WorkflowID, schedule.Cron, schedule.Timezone,
 			schedule.Delay, nextTime, disabledAt)
 	default:
-		fmt.Printf("ID: %d\n", schedule.ID)
-		fmt.Printf("Workflow ID: %d\n", schedule.WorkflowID)
+		fmt.Printf("ID: %s\n", schedule.ID)
+		fmt.Printf("Workflow ID: %s\n", schedule.WorkflowID)
 		fmt.Printf("Cron: %s\n", schedule.Cron)
 		fmt.Printf("Timezone: %s\n", schedule.Timezone)
 		fmt.Printf("Delay: %d seconds\n", schedule.Delay)
@@ -426,10 +390,7 @@ func handleWorkflowScheduleEnable(ctx context.Context, client *td.Client, args [
 		log.Fatal("Workflow ID required")
 	}
 
-	workflowID, err := strconv.Atoi(args[0])
-	if err != nil {
-		log.Fatalf("Invalid workflow ID: %s", args[0])
-	}
+	workflowID := args[0]
 
 	schedule, err := client.Workflow.EnableWorkflowSchedule(ctx, workflowID)
 	if err != nil {
@@ -447,12 +408,9 @@ func handleWorkflowScheduleDisable(ctx context.Context, client *td.Client, args 
 		log.Fatal("Workflow ID required")
 	}
 
-	workflowID, err := strconv.Atoi(args[0])
-	if err != nil {
-		log.Fatalf("Invalid workflow ID: %s", args[0])
-	}
+	workflowID := args[0]
 
-	_, err = client.Workflow.DisableWorkflowSchedule(ctx, workflowID)
+	_, err := client.Workflow.DisableWorkflowSchedule(ctx, workflowID)
 	if err != nil {
 		handleError(err, "Failed to disable workflow schedule", flags.Verbose)
 	}
@@ -465,10 +423,7 @@ func handleWorkflowScheduleUpdate(ctx context.Context, client *td.Client, args [
 		log.Fatal("Workflow ID, cron expression, timezone, and delay required")
 	}
 
-	workflowID, err := strconv.Atoi(args[0])
-	if err != nil {
-		log.Fatalf("Invalid workflow ID: %s", args[0])
-	}
+	workflowID := args[0]
 
 	delay, err := strconv.Atoi(args[3])
 	if err != nil {
@@ -492,15 +447,9 @@ func handleWorkflowTaskList(ctx context.Context, client *td.Client, args []strin
 		log.Fatal("Workflow ID and attempt ID required")
 	}
 
-	workflowID, err := strconv.Atoi(args[0])
-	if err != nil {
-		log.Fatalf("Invalid workflow ID: %s", args[0])
-	}
+	workflowID := args[0]
 
-	attemptID, err := strconv.Atoi(args[1])
-	if err != nil {
-		log.Fatalf("Invalid attempt ID: %s", args[1])
-	}
+	attemptID := args[1]
 
 	resp, err := client.Workflow.ListWorkflowTasks(ctx, workflowID, attemptID)
 	if err != nil {
@@ -547,15 +496,9 @@ func handleWorkflowTaskGet(ctx context.Context, client *td.Client, args []string
 		log.Fatal("Workflow ID, attempt ID, and task ID required")
 	}
 
-	workflowID, err := strconv.Atoi(args[0])
-	if err != nil {
-		log.Fatalf("Invalid workflow ID: %s", args[0])
-	}
+	workflowID := args[0]
 
-	attemptID, err := strconv.Atoi(args[1])
-	if err != nil {
-		log.Fatalf("Invalid attempt ID: %s", args[1])
-	}
+	attemptID := args[1]
 
 	task, err := client.Workflow.GetWorkflowTask(ctx, workflowID, attemptID, args[2])
 	if err != nil {
@@ -603,15 +546,9 @@ func handleWorkflowAttemptLog(ctx context.Context, client *td.Client, args []str
 		log.Fatal("Workflow ID and attempt ID required")
 	}
 
-	workflowID, err := strconv.Atoi(args[0])
-	if err != nil {
-		log.Fatalf("Invalid workflow ID: %s", args[0])
-	}
+	workflowID := args[0]
 
-	attemptID, err := strconv.Atoi(args[1])
-	if err != nil {
-		log.Fatalf("Invalid attempt ID: %s", args[1])
-	}
+	attemptID := args[1]
 
 	logContent, err := client.Workflow.GetWorkflowAttemptLog(ctx, workflowID, attemptID)
 	if err != nil {
@@ -626,15 +563,9 @@ func handleWorkflowTaskLog(ctx context.Context, client *td.Client, args []string
 		log.Fatal("Workflow ID, attempt ID, and task ID required")
 	}
 
-	workflowID, err := strconv.Atoi(args[0])
-	if err != nil {
-		log.Fatalf("Invalid workflow ID: %s", args[0])
-	}
+	workflowID := args[0]
 
-	attemptID, err := strconv.Atoi(args[1])
-	if err != nil {
-		log.Fatalf("Invalid attempt ID: %s", args[1])
-	}
+	attemptID := args[1]
 
 	logContent, err := client.Workflow.GetWorkflowTaskLog(ctx, workflowID, attemptID, args[2])
 	if err != nil {
@@ -657,7 +588,7 @@ func handleWorkflowProjectList(ctx context.Context, client *td.Client, flags Fla
 	case "csv":
 		fmt.Println("id,name,revision,archive_type,created_at,updated_at")
 		for _, project := range resp.Projects {
-			fmt.Printf("%d,%s,%s,%s,%s,%s\n",
+			fmt.Printf("%s,%s,%s,%s,%s,%s\n",
 				project.ID, project.Name, project.Revision, project.ArchiveType,
 				formatTimeJST(project.CreatedAt.Time),
 				formatTimeJST(project.UpdatedAt.Time))
@@ -671,7 +602,7 @@ func handleWorkflowProjectList(ctx context.Context, client *td.Client, flags Fla
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 		fmt.Fprintln(w, "ID\tNAME\tREVISION\tTYPE\tCREATED")
 		for _, project := range resp.Projects {
-			fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\n",
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
 				project.ID, project.Name, project.Revision, project.ArchiveType,
 				formatTimeJST(project.CreatedAt.Time))
 		}
@@ -685,10 +616,7 @@ func handleWorkflowProjectGet(ctx context.Context, client *td.Client, args []str
 		log.Fatal("Project ID required")
 	}
 
-	projectID, err := strconv.Atoi(args[0])
-	if err != nil {
-		log.Fatalf("Invalid project ID: %s", args[0])
-	}
+	projectID := args[0]
 
 	project, err := client.Workflow.GetProject(ctx, projectID)
 	if err != nil {
@@ -704,14 +632,14 @@ func handleWorkflowProjectGet(ctx context.Context, client *td.Client, args []str
 		if project.DeletedAt != nil {
 			deletedAt = formatTimeJST(project.DeletedAt.Time)
 		}
-		fmt.Printf("%d,%s,%s,%s,%s,%s,%s,%s\n",
+		fmt.Printf("%s,%s,%s,%s,%s,%s,%s,%s\n",
 			project.ID, project.Name, project.Revision, project.ArchiveType,
 			project.ArchiveMD5,
 			formatTimeJST(project.CreatedAt.Time),
 			formatTimeJST(project.UpdatedAt.Time),
 			deletedAt)
 	default:
-		fmt.Printf("ID: %d\n", project.ID)
+		fmt.Printf("ID: %s\n", project.ID)
 		fmt.Printf("Name: %s\n", project.Name)
 		fmt.Printf("Revision: %s\n", project.Revision)
 		fmt.Printf("Archive Type: %s\n", project.ArchiveType)
@@ -730,14 +658,14 @@ func handleWorkflowProjectCreate(ctx context.Context, client *td.Client, args []
 	}
 
 	path := args[1]
-	var project *td.WorkflowProject
-	var err error
 
 	// Check if the path is a directory or file
 	fileInfo, err := os.Stat(path)
 	if err != nil {
 		log.Fatalf("Failed to access path %s: %v", path, err)
 	}
+
+	var project *td.WorkflowProject
 
 	if fileInfo.IsDir() {
 		// Create project from directory
@@ -758,7 +686,7 @@ func handleWorkflowProjectCreate(ctx context.Context, client *td.Client, args []
 	}
 
 	fmt.Printf("Project created successfully\n")
-	fmt.Printf("ID: %d\n", project.ID)
+	fmt.Printf("ID: %s\n", project.ID)
 	fmt.Printf("Name: %s\n", project.Name)
 	fmt.Printf("Revision: %s\n", project.Revision)
 }
@@ -768,10 +696,7 @@ func handleWorkflowProjectWorkflows(ctx context.Context, client *td.Client, args
 		log.Fatal("Project ID required")
 	}
 
-	projectID, err := strconv.Atoi(args[0])
-	if err != nil {
-		log.Fatalf("Invalid project ID: %s", args[0])
-	}
+	projectID := args[0]
 
 	resp, err := client.Workflow.ListProjectWorkflows(ctx, projectID)
 	if err != nil {
@@ -784,8 +709,8 @@ func handleWorkflowProjectWorkflows(ctx context.Context, client *td.Client, args
 	case "csv":
 		fmt.Println("id,name,project,status,created_at,updated_at")
 		for _, workflow := range resp.Workflows {
-			fmt.Printf("%d,%s,%s,%s,%s,%s\n",
-				workflow.ID, workflow.Name, workflow.Project, workflow.Status,
+			fmt.Printf("%s,%s,%s,%s,%s,%s\n",
+				workflow.ID, workflow.Name, workflow.Project.Name, workflow.Status,
 				workflow.CreatedAt.Format("2006-01-02 15:04:05"),
 				workflow.UpdatedAt.Format("2006-01-02 15:04:05"))
 		}
@@ -798,7 +723,7 @@ func handleWorkflowProjectWorkflows(ctx context.Context, client *td.Client, args
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 		fmt.Fprintln(w, "ID\tNAME\tSTATUS\tCREATED")
 		for _, workflow := range resp.Workflows {
-			fmt.Fprintf(w, "%d\t%s\t%s\t%s\n",
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
 				workflow.ID, workflow.Name, workflow.Status,
 				workflow.CreatedAt.Format("2006-01-02 15:04:05"))
 		}
@@ -812,10 +737,7 @@ func handleWorkflowProjectSecretsList(ctx context.Context, client *td.Client, ar
 		log.Fatal("Project ID required")
 	}
 
-	projectID, err := strconv.Atoi(args[0])
-	if err != nil {
-		log.Fatalf("Invalid project ID: %s", args[0])
-	}
+	projectID := args[0]
 
 	resp, err := client.Workflow.GetProjectSecrets(ctx, projectID)
 	if err != nil {
@@ -851,17 +773,14 @@ func handleWorkflowProjectSecretsSet(ctx context.Context, client *td.Client, arg
 		log.Fatal("Project ID, secret key, and secret value required")
 	}
 
-	projectID, err := strconv.Atoi(args[0])
-	if err != nil {
-		log.Fatalf("Invalid project ID: %s", args[0])
-	}
+	projectID := args[0]
 
-	err = client.Workflow.SetProjectSecret(ctx, projectID, args[1], args[2])
+	err := client.Workflow.SetProjectSecret(ctx, projectID, args[1], args[2])
 	if err != nil {
 		handleError(err, "Failed to set project secret", flags.Verbose)
 	}
 
-	fmt.Printf("Secret '%s' set successfully for project %d\n", args[1], projectID)
+	fmt.Printf("Secret '%s' set successfully for project %s\n", args[1], projectID)
 }
 
 func handleWorkflowProjectSecretsDelete(ctx context.Context, client *td.Client, args []string, flags Flags) {
@@ -869,15 +788,12 @@ func handleWorkflowProjectSecretsDelete(ctx context.Context, client *td.Client, 
 		log.Fatal("Project ID and secret key required")
 	}
 
-	projectID, err := strconv.Atoi(args[0])
-	if err != nil {
-		log.Fatalf("Invalid project ID: %s", args[0])
-	}
+	projectID := args[0]
 
-	err = client.Workflow.DeleteProjectSecret(ctx, projectID, args[1])
+	err := client.Workflow.DeleteProjectSecret(ctx, projectID, args[1])
 	if err != nil {
 		handleError(err, "Failed to delete project secret", flags.Verbose)
 	}
 
-	fmt.Printf("Secret '%s' deleted successfully from project %d\n", args[1], projectID)
+	fmt.Printf("Secret '%s' deleted successfully from project %s\n", args[1], projectID)
 }
