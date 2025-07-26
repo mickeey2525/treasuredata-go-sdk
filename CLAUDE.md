@@ -55,6 +55,36 @@ go test -run Example
 - **Client-centered**: All services are accessed through the main `Client` struct
 - **Context-first**: All operations accept `context.Context` as first parameter
 
+### File Structure
+The SDK is organized into logical files based on functionality:
+
+#### Core Files
+- `client.go` - Main client and configuration
+- `types.go` - Common types and utilities
+- `errors.go` - Error handling
+
+#### Service Files
+- `databases.go` - Database operations
+- `tables.go` - Table management
+- `queries.go` - Query execution
+- `jobs.go` - Job management
+- `results.go` - Query result retrieval
+- `users.go` - User management
+- `permissions.go` - Access control and policies
+- `bulk_import.go` - Bulk data import operations
+- `workflow.go` - Workflow automation
+
+#### CDP (Customer Data Platform) Files
+The CDP functionality is split across multiple files for better maintainability:
+- `cdp.go` - Base CDPService struct and all type definitions
+- `cdp_segments.go` - Segment operations (create, list, query, statistics)
+- `cdp_audiences.go` - Audience management (CRUD, attributes, behaviors, executions)
+- `cdp_activations.go` - Activation/syndication operations
+- `cdp_folders.go` - Folder management (entity and audience folders)
+- `cdp_tokens.go` - Token operations (legacy and entity tokens)
+- `cdp_funnels.go` - Funnel management (legacy and entity APIs)
+- `cdp_predictive_segments.go` - Predictive segment operations
+
 ### Key Components
 
 #### Client (`client.go`)
@@ -110,6 +140,10 @@ Each service follows the same pattern:
 - Use `gofmt` for formatting
 - All public APIs must have documentation comments
 - Use consistent naming across services
+
+### Formatting
+- When writing Go code, always run `go fmt ./...` to ensure consistent code formatting
+- Formatting helps maintain code readability and follows Go community standards
 
 ### Testing
 - Example tests in `examples_test.go` serve as documentation
