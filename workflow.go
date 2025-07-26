@@ -323,7 +323,7 @@ type WorkflowProjectSecretsResponse struct {
 
 // ListWorkflows returns a list of workflows
 func (s *WorkflowService) ListWorkflows(ctx context.Context, opts *WorkflowListOptions) (*WorkflowListResponse, error) {
-	u := fmt.Sprintf("api/workflows")
+	u := "api/workflows"
 	u, err := addOptions(u, opts)
 	if err != nil {
 		return nil, err
@@ -747,7 +747,7 @@ func (s *WorkflowService) DeleteWorkflow(ctx context.Context, workflowID string)
 
 // ListProjects returns a list of workflow projects
 func (s *WorkflowService) ListProjects(ctx context.Context) (*WorkflowProjectListResponse, error) {
-	u := fmt.Sprintf("api/projects")
+	u := "api/projects"
 
 	req, err := s.client.NewWorkflowRequest("GET", u, nil)
 	if err != nil {
