@@ -1163,3 +1163,258 @@ func (s *WorkflowService) DeleteProjectSecret(ctx context.Context, projectID str
 
 	return nil
 }
+
+// DownloadProject downloads a project archive as raw bytes
+func (s *WorkflowService) DownloadProject(ctx context.Context, projectID string) ([]byte, error) {
+	return s.DownloadProjectWithRevision(ctx, projectID, "")
+}
+
+// DownloadProjectWithRevision downloads a specific revision of a project archive as raw bytes
+func (s *WorkflowService) DownloadProjectWithRevision(ctx context.Context, projectID, revision string) ([]byte, error) {
+	// Validate input
+	if projectID == "" {
+		return nil, NewValidationError("projectID", projectID, "cannot be empty")
+	}
+
+	u := fmt.Sprintf("api/projects/%s/archive", projectID)
+	if revision != "" {
+		u += fmt.Sprintf("?revision=%s", revision)
+	}
+
+	req, err := s.client.NewWorkflowRequest("GET", u, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var buf bytes.Buffer
+	resp, err := s.client.Do(ctx, req, &buf)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, &WorkflowError{
+			Operation:  "download project",
+			ProjectID:  projectID,
+			StatusCode: resp.StatusCode,
+			Message:    fmt.Sprintf("revision=%s", revision),
+			Response:   resp,
+		}
+	}
+
+	return buf.Bytes(), nil
+}
+
+// DownloadProjectToDirectory downloads and extracts a project to a directory
+func (s *WorkflowService) DownloadProjectToDirectory(ctx context.Context, projectID, outputDir string) error {
+	return s.DownloadProjectToDirectoryWithRevision(ctx, projectID, "", outputDir)
+}
+
+// DownloadProjectToDirectoryWithRevision downloads and extracts a specific revision of a project to a directory
+func (s *WorkflowService) DownloadProjectToDirectoryWithRevision(ctx context.Context, projectID, revision, outputDir string) error {
+	// Download the project archive
+	archiveData, err := s.DownloadProjectWithRevision(ctx, projectID, revision)
+	if err != nil {
+		return err
+	}
+
+	// Extract the archive to the specified directory
+	return extractTarGz(archiveData, outputDir)
+}
+
+// GetProjectByName retrieves a specific project by name using direct API call
+func (s *WorkflowService) GetProjectByName(ctx context.Context, projectName string) (*WorkflowProject, error) {
+	// Validate input
+	if projectName == "" {
+		return nil, NewValidationError("projectName", projectName, "cannot be empty")
+	}
+
+	u := fmt.Sprintf("api/projects?name=%s", projectName)
+
+	req, err := s.client.NewWorkflowRequest("GET", u, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var project WorkflowProject
+	_, err = s.client.Do(ctx, req, &project)
+	if err != nil {
+		return nil, err
+	}
+
+	return &project, nil
+}
+
+// FindProjectByName finds a project by name and returns its ID (deprecated - use GetProjectByName instead)
+// This method is kept for backward compatibility but is inefficient as it lists all projects
+func (s *WorkflowService) FindProjectByName(ctx context.Context, projectName string) (*WorkflowProject, error) {
+	if projectName == "" {
+		return nil, NewValidationError("projectName", projectName, "cannot be empty")
+	}
+
+	// List all projects
+	resp, err := s.ListProjects(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list projects: %w", err)
+	}
+
+	// Find project with matching name
+	var matchingProjects []*WorkflowProject
+	for _, project := range resp.Projects {
+		if project.Name == projectName {
+			matchingProjects = append(matchingProjects, &project)
+		}
+	}
+
+	if len(matchingProjects) == 0 {
+		return nil, fmt.Errorf("no project found with name: %s", projectName)
+	}
+
+	if len(matchingProjects) > 1 {
+		return nil, fmt.Errorf("multiple projects found with name: %s (found %d)", projectName, len(matchingProjects))
+	}
+
+	return matchingProjects[0], nil
+}
+
+// DownloadProjectByNameToDirectory downloads and extracts a project by name to a directory
+func (s *WorkflowService) DownloadProjectByNameToDirectory(ctx context.Context, projectName, outputDir string) error {
+	return s.DownloadProjectByNameToDirectoryWithRevision(ctx, projectName, "", outputDir)
+}
+
+// DownloadProjectByNameToDirectoryWithRevision downloads and extracts a specific revision of a project by name to a directory
+func (s *WorkflowService) DownloadProjectByNameToDirectoryWithRevision(ctx context.Context, projectName, revision, outputDir string) error {
+	// Get project by name using direct API call
+	project, err := s.GetProjectByName(ctx, projectName)
+	if err != nil {
+		return err
+	}
+
+	// Download using the found project ID
+	return s.DownloadProjectToDirectoryWithRevision(ctx, project.ID, revision, outputDir)
+}
+
+// extractTarGz extracts a tar.gz archive to a directory with security validations
+func extractTarGz(archiveData []byte, outputDir string) error {
+	// Define reasonable limits for extraction
+	const (
+		maxFileSize  = 100 * 1024 * 1024 // 100MB per file
+		maxTotalSize = 500 * 1024 * 1024 // 500MB total extracted size
+		maxFiles     = 10000             // Maximum number of files
+	)
+
+	var (
+		totalSize int64
+		fileCount int
+	)
+
+	// Ensure output directory exists
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return fmt.Errorf("failed to create output directory: %w", err)
+	}
+
+	// Get absolute path of output directory for security checks
+	absOutputDir, err := filepath.Abs(outputDir)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute output directory path: %w", err)
+	}
+	absOutputDir = filepath.Clean(absOutputDir)
+
+	// Create gzip reader
+	gzipReader, err := gzip.NewReader(bytes.NewReader(archiveData))
+	if err != nil {
+		return fmt.Errorf("failed to create gzip reader: %w", err)
+	}
+	defer gzipReader.Close()
+
+	// Create tar reader
+	tarReader := tar.NewReader(gzipReader)
+
+	// Extract each file from the archive
+	for {
+		header, err := tarReader.Next()
+		if err == io.EOF {
+			break // End of archive
+		}
+		if err != nil {
+			return fmt.Errorf("failed to read tar header: %w", err)
+		}
+
+		// Security check: validate file path
+		if header.Name == "" {
+			continue // Skip empty names
+		}
+
+		// Clean the file path and check for path traversal
+		cleanPath := filepath.Clean(header.Name)
+		if strings.Contains(cleanPath, "..") || filepath.IsAbs(cleanPath) {
+			return fmt.Errorf("unsafe file path in archive: %s", header.Name)
+		}
+
+		// Create full output path
+		outputPath := filepath.Join(absOutputDir, cleanPath)
+
+		// Security check: ensure the output path is within the output directory
+		if !strings.HasPrefix(outputPath, absOutputDir+string(filepath.Separator)) && outputPath != absOutputDir {
+			return fmt.Errorf("path traversal detected: %s", header.Name)
+		}
+
+		// Check file count limit
+		fileCount++
+		if fileCount > maxFiles {
+			return fmt.Errorf("too many files in archive: maximum %d files allowed", maxFiles)
+		}
+
+		// Check file size limit
+		if header.Size > maxFileSize {
+			return fmt.Errorf("file too large in archive: %s (size: %d bytes, max: %d bytes)",
+				header.Name, header.Size, maxFileSize)
+		}
+
+		// Check total size limit
+		totalSize += header.Size
+		if totalSize > maxTotalSize {
+			return fmt.Errorf("archive too large: total size %d bytes exceeds maximum %d bytes",
+				totalSize, maxTotalSize)
+		}
+
+		switch header.Typeflag {
+		case tar.TypeDir:
+			// Create directory
+			if err := os.MkdirAll(outputPath, os.FileMode(header.Mode)); err != nil {
+				return fmt.Errorf("failed to create directory %s: %w", outputPath, err)
+			}
+
+		case tar.TypeReg:
+			// Create parent directory if it doesn't exist
+			if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
+				return fmt.Errorf("failed to create parent directory for %s: %w", outputPath, err)
+			}
+
+			// Create the file
+			file, err := os.OpenFile(outputPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(header.Mode))
+			if err != nil {
+				return fmt.Errorf("failed to create file %s: %w", outputPath, err)
+			}
+
+			// Copy file content with size limit
+			_, err = io.CopyN(file, tarReader, maxFileSize+1)
+			if err != nil && err != io.EOF {
+				file.Close()
+				return fmt.Errorf("failed to write file %s: %w", outputPath, err)
+			}
+
+			file.Close()
+
+		case tar.TypeSymlink, tar.TypeLink:
+			// Security: reject symlinks and hard links
+			return fmt.Errorf("links not allowed in archive: %s", header.Name)
+
+		default:
+			// Skip other file types
+			continue
+		}
+	}
+
+	return nil
+}

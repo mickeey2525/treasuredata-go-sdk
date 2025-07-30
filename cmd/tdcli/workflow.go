@@ -1052,3 +1052,118 @@ func handleWorkflowHooksValidate(ctx context.Context, client *td.Client, args []
 	fmt.Println("\n✅ All hooks have been validated and appear to be correctly configured.")
 	fmt.Println("Use 'tdcli workflow projects push' to execute hooks during actual upload")
 }
+
+func handleWorkflowProjectDownload(ctx context.Context, client *td.Client, args []string, flags Flags) {
+	if len(args) < 1 {
+		log.Fatal("Project ID or name required")
+	}
+
+	projectIdentifier := args[0]
+	var outputDir string
+
+	// Determine output directory
+	if len(args) >= 2 {
+		outputDir = args[1]
+	} else {
+		// Default to project name if available, otherwise use identifier
+		outputDir = projectIdentifier
+	}
+
+	// Revision support (we'll extend this with proper flag support later)
+	var revision string
+
+	if flags.Verbose {
+		fmt.Printf("Downloading project: %s\n", projectIdentifier)
+		if revision != "" {
+			fmt.Printf("Revision: %s\n", revision)
+		}
+		fmt.Printf("Output directory: %s\n", outputDir)
+	}
+
+	var err error
+	var projectInfo *td.WorkflowProject
+
+	// Try to parse as project ID first (numeric)
+	_, parseErr := strconv.Atoi(projectIdentifier)
+	if parseErr == nil {
+		// It's a numeric ID, use it directly
+		if flags.Verbose {
+			fmt.Printf("Using project ID: %s\n", projectIdentifier)
+		}
+
+		// Get project info for display
+		projectInfo, err = client.Workflow.GetProject(ctx, projectIdentifier)
+		if err != nil {
+			handleError(err, "Failed to get project details", flags.Verbose)
+		}
+
+		// Download by ID
+		if revision != "" {
+			err = client.Workflow.DownloadProjectToDirectoryWithRevision(ctx, projectIdentifier, revision, outputDir)
+		} else {
+			err = client.Workflow.DownloadProjectToDirectory(ctx, projectIdentifier, outputDir)
+		}
+	} else {
+		// It's not numeric, try to find by name
+		if flags.Verbose {
+			fmt.Printf("Searching for project by name: %s\n", projectIdentifier)
+		}
+
+		// Get project by name using direct API call
+		projectInfo, err = client.Workflow.GetProjectByName(ctx, projectIdentifier)
+		if err != nil {
+			handleError(err, "Failed to get project by name", flags.Verbose)
+		}
+
+		if flags.Verbose {
+			fmt.Printf("Found project: %s (ID: %s)\n", projectInfo.Name, projectInfo.ID)
+		}
+
+		// Use the project name for the default output directory if not specified
+		if len(args) < 2 {
+			outputDir = projectInfo.Name
+		}
+
+		// Download by name
+		if revision != "" {
+			err = client.Workflow.DownloadProjectByNameToDirectoryWithRevision(ctx, projectIdentifier, revision, outputDir)
+		} else {
+			err = client.Workflow.DownloadProjectByNameToDirectory(ctx, projectIdentifier, outputDir)
+		}
+	}
+
+	if err != nil {
+		handleError(err, "Failed to download project", flags.Verbose)
+	}
+
+	fmt.Printf("Project downloaded successfully\n")
+	if projectInfo != nil {
+		fmt.Printf("Project: %s (ID: %s)\n", projectInfo.Name, projectInfo.ID)
+		fmt.Printf("Revision: %s\n", projectInfo.Revision)
+		fmt.Printf("Archive Type: %s\n", projectInfo.ArchiveType)
+	}
+	fmt.Printf("Output directory: %s\n", outputDir)
+
+	// Show directory contents if verbose
+	if flags.Verbose {
+		fmt.Printf("\nExtracted files:\n")
+		err := filepath.Walk(outputDir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return nil // Skip errors and continue
+			}
+			relPath, _ := filepath.Rel(outputDir, path)
+			if relPath == "." {
+				return nil
+			}
+			if info.IsDir() {
+				fmt.Printf("  %s/\n", relPath)
+			} else {
+				fmt.Printf("  %s\n", relPath)
+			}
+			return nil
+		})
+		if err != nil {
+			fmt.Printf("Warning: Failed to list extracted files: %v\n", err)
+		}
+	}
+}
