@@ -1391,6 +1391,7 @@ type WorkflowProjectsCmd struct {
 	Push      WorkflowProjectsPushCmd      `kong:"cmd,help='Push project from directory (alias for create)'"`
 	Workflows WorkflowProjectsWorkflowsCmd `kong:"cmd,aliases='wf',help='List workflows in project'"`
 	Secrets   WorkflowProjectsSecretsCmd   `kong:"cmd,aliases='secret',help='Project secrets management'"`
+	Hooks     WorkflowProjectsHooksCmd     `kong:"cmd,aliases='hook',help='Workflow hooks management'"`
 }
 
 type WorkflowProjectsListCmd struct{}
@@ -1471,6 +1472,67 @@ type WorkflowProjectsSecretsDeleteCmd struct {
 
 func (w *WorkflowProjectsSecretsDeleteCmd) Run(ctx *CLIContext) error {
 	handleWorkflowProjectSecretsDelete(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.ProjectID), w.Key}, ctx.GlobalFlags)
+	return nil
+}
+
+type WorkflowProjectsHooksCmd struct {
+	Show   WorkflowProjectsHooksShowCmd   `kong:"cmd,aliases='ls,list',help='Show hooks configuration'"`
+	Init   WorkflowProjectsHooksInitCmd   `kong:"cmd,help='Initialize hooks configuration file'"`
+	Add    WorkflowProjectsHooksAddCmd    `kong:"cmd,help='Add a new hook'"`
+	Remove WorkflowProjectsHooksRemoveCmd `kong:"cmd,aliases='rm',help='Remove a hook'"`
+	Test   WorkflowProjectsHooksTestCmd   `kong:"cmd,help='Test hooks execution'"`
+}
+
+type WorkflowProjectsHooksShowCmd struct {
+	Path string `kong:"help='Project directory path',default='.'"`
+}
+
+func (w *WorkflowProjectsHooksShowCmd) Run(ctx *CLIContext) error {
+	handleWorkflowHooksShow(ctx.Context, ctx.Client, []string{w.Path}, ctx.GlobalFlags)
+	return nil
+}
+
+type WorkflowProjectsHooksInitCmd struct {
+	Path string `kong:"help='Project directory path',default='.'"`
+}
+
+func (w *WorkflowProjectsHooksInitCmd) Run(ctx *CLIContext) error {
+	handleWorkflowHooksInit(ctx.Context, ctx.Client, []string{w.Path}, ctx.GlobalFlags)
+	return nil
+}
+
+type WorkflowProjectsHooksAddCmd struct {
+	Path        string   `kong:"help='Project directory path',default='.'"`
+	Name        string   `kong:"arg,help='Hook name'"`
+	Command     []string `kong:"arg,help='Hook command'"`
+	Timeout     int      `kong:"help='Hook timeout in seconds',default='60'"`
+	FailOnError bool     `kong:"help='Fail upload if hook fails',default='true'"`
+	WorkingDir  string   `kong:"help='Working directory for hook execution'"`
+}
+
+func (w *WorkflowProjectsHooksAddCmd) Run(ctx *CLIContext) error {
+	args := []string{w.Path, w.Name, fmt.Sprintf("%d", w.Timeout), fmt.Sprintf("%t", w.FailOnError), w.WorkingDir}
+	args = append(args, w.Command...)
+	handleWorkflowHooksAdd(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
+	return nil
+}
+
+type WorkflowProjectsHooksRemoveCmd struct {
+	Path string `kong:"help='Project directory path',default='.'"`
+	Name string `kong:"arg,help='Hook name to remove'"`
+}
+
+func (w *WorkflowProjectsHooksRemoveCmd) Run(ctx *CLIContext) error {
+	handleWorkflowHooksRemove(ctx.Context, ctx.Client, []string{w.Path, w.Name}, ctx.GlobalFlags)
+	return nil
+}
+
+type WorkflowProjectsHooksTestCmd struct {
+	Path string `kong:"help='Project directory path',default='.'"`
+}
+
+func (w *WorkflowProjectsHooksTestCmd) Run(ctx *CLIContext) error {
+	handleWorkflowHooksTest(ctx.Context, ctx.Client, []string{w.Path}, ctx.GlobalFlags)
 	return nil
 }
 
