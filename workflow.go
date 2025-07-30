@@ -51,7 +51,7 @@ func validateHookCommand(command []string) error {
 		if len(arg) > MaxCommandLength {
 			return fmt.Errorf("command argument %d too long (max %d characters)", i, MaxCommandLength)
 		}
-		
+
 		// Block dangerous characters that could be used for command injection
 		if strings.ContainsAny(arg, ";|&$`\n\r") {
 			return fmt.Errorf("command argument %d contains dangerous characters", i)
