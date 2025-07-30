@@ -1343,14 +1343,14 @@ func extractTarGz(archiveData []byte, outputDir string) error {
 
 		// Check file size limit
 		if header.Size > maxFileSize {
-			return fmt.Errorf("file too large in archive: %s (size: %d bytes, max: %d bytes)", 
+			return fmt.Errorf("file too large in archive: %s (size: %d bytes, max: %d bytes)",
 				header.Name, header.Size, maxFileSize)
 		}
 
 		// Check total size limit
 		totalSize += header.Size
 		if totalSize > maxTotalSize {
-			return fmt.Errorf("archive too large: total size %d bytes exceeds maximum %d bytes", 
+			return fmt.Errorf("archive too large: total size %d bytes exceeds maximum %d bytes",
 				totalSize, maxTotalSize)
 		}
 

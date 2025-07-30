@@ -1071,7 +1071,7 @@ func handleWorkflowProjectDownload(ctx context.Context, client *td.Client, args 
 
 	// Revision support (we'll extend this with proper flag support later)
 	var revision string
-	
+
 	if flags.Verbose {
 		fmt.Printf("Downloading project: %s\n", projectIdentifier)
 		if revision != "" {
@@ -1090,7 +1090,7 @@ func handleWorkflowProjectDownload(ctx context.Context, client *td.Client, args 
 		if flags.Verbose {
 			fmt.Printf("Using project ID: %s\n", projectIdentifier)
 		}
-		
+
 		// Get project info for display
 		projectInfo, err = client.Workflow.GetProject(ctx, projectIdentifier)
 		if err != nil {
