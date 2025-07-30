@@ -1052,3 +1052,64 @@ func handleWorkflowHooksValidate(ctx context.Context, client *td.Client, args []
 	fmt.Println("\n✅ All hooks have been validated and appear to be correctly configured.")
 	fmt.Println("Use 'tdcli workflow projects push' to execute hooks during actual upload")
 }
+
+func handleWorkflowProjectDownload(ctx context.Context, client *td.Client, args []string, flags Flags) {
+	if len(args) < 1 {
+		log.Fatal("Project ID required")
+	}
+
+	projectID := args[0]
+	outputDir := "."
+	var revision string
+
+	// Parse additional arguments
+	if len(args) > 1 {
+		outputDir = args[1]
+	}
+	if len(args) > 2 {
+		revision = args[2]
+	}
+
+	// Get project details first to determine project name
+	project, err := client.Workflow.GetProject(ctx, projectID)
+	if err != nil {
+		handleError(err, "Failed to get project details", flags.Verbose)
+	}
+
+	// If outputDir is ".", use project name as directory
+	if outputDir == "." {
+		outputDir = project.Name
+	}
+
+	if flags.Verbose {
+		fmt.Printf("Downloading project %s (%s)...\n", project.Name, projectID)
+		if revision != "" {
+			fmt.Printf("Revision: %s\n", revision)
+		}
+		fmt.Printf("Output directory: %s\n", outputDir)
+	}
+
+	// Download and extract based on whether revision is specified
+	var downloadErr error
+	if revision != "" {
+		downloadErr = client.Workflow.DownloadProjectToDirectoryWithRevision(ctx, projectID, revision, outputDir)
+	} else {
+		downloadErr = client.Workflow.DownloadProjectToDirectory(ctx, projectID, outputDir)
+	}
+
+	if downloadErr != nil {
+		handleError(downloadErr, "Failed to download project", flags.Verbose)
+	}
+
+	fmt.Printf("✅ Project '%s' downloaded successfully to %s\n", project.Name, outputDir)
+
+	// Show some stats about what was downloaded
+	if flags.Verbose {
+		fmt.Printf("Project ID: %s\n", project.ID)
+		fmt.Printf("Name: %s\n", project.Name)
+		fmt.Printf("Revision: %s\n", project.Revision)
+		fmt.Printf("Archive Type: %s\n", project.ArchiveType)
+		fmt.Printf("Created: %s\n", project.CreatedAt.Format("2006-01-02 15:04:05"))
+		fmt.Printf("Updated: %s\n", project.UpdatedAt.Format("2006-01-02 15:04:05"))
+	}
+}

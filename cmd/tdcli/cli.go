@@ -1389,6 +1389,7 @@ type WorkflowProjectsCmd struct {
 	Get       WorkflowProjectsGetCmd       `kong:"cmd,aliases='show',help='Get project details'"`
 	Create    WorkflowProjectsCreateCmd    `kong:"cmd,help='Create a new project'"`
 	Push      WorkflowProjectsPushCmd      `kong:"cmd,help='Push project from directory (alias for create)'"`
+	Download  WorkflowProjectsDownloadCmd  `kong:"cmd,help='Download project to local directory'"`
 	Workflows WorkflowProjectsWorkflowsCmd `kong:"cmd,aliases='wf',help='List workflows in project'"`
 	Secrets   WorkflowProjectsSecretsCmd   `kong:"cmd,aliases='secret',help='Project secrets management'"`
 	Hooks     WorkflowProjectsHooksCmd     `kong:"cmd,aliases='hook',help='Workflow hooks management'"`
@@ -1427,6 +1428,21 @@ type WorkflowProjectsPushCmd struct {
 
 func (w *WorkflowProjectsPushCmd) Run(ctx *CLIContext) error {
 	handleWorkflowProjectCreate(ctx.Context, ctx.Client, []string{w.Name, w.Path}, ctx.GlobalFlags)
+	return nil
+}
+
+type WorkflowProjectsDownloadCmd struct {
+	ProjectID string `kong:"arg,help='Project ID'"`
+	OutputDir string `kong:"help='Output directory (defaults to project name)',default='.'"`
+	Revision  string `kong:"help='Project revision to download'"`
+}
+
+func (w *WorkflowProjectsDownloadCmd) Run(ctx *CLIContext) error {
+	args := []string{w.ProjectID, w.OutputDir}
+	if w.Revision != "" {
+		args = append(args, w.Revision)
+	}
+	handleWorkflowProjectDownload(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
 	return nil
 }
 

@@ -1163,3 +1163,188 @@ func (s *WorkflowService) DeleteProjectSecret(ctx context.Context, projectID str
 
 	return nil
 }
+
+// extractTarGz extracts a tar.gz archive to a specified directory
+func extractTarGz(archive []byte, destDir string) error {
+	// Create destination directory if it doesn't exist
+	if err := os.MkdirAll(destDir, 0755); err != nil {
+		return fmt.Errorf("failed to create destination directory: %w", err)
+	}
+
+	// Get absolute path for security validation
+	absDestDir, err := filepath.Abs(destDir)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute destination path: %w", err)
+	}
+
+	// Create readers for decompression
+	gzReader, err := gzip.NewReader(bytes.NewReader(archive))
+	if err != nil {
+		return fmt.Errorf("failed to create gzip reader: %w", err)
+	}
+	defer gzReader.Close()
+
+	tarReader := tar.NewReader(gzReader)
+
+	// Extract files from archive
+	for {
+		header, err := tarReader.Next()
+		if err == io.EOF {
+			break // End of archive
+		}
+		if err != nil {
+			return fmt.Errorf("failed to read tar entry: %w", err)
+		}
+
+		// Security validation: ensure path doesn't escape destination directory
+		targetPath := filepath.Join(absDestDir, header.Name)
+		if !strings.HasPrefix(targetPath, absDestDir+string(os.PathSeparator)) && targetPath != absDestDir {
+			return fmt.Errorf("path traversal detected: %s", header.Name)
+		}
+
+		// Handle different file types
+		switch header.Typeflag {
+		case tar.TypeDir:
+			// Create directory
+			if err := os.MkdirAll(targetPath, os.FileMode(header.Mode)); err != nil {
+				return fmt.Errorf("failed to create directory %s: %w", targetPath, err)
+			}
+
+		case tar.TypeReg:
+			// Create regular file
+			dir := filepath.Dir(targetPath)
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				return fmt.Errorf("failed to create parent directory for %s: %w", targetPath, err)
+			}
+
+			file, err := os.OpenFile(targetPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(header.Mode))
+			if err != nil {
+				return fmt.Errorf("failed to create file %s: %w", targetPath, err)
+			}
+
+			// Copy file content with size limit for security
+			const maxFileSize = 100 * 1024 * 1024 // 100MB per file
+			if header.Size > maxFileSize {
+				file.Close()
+				return fmt.Errorf("file too large: %s (size: %d bytes, max: %d bytes)", targetPath, header.Size, maxFileSize)
+			}
+
+			if _, err := io.CopyN(file, tarReader, header.Size); err != nil {
+				file.Close()
+				return fmt.Errorf("failed to write file content %s: %w", targetPath, err)
+			}
+
+			file.Close()
+
+		default:
+			// Skip unsupported file types (symlinks, devices, etc.)
+			fmt.Printf("Skipping unsupported file type: %s (type: %c)\n", header.Name, header.Typeflag)
+		}
+	}
+
+	return nil
+}
+
+// DownloadProject downloads a workflow project archive and returns the raw bytes
+func (s *WorkflowService) DownloadProject(ctx context.Context, projectID string) ([]byte, error) {
+	// Validate input
+	if projectID == "" {
+		return nil, NewValidationError("projectID", projectID, "cannot be empty")
+	}
+
+	u := fmt.Sprintf("api/projects/%s/archive", projectID)
+
+	req, err := s.client.NewWorkflowRequest("GET", u, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Use a bytes.Buffer to capture the binary response
+	var buf bytes.Buffer
+	resp, err := s.client.Do(ctx, req, &buf)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check for successful response
+	if resp.StatusCode != http.StatusOK {
+		return nil, &WorkflowError{
+			Operation:  "download project",
+			ProjectID:  projectID,
+			StatusCode: resp.StatusCode,
+			Response:   resp,
+		}
+	}
+
+	return buf.Bytes(), nil
+}
+
+// DownloadProjectWithRevision downloads a specific revision of a workflow project
+func (s *WorkflowService) DownloadProjectWithRevision(ctx context.Context, projectID, revision string) ([]byte, error) {
+	// Validate input
+	if projectID == "" {
+		return nil, NewValidationError("projectID", projectID, "cannot be empty")
+	}
+	if revision == "" {
+		return nil, NewValidationError("revision", revision, "cannot be empty")
+	}
+
+	u := fmt.Sprintf("api/projects/%s/archive?revision=%s", projectID, revision)
+
+	req, err := s.client.NewWorkflowRequest("GET", u, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Use a bytes.Buffer to capture the binary response
+	var buf bytes.Buffer
+	resp, err := s.client.Do(ctx, req, &buf)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check for successful response
+	if resp.StatusCode != http.StatusOK {
+		return nil, &WorkflowError{
+			Operation:  "download project with revision",
+			ProjectID:  projectID,
+			StatusCode: resp.StatusCode,
+			Message:    fmt.Sprintf("revision=%s", revision),
+			Response:   resp,
+		}
+	}
+
+	return buf.Bytes(), nil
+}
+
+// DownloadProjectToDirectory downloads and extracts a project to a local directory
+func (s *WorkflowService) DownloadProjectToDirectory(ctx context.Context, projectID, outputDir string) error {
+	// Download project archive
+	archive, err := s.DownloadProject(ctx, projectID)
+	if err != nil {
+		return fmt.Errorf("failed to download project %s: %w", projectID, err)
+	}
+
+	// Extract archive to directory
+	if err := extractTarGz(archive, outputDir); err != nil {
+		return fmt.Errorf("failed to extract project %s to %s: %w", projectID, outputDir, err)
+	}
+
+	return nil
+}
+
+// DownloadProjectToDirectoryWithRevision downloads and extracts a specific revision of a project to a local directory
+func (s *WorkflowService) DownloadProjectToDirectoryWithRevision(ctx context.Context, projectID, revision, outputDir string) error {
+	// Download project archive with specific revision
+	archive, err := s.DownloadProjectWithRevision(ctx, projectID, revision)
+	if err != nil {
+		return fmt.Errorf("failed to download project %s (revision %s): %w", projectID, revision, err)
+	}
+
+	// Extract archive to directory
+	if err := extractTarGz(archive, outputDir); err != nil {
+		return fmt.Errorf("failed to extract project %s (revision %s) to %s: %w", projectID, revision, outputDir, err)
+	}
+
+	return nil
+}
