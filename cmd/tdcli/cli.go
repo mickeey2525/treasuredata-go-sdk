@@ -1480,7 +1480,7 @@ type WorkflowProjectsHooksCmd struct {
 	Init   WorkflowProjectsHooksInitCmd   `kong:"cmd,help='Initialize hooks configuration file'"`
 	Add    WorkflowProjectsHooksAddCmd    `kong:"cmd,help='Add a new hook'"`
 	Remove WorkflowProjectsHooksRemoveCmd `kong:"cmd,aliases='rm',help='Remove a hook'"`
-	Test   WorkflowProjectsHooksTestCmd   `kong:"cmd,help='Test hooks execution'"`
+	Test   WorkflowProjectsHooksTestCmd   `kong:"cmd,help='Validate hooks configuration'"`
 }
 
 type WorkflowProjectsHooksShowCmd struct {
@@ -1532,7 +1532,7 @@ type WorkflowProjectsHooksTestCmd struct {
 }
 
 func (w *WorkflowProjectsHooksTestCmd) Run(ctx *CLIContext) error {
-	handleWorkflowHooksTest(ctx.Context, ctx.Client, []string{w.Path}, ctx.GlobalFlags)
+	handleWorkflowHooksValidate(ctx.Context, ctx.Client, []string{w.Path}, ctx.GlobalFlags)
 	return nil
 }
 
