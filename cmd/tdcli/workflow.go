@@ -1109,10 +1109,10 @@ func handleWorkflowProjectDownload(ctx context.Context, client *td.Client, args 
 			fmt.Printf("Searching for project by name: %s\n", projectIdentifier)
 		}
 
-		// Find project by name first to get project info
-		projectInfo, err = client.Workflow.FindProjectByName(ctx, projectIdentifier)
+		// Get project by name using direct API call
+		projectInfo, err = client.Workflow.GetProjectByName(ctx, projectIdentifier)
 		if err != nil {
-			handleError(err, "Failed to find project by name", flags.Verbose)
+			handleError(err, "Failed to get project by name", flags.Verbose)
 		}
 
 		if flags.Verbose {

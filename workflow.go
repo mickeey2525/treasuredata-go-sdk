@@ -1222,7 +1222,31 @@ func (s *WorkflowService) DownloadProjectToDirectoryWithRevision(ctx context.Con
 	return extractTarGz(archiveData, outputDir)
 }
 
-// FindProjectByName finds a project by name and returns its ID
+// GetProjectByName retrieves a specific project by name using direct API call
+func (s *WorkflowService) GetProjectByName(ctx context.Context, projectName string) (*WorkflowProject, error) {
+	// Validate input
+	if projectName == "" {
+		return nil, NewValidationError("projectName", projectName, "cannot be empty")
+	}
+
+	u := fmt.Sprintf("api/projects?name=%s", projectName)
+
+	req, err := s.client.NewWorkflowRequest("GET", u, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var project WorkflowProject
+	_, err = s.client.Do(ctx, req, &project)
+	if err != nil {
+		return nil, err
+	}
+
+	return &project, nil
+}
+
+// FindProjectByName finds a project by name and returns its ID (deprecated - use GetProjectByName instead)
+// This method is kept for backward compatibility but is inefficient as it lists all projects
 func (s *WorkflowService) FindProjectByName(ctx context.Context, projectName string) (*WorkflowProject, error) {
 	if projectName == "" {
 		return nil, NewValidationError("projectName", projectName, "cannot be empty")
@@ -1260,8 +1284,8 @@ func (s *WorkflowService) DownloadProjectByNameToDirectory(ctx context.Context, 
 
 // DownloadProjectByNameToDirectoryWithRevision downloads and extracts a specific revision of a project by name to a directory
 func (s *WorkflowService) DownloadProjectByNameToDirectoryWithRevision(ctx context.Context, projectName, revision, outputDir string) error {
-	// Find project by name
-	project, err := s.FindProjectByName(ctx, projectName)
+	// Get project by name using direct API call
+	project, err := s.GetProjectByName(ctx, projectName)
 	if err != nil {
 		return err
 	}
