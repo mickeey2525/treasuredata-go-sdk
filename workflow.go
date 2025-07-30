@@ -36,24 +36,24 @@ type WorkflowHooksConfig struct {
 // loadHooksConfig loads hooks configuration from a directory
 func loadHooksConfig(dirPath string) (*WorkflowHooksConfig, error) {
 	configPath := filepath.Join(dirPath, ".td-hooks.json")
-	
+
 	// Check if config file exists
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		// No hooks config found, return empty config
 		return &WorkflowHooksConfig{}, nil
 	}
-	
+
 	// Read and parse config file
 	configData, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read hooks config file %s: %w", configPath, err)
 	}
-	
+
 	var config WorkflowHooksConfig
 	if err := json.Unmarshal(configData, &config); err != nil {
 		return nil, fmt.Errorf("failed to parse hooks config file %s: %w", configPath, err)
 	}
-	
+
 	return &config, nil
 }
 
@@ -62,13 +62,13 @@ func executeHook(hook WorkflowHook, projectDir string) error {
 	if len(hook.Command) == 0 {
 		return fmt.Errorf("hook '%s' has no command specified", hook.Name)
 	}
-	
+
 	// Set timeout (default 60 seconds)
 	timeout := time.Duration(hook.Timeout)
 	if timeout == 0 {
 		timeout = 60 * time.Second
 	}
-	
+
 	// Set working directory (default to project directory)
 	workingDir := hook.WorkingDir
 	if workingDir == "" {
@@ -76,25 +76,25 @@ func executeHook(hook WorkflowHook, projectDir string) error {
 	} else if !filepath.IsAbs(workingDir) {
 		workingDir = filepath.Join(projectDir, workingDir)
 	}
-	
+
 	// Create command with timeout context
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	
+
 	cmd := exec.CommandContext(ctx, hook.Command[0], hook.Command[1:]...)
 	cmd.Dir = workingDir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	
+
 	fmt.Printf("Running hook '%s': %s\n", hook.Name, strings.Join(hook.Command, " "))
-	
+
 	if err := cmd.Run(); err != nil {
 		if ctx.Err() == context.DeadlineExceeded {
 			return fmt.Errorf("hook '%s' timed out after %v", hook.Name, timeout)
 		}
 		return fmt.Errorf("hook '%s' failed: %w", hook.Name, err)
 	}
-	
+
 	fmt.Printf("Hook '%s' completed successfully\n", hook.Name)
 	return nil
 }
@@ -105,13 +105,13 @@ func executePreUploadHooks(dirPath string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	if len(config.PreUploadHooks) == 0 {
 		return nil // No hooks to execute
 	}
-	
+
 	fmt.Printf("Executing %d pre-upload hook(s)...\n", len(config.PreUploadHooks))
-	
+
 	for _, hook := range config.PreUploadHooks {
 		if err := executeHook(hook, dirPath); err != nil {
 			if hook.FailOnError {
@@ -120,7 +120,7 @@ func executePreUploadHooks(dirPath string) error {
 			fmt.Printf("Warning: Hook '%s' failed but continuing: %v\n", hook.Name, err)
 		}
 	}
-	
+
 	fmt.Println("All pre-upload hooks completed")
 	return nil
 }

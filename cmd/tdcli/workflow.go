@@ -1007,40 +1007,40 @@ func handleWorkflowHooksTest(ctx context.Context, client *td.Client, args []stri
 	}
 
 	dirPath := args[0]
-	
+
 	fmt.Printf("Testing pre-upload hooks in %s...\n", dirPath)
-	
+
 	// Load hooks configuration
 	configPath := filepath.Join(dirPath, ".td-hooks.json")
-	
+
 	// Check if config file exists
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		fmt.Println("No hooks configuration found")
 		return
 	}
-	
+
 	// Read and parse config file
 	configData, err := os.ReadFile(configPath)
 	if err != nil {
 		handleError(err, "Failed to read hooks configuration", flags.Verbose)
 	}
-	
+
 	var config td.WorkflowHooksConfig
 	if err := json.Unmarshal(configData, &config); err != nil {
 		handleError(err, "Failed to parse hooks configuration", flags.Verbose)
 	}
-	
+
 	if len(config.PreUploadHooks) == 0 {
 		fmt.Println("No pre-upload hooks configured")
 		return
 	}
-	
+
 	fmt.Printf("Found %d pre-upload hook(s)\n", len(config.PreUploadHooks))
-	
+
 	// We can't directly call the package-private functions, so we'll just load and display the config
 	for i, hook := range config.PreUploadHooks {
 		fmt.Printf("%d. Hook '%s': %s\n", i+1, hook.Name, strings.Join(hook.Command, " "))
 	}
-	
+
 	fmt.Println("Use 'tdcli workflow projects push' to test hooks execution during actual upload")
 }
