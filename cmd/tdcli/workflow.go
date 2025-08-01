@@ -614,12 +614,22 @@ func handleWorkflowProjectList(ctx context.Context, client *td.Client, flags Fla
 
 func handleWorkflowProjectGet(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		log.Fatal("Project ID required")
+		log.Fatal("Project ID or name required")
 	}
 
-	projectID := args[0]
+	projectIdentifier := args[0]
+	var project *td.WorkflowProject
+	var err error
 
-	project, err := client.Workflow.GetProject(ctx, projectID)
+	// Try to parse as project ID first (numeric)
+	if _, parseErr := strconv.Atoi(projectIdentifier); parseErr == nil {
+		// It's a numeric ID
+		project, err = client.Workflow.GetProject(ctx, projectIdentifier)
+	} else {
+		// It's not numeric, try to get by name
+		project, err = client.Workflow.GetProjectByName(ctx, projectIdentifier)
+	}
+
 	if err != nil {
 		handleError(err, "Failed to get workflow project", flags.Verbose)
 	}
