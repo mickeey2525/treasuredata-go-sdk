@@ -1403,11 +1403,11 @@ func (w *WorkflowProjectsListCmd) Run(ctx *CLIContext) error {
 }
 
 type WorkflowProjectsGetCmd struct {
-	ProjectID int `kong:"arg,help='Project ID'"`
+	ProjectID string `kong:"arg,help='Project ID or name'"`
 }
 
 func (w *WorkflowProjectsGetCmd) Run(ctx *CLIContext) error {
-	handleWorkflowProjectGet(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.ProjectID)}, ctx.GlobalFlags)
+	handleWorkflowProjectGet(ctx.Context, ctx.Client, []string{w.ProjectID}, ctx.GlobalFlags)
 	return nil
 }
 

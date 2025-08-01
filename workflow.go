@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -1186,6 +1187,9 @@ func (s *WorkflowService) DownloadProjectWithRevision(ctx context.Context, proje
 		return nil, err
 	}
 
+	// Override Accept header for binary download
+	req.Header.Set("Accept", "application/gzip, application/x-gzip, application/octet-stream, */*")
+
 	var buf bytes.Buffer
 	resp, err := s.client.Do(ctx, req, &buf)
 	if err != nil {
@@ -1229,20 +1233,33 @@ func (s *WorkflowService) GetProjectByName(ctx context.Context, projectName stri
 		return nil, NewValidationError("projectName", projectName, "cannot be empty")
 	}
 
-	u := fmt.Sprintf("api/projects?name=%s", projectName)
+	u := fmt.Sprintf("api/projects?name=%s", url.QueryEscape(projectName))
 
 	req, err := s.client.NewWorkflowRequest("GET", u, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	var project WorkflowProject
-	_, err = s.client.Do(ctx, req, &project)
+	var resp WorkflowProjectListResponse
+	_, err = s.client.Do(ctx, req, &resp)
 	if err != nil {
 		return nil, err
 	}
 
-	return &project, nil
+	// Check if we found any projects
+	if len(resp.Projects) == 0 {
+		return nil, fmt.Errorf("no project found with name: %s", projectName)
+	}
+
+	// Return the first matching project
+	project := &resp.Projects[0]
+
+	// Validate that we got a valid project with ID
+	if project.ID == "" {
+		return nil, fmt.Errorf("project found but ID is empty for project: %s", projectName)
+	}
+
+	return project, nil
 }
 
 // FindProjectByName finds a project by name and returns its ID (deprecated - use GetProjectByName instead)
