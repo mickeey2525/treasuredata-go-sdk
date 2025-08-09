@@ -134,11 +134,7 @@ func handleWorkflowInit(ctx context.Context, args []string, flags Flags) {
 +query_and_export:
   +query:
     td>: queries/sample_query.sql
-    --database: sample_datasets
-  +export:
-    td_load>:
-      table: result_table
-      mode: append
+    database: sample_datasets
 `
 	workflowDigPath := filepath.Join(projectName, "workflow.dig")
 	if err := os.WriteFile(workflowDigPath, []byte(workflowDigContent), 0644); err != nil {

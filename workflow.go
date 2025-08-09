@@ -6,14 +6,10 @@ import (
 	"net/http"
 )
 
-
-
-
 // WorkflowService handles communication with the Workflow related methods of the Treasure Data API.
 type WorkflowService struct {
 	client *Client
 }
-
 
 // Workflow represents a Treasure Data workflow
 type Workflow struct {
@@ -30,23 +26,16 @@ type Workflow struct {
 	Timezone     string                 `json:"timezone"`
 }
 
-
-
-
-
 // WorkflowListOptions specifies optional parameters to Workflow List method
 type WorkflowListOptions struct {
 	Limit  int `url:"limit,omitempty"`
 	Offset int `url:"offset,omitempty"`
 }
 
-
 // WorkflowListResponse represents the response from the workflow list API
 type WorkflowListResponse struct {
 	Workflows []Workflow `json:"workflows"`
 }
-
-
 
 // ListWorkflows returns a list of workflows
 func (s *WorkflowService) ListWorkflows(ctx context.Context, opts *WorkflowListOptions) (*WorkflowListResponse, error) {
@@ -92,8 +81,6 @@ func (s *WorkflowService) GetWorkflow(ctx context.Context, workflowID string) (*
 
 	return &workflow, nil
 }
-
-
 
 // CreateWorkflow creates a new workflow
 func (s *WorkflowService) CreateWorkflow(ctx context.Context, name, project, config string) (*Workflow, error) {
