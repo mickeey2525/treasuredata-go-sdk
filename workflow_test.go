@@ -10,7 +10,6 @@ import (
 	"time"
 )
 
-
 func TestWorkflowService_ListWorkflows(t *testing.T) {
 	client, mux, teardown := setup()
 	defer teardown()
@@ -263,8 +262,6 @@ func TestWorkflowService_DeleteWorkflow(t *testing.T) {
 	}
 }
 
-
-
 func TestWorkflowService_ErrorResponse(t *testing.T) {
 	client, mux, teardown := setup()
 	defer teardown()
@@ -334,6 +331,3 @@ _export:
 
 	fmt.Printf("Created workflow: %s (ID: %s)\n", workflow.Name, workflow.ID)
 }
-
-
-

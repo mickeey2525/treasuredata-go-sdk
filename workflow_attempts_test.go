@@ -10,7 +10,6 @@ import (
 	"time"
 )
 
-
 func TestWorkflowService_StartWorkflow(t *testing.T) {
 	client, mux, teardown := setup()
 	defer teardown()
