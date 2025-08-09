@@ -105,6 +105,60 @@ func handleWorkflowGet(ctx context.Context, client *td.Client, args []string, fl
 	}
 }
 
+func handleWorkflowInit(ctx context.Context, args []string, flags Flags) {
+	if len(args) < 1 {
+		log.Fatal("Project name required")
+	}
+	projectName := args[0]
+
+	// Create project directory
+	if err := os.Mkdir(projectName, 0755); err != nil {
+		if os.IsExist(err) {
+			log.Fatalf("Directory '%s' already exists", projectName)
+		}
+		handleError(err, "Failed to create project directory", flags.Verbose)
+	}
+
+	// Create queries subdirectory
+	queriesDir := filepath.Join(projectName, "queries")
+	if err := os.Mkdir(queriesDir, 0755); err != nil {
+		handleError(err, "Failed to create queries directory", flags.Verbose)
+	}
+
+	// Create workflow.dig file
+	workflowDigContent := `timezone: UTC
+
++setup:
+  echo>: Setting up the project...
+
++query_and_export:
+  +query:
+    td>: queries/sample_query.sql
+    --database: sample_datasets
+  +export:
+    td_load>:
+      table: result_table
+      mode: append
+`
+	workflowDigPath := filepath.Join(projectName, "workflow.dig")
+	if err := os.WriteFile(workflowDigPath, []byte(workflowDigContent), 0644); err != nil {
+		handleError(err, "Failed to create workflow.dig file", flags.Verbose)
+	}
+
+	// Create sample_query.sql file
+	sampleQueryContent := `-- Sample query: select the count of records from a sample table
+SELECT count(1) FROM www_access;
+`
+	sampleQueryPath := filepath.Join(queriesDir, "sample_query.sql")
+	if err := os.WriteFile(sampleQueryPath, []byte(sampleQueryContent), 0644); err != nil {
+		handleError(err, "Failed to create sample_query.sql file", flags.Verbose)
+	}
+
+	fmt.Printf("✅ Sample workflow project '%s' created successfully.\n", projectName)
+	fmt.Println("To push this project to Treasure Data, run:")
+	fmt.Printf("  tdcli workflow projects push %s %s\n", projectName, projectName)
+}
+
 func handleWorkflowCreate(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 3 {
 		log.Fatal("Name, project, and config required")

@@ -1165,6 +1165,7 @@ type WorkflowCmd struct {
 	Update   WorkflowUpdateCmd   `kong:"cmd,help='Update workflow'"`
 	Delete   WorkflowDeleteCmd   `kong:"cmd,aliases='rm',help='Delete workflow'"`
 	Start    WorkflowStartCmd    `kong:"cmd,aliases='run',help='Start workflow execution'"`
+	Init     WorkflowInitCmd     `kong:"cmd,help='Create a sample workflow project'"`
 	Attempts WorkflowAttemptsCmd `kong:"cmd,aliases='attempt',help='Workflow attempt management'"`
 	Schedule WorkflowScheduleCmd `kong:"cmd,help='Workflow schedule management'"`
 	Tasks    WorkflowTasksCmd    `kong:"cmd,aliases='task',help='Workflow task management'"`
@@ -1381,6 +1382,15 @@ type WorkflowLogsTaskCmd struct {
 
 func (w *WorkflowLogsTaskCmd) Run(ctx *CLIContext) error {
 	handleWorkflowTaskLog(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID), w.TaskID}, ctx.GlobalFlags)
+	return nil
+}
+
+type WorkflowInitCmd struct {
+	ProjectName string `kong:"arg,help='Name of the new workflow project'"`
+}
+
+func (w *WorkflowInitCmd) Run(ctx *CLIContext) error {
+	handleWorkflowInit(ctx.Context, []string{w.ProjectName}, ctx.GlobalFlags)
 	return nil
 }
 
