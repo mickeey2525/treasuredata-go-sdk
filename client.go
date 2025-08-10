@@ -4,11 +4,15 @@ package treasuredata
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -190,6 +194,75 @@ func WithRegion(region string) ClientOption {
 func WithUserAgent(ua string) ClientOption {
 	return func(c *Client) {
 		c.UserAgent = ua
+	}
+}
+
+// WithSSLOptions configures SSL/TLS options for the HTTP client
+func WithSSLOptions(insecureSkipVerify bool, certFile, keyFile, caFile, minVersion, maxVersion string) ClientOption {
+	return func(c *Client) {
+		// Get the existing transport or create a new one
+		transport := &http.Transport{}
+		if c.httpClient.Transport != nil {
+			if existingTransport, ok := c.httpClient.Transport.(*http.Transport); ok {
+				transport = existingTransport.Clone()
+			}
+		}
+
+		// Configure TLS
+		tlsConfig := &tls.Config{
+			InsecureSkipVerify: insecureSkipVerify,
+		}
+
+		// Set TLS version range
+		if minVersion != "" {
+			if version, err := parseTLSVersion(minVersion); err == nil {
+				tlsConfig.MinVersion = version
+			}
+		}
+		if maxVersion != "" {
+			if version, err := parseTLSVersion(maxVersion); err == nil {
+				tlsConfig.MaxVersion = version
+			}
+		}
+
+		// Load client certificate if provided
+		if certFile != "" && keyFile != "" {
+			if cert, err := tls.LoadX509KeyPair(certFile, keyFile); err == nil {
+				tlsConfig.Certificates = []tls.Certificate{cert}
+			}
+		}
+
+		// Load custom CA certificate if provided
+		if caFile != "" {
+			if caCert, err := os.ReadFile(caFile); err == nil {
+				caCertPool := x509.NewCertPool()
+				if caCertPool.AppendCertsFromPEM(caCert) {
+					tlsConfig.RootCAs = caCertPool
+				}
+			}
+		}
+
+		transport.TLSClientConfig = tlsConfig
+		c.httpClient.Transport = transport
+	}
+}
+
+// parseTLSVersion converts a version string to the corresponding tls constant
+func parseTLSVersion(version string) (uint16, error) {
+	switch version {
+	case "1.0":
+		return tls.VersionTLS10, nil
+	case "1.1":
+		return tls.VersionTLS11, nil
+	case "1.2":
+		return tls.VersionTLS12, nil
+	case "1.3":
+		return tls.VersionTLS13, nil
+	default:
+		if v, err := strconv.ParseUint(version, 10, 16); err == nil {
+			return uint16(v), nil
+		}
+		return 0, fmt.Errorf("unsupported TLS version: %s", version)
 	}
 }
 

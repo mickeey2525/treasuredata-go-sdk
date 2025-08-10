@@ -84,11 +84,24 @@ func main() {
 	var client *td.Client
 	if cli.APIKey != "" {
 		var err error
-		// Create client with region configuration
+		// Create client with region and SSL configuration
 		clientOptions := []td.ClientOption{}
 		if cli.Region != "" {
 			clientOptions = append(clientOptions, td.WithRegion(cli.Region))
 		}
+
+		// Add SSL options if any are specified
+		if cli.InsecureSkipVerify || cli.CertFile != "" || cli.KeyFile != "" || cli.CAFile != "" || cli.TLSMinVersion != "" || cli.TLSMaxVersion != "" {
+			clientOptions = append(clientOptions, td.WithSSLOptions(
+				cli.InsecureSkipVerify,
+				cli.CertFile,
+				cli.KeyFile,
+				cli.CAFile,
+				cli.TLSMinVersion,
+				cli.TLSMaxVersion,
+			))
+		}
+
 		client, err = td.NewClient(cli.APIKey, clientOptions...)
 		if err != nil {
 			log.Fatalf("Failed to create client: %v", err)

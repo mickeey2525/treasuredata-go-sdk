@@ -17,6 +17,14 @@ type CLI struct {
 	Output  string `kong:"help='Output to file'"`
 	Verbose bool   `kong:"short='v',help='Verbose output'"`
 
+	// SSL/TLS options
+	InsecureSkipVerify bool   `kong:"help='Skip TLS certificate verification (insecure)'"`
+	CertFile           string `kong:"help='Client certificate file path'"`
+	KeyFile            string `kong:"help='Client private key file path'"`
+	CAFile             string `kong:"help='Custom CA certificate file path'"`
+	TLSMinVersion      string `kong:"help='Minimum TLS version (1.0, 1.1, 1.2, 1.3)',enum='1.0,1.1,1.2,1.3'"`
+	TLSMaxVersion      string `kong:"help='Maximum TLS version (1.0, 1.1, 1.2, 1.3)',enum='1.0,1.1,1.2,1.3'"`
+
 	// Commands
 	Version   VersionCmd   `kong:"cmd,help='Show version'"`
 	Config    ConfigCmd    `kong:"cmd,help='Configuration management'"`
@@ -541,6 +549,13 @@ type Flags struct {
 	Limit       int
 	WithDetails bool
 	Engine      string
+	// SSL/TLS options
+	InsecureSkipVerify bool
+	CertFile           string
+	KeyFile            string
+	CAFile             string
+	TLSMinVersion      string
+	TLSMaxVersion      string
 }
 
 // Context structure for command execution
@@ -1936,5 +1951,12 @@ func (cli *CLI) ToFlags() Flags {
 		Priority:    0,     // Will be set by individual commands
 		Limit:       0,     // Will be set by individual commands
 		WithDetails: false, // Will be set by individual commands
+		// SSL/TLS options
+		InsecureSkipVerify: cli.InsecureSkipVerify,
+		CertFile:           cli.CertFile,
+		KeyFile:            cli.KeyFile,
+		CAFile:             cli.CAFile,
+		TLSMinVersion:      cli.TLSMinVersion,
+		TLSMaxVersion:      cli.TLSMaxVersion,
 	}
 }
