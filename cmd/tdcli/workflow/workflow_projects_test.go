@@ -65,7 +65,7 @@ func TestHandleWorkflowProjectList(t *testing.T) {
 			}`,
 			expectedOutput: []string{
 				"id,name,revision,archive_type,created_at,updated_at",
-				"1,test-project,v1,db,2021-01-01 09:00:00,2021-01-01 09:00:00",
+				"1,test-project,v1,db,2021-01-01 00:00:00,2021-01-01 00:00:00",
 			},
 		},
 		{
@@ -146,8 +146,8 @@ func TestHandleWorkflowProjectGet(t *testing.T) {
 				"Revision: v3",
 				"Archive Type: db",
 				"Archive MD5: abc123def456",
-				"Created: 2021-01-01 09:00:00",
-				"Updated: 2021-01-02 09:00:00",
+				"Created: 2021-01-01 00:00:00",
+				"Updated: 2021-01-02 00:00:00",
 			},
 		},
 		{
@@ -166,7 +166,7 @@ func TestHandleWorkflowProjectGet(t *testing.T) {
 			}`,
 			expectedOutput: []string{
 				"id,name,revision,archive_type,archive_md5,created_at,updated_at,deleted_at",
-				"456,csv-project,v1,db,def456ghi789,2021-01-01 09:00:00,2021-01-01 09:00:00,",
+				"456,csv-project,v1,db,def456ghi789,2021-01-01 00:00:00,2021-01-01 00:00:00,",
 			},
 		},
 	}
