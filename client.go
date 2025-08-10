@@ -4,11 +4,14 @@ package treasuredata
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -190,6 +193,62 @@ func WithRegion(region string) ClientOption {
 func WithUserAgent(ua string) ClientOption {
 	return func(c *Client) {
 		c.UserAgent = ua
+	}
+}
+
+// SSLOptions contains SSL/TLS configuration options
+type SSLOptions struct {
+	InsecureSkipVerify bool
+	CertFile           string
+	KeyFile            string
+	CAFile             string
+}
+
+// WithSSLOptions configures SSL/TLS settings for the HTTP client
+func WithSSLOptions(options SSLOptions) ClientOption {
+	return func(c *Client) {
+		if c.httpClient == nil {
+			c.httpClient = &http.Client{Timeout: defaultTimeout}
+		}
+
+		// Get the transport or create a new one
+		transport := c.httpClient.Transport
+		if transport == nil {
+			transport = http.DefaultTransport.(*http.Transport).Clone()
+			c.httpClient.Transport = transport
+		}
+
+		// Type assert to *http.Transport
+		if t, ok := transport.(*http.Transport); ok {
+			// Initialize TLS config if not already set
+			if t.TLSClientConfig == nil {
+				t.TLSClientConfig = &tls.Config{}
+			}
+
+			// Apply SSL options
+			if options.InsecureSkipVerify {
+				t.TLSClientConfig.InsecureSkipVerify = true
+			}
+
+			// Load client certificate if provided
+			if options.CertFile != "" && options.KeyFile != "" {
+				cert, err := tls.LoadX509KeyPair(options.CertFile, options.KeyFile)
+				if err == nil {
+					t.TLSClientConfig.Certificates = []tls.Certificate{cert}
+				}
+			}
+
+			// Load custom CA if provided
+			if options.CAFile != "" {
+				caCert, err := os.ReadFile(options.CAFile)
+				if err == nil {
+					caCertPool := x509.NewCertPool()
+					if caCertPool.AppendCertsFromPEM(caCert) {
+						t.TLSClientConfig.RootCAs = caCertPool
+					}
+				}
+			}
+		}
 	}
 }
 

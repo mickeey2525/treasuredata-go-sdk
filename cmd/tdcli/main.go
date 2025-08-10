@@ -45,6 +45,7 @@ func main() {
 	regionExplicitlySet := strings.Contains(argsString, "--region") || os.Getenv("TD_REGION") != ""
 	formatExplicitlySet := strings.Contains(argsString, "--format") || os.Getenv("TD_FORMAT") != ""
 	outputExplicitlySet := strings.Contains(argsString, "--output") || os.Getenv("TD_OUTPUT") != ""
+	sslExplicitlySet := strings.Contains(argsString, "--insecure-skip-verify") || strings.Contains(argsString, "--cert-file") || strings.Contains(argsString, "--key-file") || strings.Contains(argsString, "--ca-file") || os.Getenv("TD_INSECURE_SKIP_VERIFY") != "" || os.Getenv("TD_CERT_FILE") != "" || os.Getenv("TD_KEY_FILE") != "" || os.Getenv("TD_CA_FILE") != ""
 
 	// Get command for validation
 	command := ctx.Command()
@@ -60,6 +61,21 @@ func main() {
 	}
 	if !outputExplicitlySet && config.Output != "" {
 		cli.Output = config.Output
+	}
+	// Apply SSL config values if not explicitly set via flags/env
+	if !sslExplicitlySet {
+		if config.InsecureSkipVerify && !cli.InsecureSkipVerify {
+			cli.InsecureSkipVerify = config.InsecureSkipVerify
+		}
+		if cli.CertFile == "" && config.CertFile != "" {
+			cli.CertFile = config.CertFile
+		}
+		if cli.KeyFile == "" && config.KeyFile != "" {
+			cli.KeyFile = config.KeyFile
+		}
+		if cli.CAFile == "" && config.CAFile != "" {
+			cli.CAFile = config.CAFile
+		}
 	}
 
 	// Validate API key for non-version and non-config commands
@@ -89,6 +105,18 @@ func main() {
 		if cli.Region != "" {
 			clientOptions = append(clientOptions, td.WithRegion(cli.Region))
 		}
+		
+		// Apply SSL options if any are configured
+		if cli.InsecureSkipVerify || cli.CertFile != "" || cli.KeyFile != "" || cli.CAFile != "" {
+			sslOptions := td.SSLOptions{
+				InsecureSkipVerify: cli.InsecureSkipVerify,
+				CertFile:           cli.CertFile,
+				KeyFile:            cli.KeyFile,
+				CAFile:             cli.CAFile,
+			}
+			clientOptions = append(clientOptions, td.WithSSLOptions(sslOptions))
+		}
+		
 		client, err = td.NewClient(cli.APIKey, clientOptions...)
 		if err != nil {
 			log.Fatalf("Failed to create client: %v", err)
