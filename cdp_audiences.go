@@ -334,3 +334,36 @@ func (s *CDPService) ListFolders(ctx context.Context, audienceID string) (*CDPAu
 		Total:   int64(len(folders)),
 	}, nil
 }
+
+// GetMasterSegments retrieves legacy master segments data
+func (c *CDPService) GetMasterSegments(ctx context.Context) ([]interface{}, error) {
+	req, err := c.client.NewCDPRequest("GET", "master_segments", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var segments []interface{}
+	_, err = c.client.Do(ctx, req, &segments)
+	if err != nil {
+		return nil, err
+	}
+
+	return segments, nil
+}
+
+// MoveSegmentIntoFolder moves a segment into a folder (legacy API)
+func (c *CDPService) MoveSegmentIntoFolder(ctx context.Context, audienceID, folderID string, request interface{}) error {
+	path := fmt.Sprintf("audiences/%s/folders/%s/put_in", audienceID, folderID)
+
+	req, err := c.client.NewCDPRequest("POST", path, request)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.client.Do(ctx, req, nil)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

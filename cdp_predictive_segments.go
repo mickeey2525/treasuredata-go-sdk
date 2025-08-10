@@ -426,3 +426,21 @@ func (s *CDPService) GetEntityPredictiveSegmentModelScores(ctx context.Context, 
 
 	return &response, nil
 }
+
+// GuessRuleAsyncForSegmentPredictiveSegment initiates async rule guessing for a segment's predictive segments (entity API)
+func (s *CDPService) GuessRuleAsyncForSegmentPredictiveSegment(ctx context.Context, segmentID string, request interface{}) (*CDPJSONAPIResponse, error) {
+	path := fmt.Sprintf("entities/segments/%s/predictive_segments/guess_rule_async", segmentID)
+
+	req, err := s.client.NewCDPRequest("POST", path, request)
+	if err != nil {
+		return nil, err
+	}
+
+	var response CDPJSONAPIResponse
+	_, err = s.client.Do(ctx, req, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	return &response, nil
+}

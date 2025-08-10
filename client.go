@@ -107,6 +107,10 @@ func (t *TDTime) UnmarshalJSON(data []byte) error {
 
 // MarshalJSON implements the json.Marshaler interface for TDTime
 func (t TDTime) MarshalJSON() ([]byte, error) {
+	// Handle zero time
+	if t.Time.IsZero() {
+		return []byte("null"), nil
+	}
 	return []byte(`"` + t.Time.Format("2006-01-02 15:04:05 UTC") + `"`), nil
 }
 

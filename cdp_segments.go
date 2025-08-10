@@ -406,3 +406,39 @@ func (s *CDPService) DeleteEntitySegment(ctx context.Context, segmentID string) 
 
 	return nil
 }
+
+// ListParentSegments lists all parent segments
+func (c *CDPService) ListParentSegments(ctx context.Context) (*CDPParentSegmentListResponse, error) {
+	path := "entities/parent_segments"
+
+	req, err := c.client.NewCDPRequest("GET", path, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var response CDPParentSegmentListResponse
+	_, err = c.client.Do(ctx, req, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	return &response, nil
+}
+
+// GetParentSegment retrieves a specific parent segment by ID
+func (c *CDPService) GetParentSegment(ctx context.Context, parentSegmentID string) (*CDPParentSegmentResponse, error) {
+	path := fmt.Sprintf("entities/parent_segments/%s", parentSegmentID)
+
+	req, err := c.client.NewCDPRequest("GET", path, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var response CDPParentSegmentResponse
+	_, err = c.client.Do(ctx, req, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	return &response, nil
+}

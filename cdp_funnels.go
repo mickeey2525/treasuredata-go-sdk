@@ -235,3 +235,56 @@ func (s *CDPService) UpdateEntityFunnel(ctx context.Context, funnelID string, up
 
 	return &response, nil
 }
+
+// GetFunnelStageStatistics retrieves statistics for a funnel stage (entity API)
+func (s *CDPService) GetFunnelStageStatistics(ctx context.Context, funnelID string, stageID string) (*CDPJSONAPIResponse, error) {
+	path := fmt.Sprintf("entities/funnels/%s/stages/%s/statistics", funnelID, stageID)
+
+	req, err := s.client.NewCDPRequest("GET", path, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var response CDPJSONAPIResponse
+	_, err = s.client.Do(ctx, req, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	return &response, nil
+}
+
+// ListFunnelsByParentSegment retrieves funnels for a parent segment (entity API)
+func (s *CDPService) ListFunnelsByParentSegment(ctx context.Context, parentSegmentID string) (*CDPJSONAPIResponse, error) {
+	path := fmt.Sprintf("entities/parent_segments/%s/funnels", parentSegmentID)
+
+	req, err := s.client.NewCDPRequest("GET", path, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var response CDPJSONAPIResponse
+	_, err = s.client.Do(ctx, req, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	return &response, nil
+}
+
+// DeleteEntityFunnel deletes a funnel using entity API
+func (s *CDPService) DeleteEntityFunnel(ctx context.Context, funnelID string) error {
+	path := fmt.Sprintf("entities/funnels/%s", funnelID)
+
+	req, err := s.client.NewCDPRequest("DELETE", path, nil)
+	if err != nil {
+		return err
+	}
+
+	_, err = s.client.Do(ctx, req, nil)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

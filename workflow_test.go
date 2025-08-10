@@ -50,8 +50,8 @@ func TestWorkflowService_ListWorkflows(t *testing.T) {
 				Revision:  "abc123",
 				Status:    "active",
 				Config:    map[string]interface{}{"timezone": "UTC"},
-				CreatedAt: TDTime{time.Unix(1609459200, 0)},
-				UpdatedAt: TDTime{time.Unix(1609459200, 0)},
+				CreatedAt: &TDTime{time.Unix(1609459200, 0)},
+				UpdatedAt: &TDTime{time.Unix(1609459200, 0)},
 				Timezone:  "UTC",
 			},
 		},
@@ -122,8 +122,8 @@ func TestWorkflowService_GetWorkflow(t *testing.T) {
 		Revision:     "abc123",
 		Status:       "active",
 		Config:       map[string]interface{}{"timezone": "UTC"},
-		CreatedAt:    TDTime{time.Unix(1609459200, 0)},
-		UpdatedAt:    TDTime{time.Unix(1609459200, 0)},
+		CreatedAt:    &TDTime{time.Unix(1609459200, 0)},
+		UpdatedAt:    &TDTime{time.Unix(1609459200, 0)},
 		LastAttempt:  &lastAttempt,
 		NextSchedule: &nextSchedule,
 		Timezone:     "UTC",
@@ -181,8 +181,8 @@ func TestWorkflowService_CreateWorkflow(t *testing.T) {
 		Revision:  "def456",
 		Status:    "active",
 		Config:    map[string]interface{}{"timezone": "UTC"},
-		CreatedAt: TDTime{time.Unix(1609459200, 0)},
-		UpdatedAt: TDTime{time.Unix(1609459200, 0)},
+		CreatedAt: &TDTime{time.Unix(1609459200, 0)},
+		UpdatedAt: &TDTime{time.Unix(1609459200, 0)},
 		Timezone:  "UTC",
 	}
 
@@ -235,8 +235,8 @@ func TestWorkflowService_UpdateWorkflow(t *testing.T) {
 		Revision:  "def456",
 		Status:    "active",
 		Config:    map[string]interface{}{"timezone": "UTC"},
-		CreatedAt: TDTime{time.Unix(1609459200, 0)},
-		UpdatedAt: TDTime{time.Unix(1609545600, 0)},
+		CreatedAt: &TDTime{time.Unix(1609459200, 0)},
+		UpdatedAt: &TDTime{time.Unix(1609545600, 0)},
 		Timezone:  "UTC",
 	}
 

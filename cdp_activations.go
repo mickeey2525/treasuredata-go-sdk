@@ -396,10 +396,28 @@ func (s *CDPService) GetParentSegmentUserDefinedWorkflowProjects(ctx context.Con
 		return nil, err
 	}
 
-	var projects []CDPUserDefinedWorkflowProject
-	_, err = s.client.Do(ctx, req, &projects)
+	// Handle JSON API format response
+	var jsonAPIResp struct {
+		Data []struct {
+			ID         string `json:"id"`
+			Type       string `json:"type"`
+			Attributes struct {
+				Name string `json:"name"`
+			} `json:"attributes"`
+		} `json:"data"`
+	}
+	_, err = s.client.Do(ctx, req, &jsonAPIResp)
 	if err != nil {
 		return nil, err
+	}
+
+	// Convert to expected format
+	var projects []CDPUserDefinedWorkflowProject
+	for _, item := range jsonAPIResp.Data {
+		projects = append(projects, CDPUserDefinedWorkflowProject{
+			ID:   item.ID,
+			Name: item.Attributes.Name,
+		})
 	}
 
 	return &CDPUserDefinedWorkflowProjectListResponse{
@@ -409,7 +427,7 @@ func (s *CDPService) GetParentSegmentUserDefinedWorkflowProjects(ctx context.Con
 }
 
 // GetParentSegmentUserDefinedWorkflows retrieves user-defined workflows for a parent segment
-func (s *CDPService) GetParentSegmentUserDefinedWorkflows(ctx context.Context, parentSegmentID string) (*CDPUserDefinedWorkflowListResponse, error) {
+func (s *CDPService) GetParentSegmentUserDefinedWorkflows(ctx context.Context, parentSegmentID, workflowProjectName string) (*CDPUserDefinedWorkflowListResponse, error) {
 	u := fmt.Sprintf("entities/parent_segments/%s/user_defined_workflows", parentSegmentID)
 
 	req, err := s.client.NewCDPRequest("GET", u, nil)
@@ -417,10 +435,33 @@ func (s *CDPService) GetParentSegmentUserDefinedWorkflows(ctx context.Context, p
 		return nil, err
 	}
 
-	var workflows []CDPUserDefinedWorkflow
-	_, err = s.client.Do(ctx, req, &workflows)
+	// Add required workflowProjectName query parameter
+	q := req.URL.Query()
+	q.Set("workflowProjectName", workflowProjectName)
+	req.URL.RawQuery = q.Encode()
+
+	// Handle JSON API format response
+	var jsonAPIResp struct {
+		Data []struct {
+			ID         string `json:"id"`
+			Type       string `json:"type"`
+			Attributes struct {
+				Name string `json:"name"`
+			} `json:"attributes"`
+		} `json:"data"`
+	}
+	_, err = s.client.Do(ctx, req, &jsonAPIResp)
 	if err != nil {
 		return nil, err
+	}
+
+	// Convert to expected format
+	var workflows []CDPUserDefinedWorkflow
+	for _, item := range jsonAPIResp.Data {
+		workflows = append(workflows, CDPUserDefinedWorkflow{
+			ID:   item.ID,
+			Name: item.Attributes.Name,
+		})
 	}
 
 	return &CDPUserDefinedWorkflowListResponse{
