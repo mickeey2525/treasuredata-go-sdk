@@ -18,21 +18,33 @@ type CDPJourney struct {
 
 // CDPJourneyAttributes contains the journey attributes
 type CDPJourneyAttributes struct {
-	Name                    string            `json:"name"`
-	Description             string            `json:"description,omitempty"`
-	AudienceID              string            `json:"audience_id"`
-	SegmentFolderID         string            `json:"segment_folder_id"`
-	Status                  string            `json:"status"`
-	IsVisible               bool              `json:"is_visible"`
-	HasCampaignGoal         bool              `json:"has_campaign_goal"`
-	GoalType                string            `json:"goal_type,omitempty"`
-	GoalValue               *float64          `json:"goal_value,omitempty"`
-	AggregateWindowDays     int               `json:"aggregate_window_days"`
-	MinimumEventsCount      int               `json:"minimum_events_count"`
-	MinimumEventsWithinDays int               `json:"minimum_events_within_days"`
-	CreatedAt               time.Time         `json:"created_at"`
-	UpdatedAt               time.Time         `json:"updated_at"`
-	JourneyStages           []CDPJourneyStage `json:"journey_stages,omitempty"`
+	Name                     string            `json:"name"`
+	Description              string            `json:"description,omitempty"`
+	AudienceID               string            `json:"audienceId"`
+	SegmentFolderID          string            `json:"segment_folder_id"`
+	Status                   string            `json:"status"`
+	State                    string            `json:"state,omitempty"`
+	IsVisible                bool              `json:"is_visible"`
+	HasCampaignGoal          bool              `json:"has_campaign_goal"`
+	GoalType                 string            `json:"goal_type,omitempty"`
+	GoalValue                *float64          `json:"goal_value,omitempty"`
+	AggregateWindowDays      int               `json:"aggregate_window_days"`
+	MinimumEventsCount       int               `json:"minimum_events_count"`
+	MinimumEventsWithinDays  int               `json:"minimum_events_within_days"`
+	CreatedAt                time.Time         `json:"createdAt"`
+	UpdatedAt                time.Time         `json:"updatedAt"`
+	LaunchedAt               *time.Time        `json:"launchedAt,omitempty"`
+	Paused                   bool              `json:"paused"`
+	PausedAt                 *time.Time        `json:"pausedAt,omitempty"`
+	AllowReentry             bool              `json:"allowReentry"`
+	ReentryMode              string            `json:"reentryMode,omitempty"`
+	JourneyBundleID          string            `json:"journeyBundleId,omitempty"`
+	JourneyBundleName        string            `json:"journeyBundleName,omitempty"`
+	JourneyBundleDescription string            `json:"journeyBundleDescription,omitempty"`
+	VersionNumber            int               `json:"versionNumber,omitempty"`
+	JourneyStages            []CDPJourneyStage `json:"journeyStages,omitempty"`
+	Goal                     interface{}       `json:"goal,omitempty"`
+	LatestExecution          interface{}       `json:"latestExecution,omitempty"`
 }
 
 // CDPJourneyRelationships contains journey relationships
@@ -118,8 +130,8 @@ type CDPJourneyActivationAttr struct {
 	ActivationTemplateID string      `json:"activation_template_id"`
 	Status               string      `json:"status"`
 	Configuration        interface{} `json:"configuration,omitempty"`
-	CreatedAt            time.Time   `json:"created_at"`
-	UpdatedAt            time.Time   `json:"updated_at"`
+	CreatedAt            time.Time   `json:"createdAt"`
+	UpdatedAt            time.Time   `json:"updatedAt"`
 }
 
 // CDPJourneyCustomer represents a customer in a journey

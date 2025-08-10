@@ -152,12 +152,12 @@ func TestJobsService_List_WithOptions(t *testing.T) {
 
 	mux.HandleFunc("/v3/job/list", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "GET")
-		
+
 		// Check URL path
 		if r.URL.Path != "/v3/job/list" {
 			t.Errorf("Request path: %v, want %v", r.URL.Path, "/v3/job/list")
 		}
-		
+
 		// Check URL parameters
 		params := r.URL.Query()
 		if params.Get("from") != "10" {

@@ -198,12 +198,12 @@ func TestResultsService_GetResultJSON(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	
+
 	type ResultData struct {
-		TotalCount int                    `json:"total_count"`
+		TotalCount int                      `json:"total_count"`
 		Users      []map[string]interface{} `json:"users"`
 	}
-	
+
 	var result ResultData
 	err := client.Results.GetResultJSON(ctx, "123456", &result)
 	if err != nil {
@@ -401,8 +401,8 @@ func TestResultsService_ListResults(t *testing.T) {
 			ID:   "result_1",
 			Type: "s3",
 			Settings: map[string]interface{}{
-				"region":          "us-east-1",
-				"access_key_id":   "AKIAIOSFODNN7EXAMPLE",
+				"region":        "us-east-1",
+				"access_key_id": "AKIAIOSFODNN7EXAMPLE",
 			},
 		},
 		{
@@ -486,7 +486,7 @@ func TestResultsService_GetResult_AllFormats(t *testing.T) {
 			mux.HandleFunc("/v3/job/result/123456", func(w http.ResponseWriter, r *http.Request) {
 				expectedURL := fmt.Sprintf("/v3/job/result/123456?format=%s", tt.format)
 				testURL(t, r, expectedURL)
-				
+
 				w.Header().Set("Content-Type", tt.mimeType)
 				fmt.Fprint(w, tt.expected)
 			})
