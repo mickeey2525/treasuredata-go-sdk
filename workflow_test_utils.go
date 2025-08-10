@@ -43,3 +43,23 @@ func testURL(t *testing.T, r *http.Request, want string) {
 		t.Errorf("Request URL: %v, want %v", got, want)
 	}
 }
+
+// setupCDP sets up a test HTTP server along with a treasuredata.Client that is
+// configured to talk to that test server for CDP endpoints. Tests should register handlers on
+// mux which provide mock responses for the CDP API method being tested.
+func setupCDP() (client *Client, mux *http.ServeMux, teardown func()) {
+	// mux is the HTTP request multiplexer used with the test server.
+	mux = http.NewServeMux()
+
+	// server is a test HTTP server used to provide mock API responses.
+	server := httptest.NewServer(mux)
+
+	// client is the Treasure Data client being tested.
+	client, _ = NewClient("test-api-key")
+	url, _ := url.Parse(server.URL + "/")
+	client.CDPURL = url
+
+	return client, mux, func() {
+		server.Close()
+	}
+}
