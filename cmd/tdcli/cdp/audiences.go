@@ -3,7 +3,6 @@ package cdp
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 	"text/tabwriter"
