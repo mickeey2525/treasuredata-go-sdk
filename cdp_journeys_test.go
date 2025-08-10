@@ -9,7 +9,6 @@ import (
 	"time"
 )
 
-
 func TestCDPJourneyAttributes_TimestampParsing(t *testing.T) {
 	// Test data with camelCase timestamp fields from real API response
 	jsonData := `{
