@@ -20,6 +20,12 @@ type FlexibleInt64 struct {
 
 // UnmarshalJSON implements the json.Unmarshaler interface for FlexibleInt64
 func (f *FlexibleInt64) UnmarshalJSON(data []byte) error {
+	// Handle null explicitly
+	if string(data) == "null" {
+		f.Value = nil
+		return nil
+	}
+
 	// Try to unmarshal as int64 first
 	var num int64
 	if err := json.Unmarshal(data, &num); err == nil {

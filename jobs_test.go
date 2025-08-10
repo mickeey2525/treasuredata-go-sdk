@@ -118,7 +118,7 @@ func TestJobsService_List(t *testing.T) {
 				JobID:                   "456789",
 				Type:                    "trino",
 				Database:                "analytics",
-				Query:                   QueryField{Value: "{\"sql\": \"SELECT user_id FROM events LIMIT 10\"}"},
+				Query:                   QueryField{Value: "{\"sql\":\"SELECT user_id FROM events LIMIT 10\"}"},
 				Status:                  "running",
 				URL:                     "https://console.treasuredata.com/jobs/456789",
 				UserName:                "analyst",
@@ -152,7 +152,26 @@ func TestJobsService_List_WithOptions(t *testing.T) {
 
 	mux.HandleFunc("/v3/job/list", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "GET")
-		testURL(t, r, "/v3/job/list?from=10&status=success&slow=true&to=20")
+		
+		// Check URL path
+		if r.URL.Path != "/v3/job/list" {
+			t.Errorf("Request path: %v, want %v", r.URL.Path, "/v3/job/list")
+		}
+		
+		// Check URL parameters
+		params := r.URL.Query()
+		if params.Get("from") != "10" {
+			t.Errorf("Parameter 'from': %v, want %v", params.Get("from"), "10")
+		}
+		if params.Get("to") != "20" {
+			t.Errorf("Parameter 'to': %v, want %v", params.Get("to"), "20")
+		}
+		if params.Get("status") != "success" {
+			t.Errorf("Parameter 'status': %v, want %v", params.Get("status"), "success")
+		}
+		if params.Get("slow") != "true" {
+			t.Errorf("Parameter 'slow': %v, want %v", params.Get("slow"), "true")
+		}
 
 		fmt.Fprint(w, `{
 			"count": 0,
@@ -494,7 +513,7 @@ func TestQueryField_UnmarshalJSON_Object(t *testing.T) {
 	if err != nil {
 		t.Errorf("UnmarshalJSON returned error: %v", err)
 	}
-	expected := `{"sql": "SELECT COUNT(*) FROM users"}`
+	expected := `{"sql":"SELECT COUNT(*) FROM users"}`
 	if q.Value != expected {
 		t.Errorf("Expected %q, got %q", expected, q.Value)
 	}

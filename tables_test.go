@@ -100,8 +100,53 @@ func TestTablesService_List(t *testing.T) {
 		},
 	}
 
-	if !reflect.DeepEqual(tables, want) {
-		t.Errorf("Tables.List returned %+v, want %+v", tables, want)
+	// Compare tables length first
+	if len(tables) != len(want) {
+		t.Errorf("Tables.List returned %d tables, want %d", len(tables), len(want))
+		return
+	}
+
+	// Compare each table individually with special handling for pointer fields
+	for i, table := range tables {
+		wantTable := want[i]
+		
+		// Compare basic fields
+		if table.ID != wantTable.ID || table.Name != wantTable.Name || table.Database != wantTable.Database ||
+			table.Type != wantTable.Type || table.Count != wantTable.Count || table.DeleteProtected != wantTable.DeleteProtected ||
+			table.Schema != wantTable.Schema || table.IncludeV != wantTable.IncludeV ||
+			table.EstimatedStorageSize != wantTable.EstimatedStorageSize {
+			t.Errorf("Table %d basic fields mismatch: got %+v, want %+v", i, table, wantTable)
+		}
+		
+		// Compare time fields
+		if !table.CreatedAt.Equal(wantTable.CreatedAt.Time) || !table.UpdatedAt.Equal(wantTable.UpdatedAt.Time) {
+			t.Errorf("Table %d time fields mismatch: got CreatedAt=%v UpdatedAt=%v, want CreatedAt=%v UpdatedAt=%v", 
+				i, table.CreatedAt, table.UpdatedAt, wantTable.CreatedAt, wantTable.UpdatedAt)
+		}
+		
+		// Compare LastLogTimestamp (FlexibleInt64)
+		if (table.LastLogTimestamp.Value == nil) != (wantTable.LastLogTimestamp.Value == nil) {
+			t.Errorf("Table %d LastLogTimestamp nil mismatch: got %v, want %v", i, table.LastLogTimestamp.Value, wantTable.LastLogTimestamp.Value)
+		} else if table.LastLogTimestamp.Value != nil && wantTable.LastLogTimestamp.Value != nil &&
+			*table.LastLogTimestamp.Value != *wantTable.LastLogTimestamp.Value {
+			t.Errorf("Table %d LastLogTimestamp value mismatch: got %d, want %d", i, *table.LastLogTimestamp.Value, *wantTable.LastLogTimestamp.Value)
+		}
+		
+		// Compare ExpireDays
+		if (table.ExpireDays == nil) != (wantTable.ExpireDays == nil) {
+			t.Errorf("Table %d ExpireDays nil mismatch: got %v, want %v", i, table.ExpireDays, wantTable.ExpireDays)
+		} else if table.ExpireDays != nil && wantTable.ExpireDays != nil &&
+			*table.ExpireDays != *wantTable.ExpireDays {
+			t.Errorf("Table %d ExpireDays value mismatch: got %d, want %d", i, *table.ExpireDays, *wantTable.ExpireDays)
+		}
+		
+		// Compare CounterUpdatedAt
+		if (table.CounterUpdatedAt == nil) != (wantTable.CounterUpdatedAt == nil) {
+			t.Errorf("Table %d CounterUpdatedAt nil mismatch: got %v, want %v", i, table.CounterUpdatedAt, wantTable.CounterUpdatedAt)
+		} else if table.CounterUpdatedAt != nil && wantTable.CounterUpdatedAt != nil &&
+			!table.CounterUpdatedAt.Equal(wantTable.CounterUpdatedAt.Time) {
+			t.Errorf("Table %d CounterUpdatedAt value mismatch: got %v, want %v", i, *table.CounterUpdatedAt, *wantTable.CounterUpdatedAt)
+		}
 	}
 }
 

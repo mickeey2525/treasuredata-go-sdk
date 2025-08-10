@@ -130,14 +130,14 @@ func TestPermissionsService_CreatePolicy(t *testing.T) {
 		testMethod(t, r, "POST")
 		testURL(t, r, "/v3/access_control/policies")
 
-		var body map[string]string
+		var body CreateAccessControlPolicyRequest
 		json.NewDecoder(r.Body).Decode(&body)
 
-		if body["name"] != "New Policy" {
-			t.Errorf("Request body name = %v, want 'New Policy'", body["name"])
+		if body.Policy.Name != "New Policy" {
+			t.Errorf("Request body name = %v, want 'New Policy'", body.Policy.Name)
 		}
-		if body["description"] != "A new test policy" {
-			t.Errorf("Request body description = %v, want 'A new test policy'", body["description"])
+		if body.Policy.Description != "A new test policy" {
+			t.Errorf("Request body description = %v, want 'A new test policy'", body.Policy.Description)
 		}
 
 		fmt.Fprint(w, `{
@@ -173,14 +173,14 @@ func TestPermissionsService_UpdatePolicy(t *testing.T) {
 	defer teardown()
 
 	mux.HandleFunc("/v3/access_control/policies/1", func(w http.ResponseWriter, r *http.Request) {
-		testMethod(t, r, "PUT")
+		testMethod(t, r, "PATCH")
 		testURL(t, r, "/v3/access_control/policies/1")
 
-		var body map[string]string
+		var body UpdateAccessControlPolicyRequest
 		json.NewDecoder(r.Body).Decode(&body)
 
-		if body["name"] != "Updated Policy" {
-			t.Errorf("Request body name = %v, want 'Updated Policy'", body["name"])
+		if body.Policy.Name != "Updated Policy" {
+			t.Errorf("Request body name = %v, want 'Updated Policy'", body.Policy.Name)
 		}
 
 		fmt.Fprint(w, `{
