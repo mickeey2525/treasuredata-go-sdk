@@ -19,8 +19,8 @@ type Workflow struct {
 	Revision     string                 `json:"revision"`
 	Status       string                 `json:"status"`
 	Config       map[string]interface{} `json:"config"`
-	CreatedAt    TDTime                 `json:"created_at"`
-	UpdatedAt    TDTime                 `json:"updated_at"`
+	CreatedAt    *TDTime                `json:"created_at,omitempty"`
+	UpdatedAt    *TDTime                `json:"updated_at,omitempty"`
 	LastAttempt  *int                   `json:"last_attempt"`
 	NextSchedule *TDTime                `json:"next_schedule"`
 	Timezone     string                 `json:"timezone"`

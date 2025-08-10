@@ -1,5 +1,7 @@
 package treasuredata
 
+import "time"
+
 // CDPService handles communication with the CDP (Customer Data Platform) related methods of the Treasure Data API.
 type CDPService struct {
 	client *Client
@@ -811,4 +813,99 @@ type CDPPredictiveSegmentEntityAttributes struct {
 type CDPPredictiveSegmentEntityRelationships struct {
 	BaseSegment  *CDPEntityFolderParentData `json:"baseSegment,omitempty"`
 	ParentFolder *CDPEntityFolderParentData `json:"parentFolder,omitempty"`
+}
+
+// CDPRelationshipData represents a JSON:API relationship data structure
+type CDPRelationshipData struct {
+	ID   string `json:"id"`
+	Type string `json:"type"`
+}
+
+// CDPResponseMeta represents metadata in API responses
+type CDPResponseMeta struct {
+	TotalCount int64                  `json:"total_count,omitempty"`
+	Count      int64                  `json:"count,omitempty"`
+	Limit      int                    `json:"limit,omitempty"`
+	Offset     int                    `json:"offset,omitempty"`
+	HasMore    bool                   `json:"has_more,omitempty"`
+	NextCursor string                 `json:"next_cursor,omitempty"`
+	Pagination map[string]interface{} `json:"pagination,omitempty"`
+}
+
+// CDPResponseLinks represents links in API responses
+type CDPResponseLinks struct {
+	Self  string `json:"self,omitempty"`
+	Next  string `json:"next,omitempty"`
+	Prev  string `json:"prev,omitempty"`
+	First string `json:"first,omitempty"`
+	Last  string `json:"last,omitempty"`
+}
+
+// CDPActivationTemplate represents an activation template
+type CDPActivationTemplate struct {
+	ID         string                           `json:"id"`
+	Type       string                           `json:"type"`
+	Attributes *CDPActivationTemplateAttributes `json:"attributes,omitempty"`
+}
+
+// CDPActivationTemplateAttributes contains activation template attributes
+type CDPActivationTemplateAttributes struct {
+	Name                 string                 `json:"name"`
+	Description          string                 `json:"description,omitempty"`
+	ActivationType       string                 `json:"activation_type"`
+	ConfigurationSchema  map[string]interface{} `json:"configuration_schema,omitempty"`
+	DefaultConfiguration map[string]interface{} `json:"default_configuration,omitempty"`
+	IsAvailable          bool                   `json:"is_available,omitempty"`
+	CreatedAt            time.Time              `json:"created_at"`
+	UpdatedAt            time.Time              `json:"updated_at"`
+}
+
+// CDPActivationTemplateRequest represents a request for activation template operations
+type CDPActivationTemplateRequest struct {
+	Data CDPActivationTemplate `json:"data"`
+}
+
+// CDPActivationTemplateResponse represents a single activation template response
+type CDPActivationTemplateResponse struct {
+	Data     CDPActivationTemplate `json:"data"`
+	Included []interface{}         `json:"included,omitempty"`
+	Meta     *CDPResponseMeta      `json:"meta,omitempty"`
+}
+
+// CDPActivationTemplateListResponse represents a list of activation templates
+type CDPActivationTemplateListResponse struct {
+	Data     []CDPActivationTemplate `json:"data"`
+	Included []interface{}           `json:"included,omitempty"`
+	Meta     *CDPResponseMeta        `json:"meta,omitempty"`
+	Links    *CDPResponseLinks       `json:"links,omitempty"`
+}
+
+// CDPParentSegment represents a parent segment in CDP
+type CDPParentSegment struct {
+	ID         string                      `json:"id"`
+	Type       string                      `json:"type"`
+	Attributes *CDPParentSegmentAttributes `json:"attributes,omitempty"`
+}
+
+// CDPParentSegmentAttributes contains parent segment attributes
+type CDPParentSegmentAttributes struct {
+	Name        string    `json:"name"`
+	Description *string   `json:"description"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+// CDPParentSegmentListResponse represents a list of parent segments
+type CDPParentSegmentListResponse struct {
+	Data     []CDPParentSegment `json:"data"`
+	Included []interface{}      `json:"included,omitempty"`
+	Meta     *CDPResponseMeta   `json:"meta,omitempty"`
+	Links    *CDPResponseLinks  `json:"links,omitempty"`
+}
+
+// CDPParentSegmentResponse represents a single parent segment response
+type CDPParentSegmentResponse struct {
+	Data     CDPParentSegment `json:"data"`
+	Included []interface{}    `json:"included,omitempty"`
+	Meta     *CDPResponseMeta `json:"meta,omitempty"`
 }

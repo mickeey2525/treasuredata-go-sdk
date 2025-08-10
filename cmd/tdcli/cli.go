@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	td "github.com/mickeey2525/treasuredata-go-sdk"
+	"github.com/mickeey2525/treasuredata-go-sdk/cmd/tdcli/workflow"
 )
 
 // Global CLI structure
@@ -551,11 +552,13 @@ type CLIContext struct {
 
 // CDP commands
 type CDPCmd struct {
-	Segments    CDPSegmentsCmd    `kong:"cmd,aliases='segment',help='CDP segment management'"`
-	Audiences   CDPAudiencesCmd   `kong:"cmd,aliases='audience',help='CDP audience management'"`
-	Activations CDPActivationsCmd `kong:"cmd,aliases='activation',help='CDP activation management'"`
-	Folders     CDPFoldersCmd     `kong:"cmd,aliases='folder',help='CDP folder management'"`
-	Tokens      CDPTokensCmd      `kong:"cmd,aliases='token',help='CDP token management'"`
+	Segments            CDPSegmentsCmd            `kong:"cmd,aliases='segment',help='CDP segment management'"`
+	Audiences           CDPAudiencesCmd           `kong:"cmd,aliases='audience',help='CDP audience management'"`
+	Activations         CDPActivationsCmd         `kong:"cmd,aliases='activation',help='CDP activation management'"`
+	Folders             CDPFoldersCmd             `kong:"cmd,aliases='folder',help='CDP folder management'"`
+	Tokens              CDPTokensCmd              `kong:"cmd,aliases='token',help='CDP token management'"`
+	Journeys            CDPJourneysCmd            `kong:"cmd,aliases='journey',help='CDP journey management'"`
+	ActivationTemplates CDPActivationTemplatesCmd `kong:"cmd,aliases='activation-template',help='CDP activation template management'"`
 }
 
 type CDPSegmentsCmd struct {
@@ -973,11 +976,12 @@ func (c *CDPActivationsWorkflowProjectsCmd) Run(ctx *CLIContext) error {
 }
 
 type CDPActivationsWorkflowsCmd struct {
-	SegmentID string `kong:"arg,help='Parent segment ID'"`
+	SegmentID           string `kong:"arg,help='Parent segment ID'"`
+	WorkflowProjectName string `kong:"arg,help='Workflow project name'"`
 }
 
 func (c *CDPActivationsWorkflowsCmd) Run(ctx *CLIContext) error {
-	handleCDPGetWorkflowsForParentSegment(ctx.Context, ctx.Client, []string{c.SegmentID}, ctx.GlobalFlags)
+	handleCDPGetWorkflowsForParentSegment(ctx.Context, ctx.Client, []string{c.SegmentID, c.WorkflowProjectName}, ctx.GlobalFlags)
 	return nil
 }
 
@@ -1157,6 +1161,328 @@ func (c *CDPTokensDeleteEntityCmd) Run(ctx *CLIContext) error {
 	return nil
 }
 
+// CDP Journey commands
+type CDPJourneysCmd struct {
+	List             CDPJourneysListCmd             `kong:"cmd,aliases='ls',help='List journeys'"`
+	Create           CDPJourneysCreateCmd           `kong:"cmd,help='Create a new journey'"`
+	Get              CDPJourneysGetCmd              `kong:"cmd,aliases='show',help='Get journey details'"`
+	Update           CDPJourneysUpdateCmd           `kong:"cmd,help='Update journey'"`
+	Delete           CDPJourneysDeleteCmd           `kong:"cmd,aliases='rm',help='Delete journey'"`
+	Detail           CDPJourneysDetailCmd           `kong:"cmd,help='Get journey detail'"`
+	Duplicate        CDPJourneysDuplicateCmd        `kong:"cmd,help='Duplicate journey'"`
+	Pause            CDPJourneysPauseCmd            `kong:"cmd,help='Pause journey'"`
+	Resume           CDPJourneysResumeCmd           `kong:"cmd,help='Resume journey'"`
+	Statistics       CDPJourneysStatisticsCmd       `kong:"cmd,aliases='stats',help='Get journey statistics'"`
+	Customers        CDPJourneysCustomersCmd        `kong:"cmd,help='Get journey customers'"`
+	StageCustomers   CDPJourneysStageCustomersCmd   `kong:"cmd,help='Get journey stage customers'"`
+	ConversionSankey CDPJourneysConversionSankeyCmd `kong:"cmd,help='Get journey conversion sankey charts'"`
+	ActivationSankey CDPJourneysActivationSankeyCmd `kong:"cmd,help='Get journey activation sankey charts'"`
+	SegmentRules     CDPJourneysSegmentRulesCmd     `kong:"cmd,help='List journey segment rules'"`
+	Behaviors        CDPJourneysBehaviorsCmd        `kong:"cmd,help='Get available behaviors for step'"`
+	Templates        CDPJourneysTemplatesCmd        `kong:"cmd,help='Get activation templates for step'"`
+	Activations      CDPJourneyActivationsCmd       `kong:"cmd,help='Journey activation management'"`
+}
+
+type CDPJourneysListCmd struct {
+	FolderID string `kong:"arg,help='Folder ID'"`
+}
+
+func (c *CDPJourneysListCmd) Run(ctx *CLIContext) error {
+	handleCDPJourneyList(ctx.Context, ctx.Client, []string{c.FolderID}, ctx.GlobalFlags)
+	return nil
+}
+
+type CDPJourneysCreateCmd struct {
+	RequestFile string `kong:"arg,help='JSON file with journey request data'"`
+}
+
+func (c *CDPJourneysCreateCmd) Run(ctx *CLIContext) error {
+	handleCDPJourneyCreate(ctx.Context, ctx.Client, []string{c.RequestFile}, ctx.GlobalFlags)
+	return nil
+}
+
+type CDPJourneysGetCmd struct {
+	JourneyID string `kong:"arg,help='Journey ID'"`
+}
+
+func (c *CDPJourneysGetCmd) Run(ctx *CLIContext) error {
+	handleCDPJourneyGet(ctx.Context, ctx.Client, []string{c.JourneyID}, ctx.GlobalFlags)
+	return nil
+}
+
+type CDPJourneysUpdateCmd struct {
+	JourneyID   string `kong:"arg,help='Journey ID'"`
+	RequestFile string `kong:"arg,help='JSON file with journey update data'"`
+}
+
+func (c *CDPJourneysUpdateCmd) Run(ctx *CLIContext) error {
+	handleCDPJourneyUpdate(ctx.Context, ctx.Client, []string{c.JourneyID, c.RequestFile}, ctx.GlobalFlags)
+	return nil
+}
+
+type CDPJourneysDeleteCmd struct {
+	JourneyID string `kong:"arg,help='Journey ID'"`
+}
+
+func (c *CDPJourneysDeleteCmd) Run(ctx *CLIContext) error {
+	handleCDPJourneyDelete(ctx.Context, ctx.Client, []string{c.JourneyID}, ctx.GlobalFlags)
+	return nil
+}
+
+type CDPJourneysDetailCmd struct {
+	JourneyID string `kong:"arg,help='Journey ID'"`
+}
+
+func (c *CDPJourneysDetailCmd) Run(ctx *CLIContext) error {
+	handleCDPJourneyDetail(ctx.Context, ctx.Client, []string{c.JourneyID}, ctx.GlobalFlags)
+	return nil
+}
+
+type CDPJourneysDuplicateCmd struct {
+	RequestFile string `kong:"arg,help='JSON file with journey duplicate request data'"`
+}
+
+func (c *CDPJourneysDuplicateCmd) Run(ctx *CLIContext) error {
+	handleCDPJourneyDuplicate(ctx.Context, ctx.Client, []string{c.RequestFile}, ctx.GlobalFlags)
+	return nil
+}
+
+type CDPJourneysPauseCmd struct {
+	JourneyID string `kong:"arg,help='Journey ID'"`
+}
+
+func (c *CDPJourneysPauseCmd) Run(ctx *CLIContext) error {
+	handleCDPJourneyPause(ctx.Context, ctx.Client, []string{c.JourneyID}, ctx.GlobalFlags)
+	return nil
+}
+
+type CDPJourneysResumeCmd struct {
+	JourneyID string `kong:"arg,help='Journey ID'"`
+}
+
+func (c *CDPJourneysResumeCmd) Run(ctx *CLIContext) error {
+	handleCDPJourneyResume(ctx.Context, ctx.Client, []string{c.JourneyID}, ctx.GlobalFlags)
+	return nil
+}
+
+type CDPJourneysStatisticsCmd struct {
+	JourneyID string `kong:"arg,help='Journey ID'"`
+	From      string `kong:"flag,help='Start date (RFC3339 format)'"`
+	To        string `kong:"flag,help='End date (RFC3339 format)'"`
+}
+
+func (c *CDPJourneysStatisticsCmd) Run(ctx *CLIContext) error {
+	args := []string{c.JourneyID}
+	if c.From != "" {
+		args = append(args, "--from", c.From)
+	}
+	if c.To != "" {
+		args = append(args, "--to", c.To)
+	}
+	handleCDPJourneyStatistics(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
+	return nil
+}
+
+type CDPJourneysCustomersCmd struct {
+	JourneyID string `kong:"arg,help='Journey ID'"`
+	Limit     int    `kong:"flag,help='Limit number of results',default='100'"`
+	Offset    int    `kong:"flag,help='Offset for pagination',default='0'"`
+}
+
+func (c *CDPJourneysCustomersCmd) Run(ctx *CLIContext) error {
+	args := []string{c.JourneyID, fmt.Sprintf("--limit=%d", c.Limit), fmt.Sprintf("--offset=%d", c.Offset)}
+	handleCDPJourneyCustomers(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
+	return nil
+}
+
+type CDPJourneysStageCustomersCmd struct {
+	JourneyID string `kong:"arg,help='Journey ID'"`
+	StageID   string `kong:"arg,help='Stage ID'"`
+	Limit     int    `kong:"flag,help='Limit number of results',default='100'"`
+	Offset    int    `kong:"flag,help='Offset for pagination',default='0'"`
+}
+
+func (c *CDPJourneysStageCustomersCmd) Run(ctx *CLIContext) error {
+	args := []string{c.JourneyID, c.StageID, fmt.Sprintf("--limit=%d", c.Limit), fmt.Sprintf("--offset=%d", c.Offset)}
+	handleCDPJourneyStageCustomers(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
+	return nil
+}
+
+type CDPJourneysConversionSankeyCmd struct {
+	JourneyID string `kong:"arg,help='Journey ID'"`
+	From      string `kong:"flag,help='Start date (RFC3339 format)'"`
+	To        string `kong:"flag,help='End date (RFC3339 format)'"`
+}
+
+func (c *CDPJourneysConversionSankeyCmd) Run(ctx *CLIContext) error {
+	args := []string{c.JourneyID}
+	if c.From != "" {
+		args = append(args, "--from", c.From)
+	}
+	if c.To != "" {
+		args = append(args, "--to", c.To)
+	}
+	handleCDPJourneyConversionSankey(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
+	return nil
+}
+
+type CDPJourneysActivationSankeyCmd struct {
+	JourneyID string `kong:"arg,help='Journey ID'"`
+	From      string `kong:"flag,help='Start date (RFC3339 format)'"`
+	To        string `kong:"flag,help='End date (RFC3339 format)'"`
+}
+
+func (c *CDPJourneysActivationSankeyCmd) Run(ctx *CLIContext) error {
+	args := []string{c.JourneyID}
+	if c.From != "" {
+		args = append(args, "--from", c.From)
+	}
+	if c.To != "" {
+		args = append(args, "--to", c.To)
+	}
+	handleCDPJourneyActivationSankey(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
+	return nil
+}
+
+type CDPJourneysSegmentRulesCmd struct {
+	AudienceID string `kong:"arg,help='Audience ID'"`
+}
+
+func (c *CDPJourneysSegmentRulesCmd) Run(ctx *CLIContext) error {
+	handleCDPJourneySegmentRules(ctx.Context, ctx.Client, []string{c.AudienceID}, ctx.GlobalFlags)
+	return nil
+}
+
+type CDPJourneysBehaviorsCmd struct {
+	JourneyID string  `kong:"arg,help='Journey ID'"`
+	StepID    *string `kong:"flag,help='Step ID (optional)'"`
+}
+
+func (c *CDPJourneysBehaviorsCmd) Run(ctx *CLIContext) error {
+	args := []string{c.JourneyID}
+	if c.StepID != nil {
+		args = append(args, "--step-id", *c.StepID)
+	}
+	handleCDPJourneyBehaviors(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
+	return nil
+}
+
+type CDPJourneysTemplatesCmd struct {
+	JourneyID string  `kong:"arg,help='Journey ID'"`
+	StepID    *string `kong:"flag,help='Step ID (optional)'"`
+}
+
+func (c *CDPJourneysTemplatesCmd) Run(ctx *CLIContext) error {
+	args := []string{c.JourneyID}
+	if c.StepID != nil {
+		args = append(args, "--step-id", *c.StepID)
+	}
+	handleCDPJourneyTemplates(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
+	return nil
+}
+
+type CDPJourneyActivationsCmd struct {
+	List   CDPJourneyActivationsListCmd   `kong:"cmd,aliases='ls',help='List journey activations'"`
+	Create CDPJourneyActivationsCreateCmd `kong:"cmd,help='Create journey activation'"`
+	Get    CDPJourneyActivationsGetCmd    `kong:"cmd,aliases='show',help='Get journey activation'"`
+	Update CDPJourneyActivationsUpdateCmd `kong:"cmd,help='Update journey activation'"`
+}
+
+type CDPJourneyActivationsListCmd struct {
+	JourneyID string `kong:"arg,help='Journey ID'"`
+}
+
+func (c *CDPJourneyActivationsListCmd) Run(ctx *CLIContext) error {
+	handleCDPJourneyActivationList(ctx.Context, ctx.Client, []string{c.JourneyID}, ctx.GlobalFlags)
+	return nil
+}
+
+type CDPJourneyActivationsCreateCmd struct {
+	JourneyID   string `kong:"arg,help='Journey ID'"`
+	RequestFile string `kong:"arg,help='JSON file with activation request data'"`
+}
+
+func (c *CDPJourneyActivationsCreateCmd) Run(ctx *CLIContext) error {
+	handleCDPJourneyActivationCreate(ctx.Context, ctx.Client, []string{c.JourneyID, c.RequestFile}, ctx.GlobalFlags)
+	return nil
+}
+
+type CDPJourneyActivationsGetCmd struct {
+	JourneyID        string `kong:"arg,help='Journey ID'"`
+	ActivationStepID string `kong:"arg,help='Activation Step ID'"`
+}
+
+func (c *CDPJourneyActivationsGetCmd) Run(ctx *CLIContext) error {
+	handleCDPJourneyActivationGet(ctx.Context, ctx.Client, []string{c.JourneyID, c.ActivationStepID}, ctx.GlobalFlags)
+	return nil
+}
+
+type CDPJourneyActivationsUpdateCmd struct {
+	JourneyID        string `kong:"arg,help='Journey ID'"`
+	ActivationStepID string `kong:"arg,help='Activation Step ID'"`
+	RequestFile      string `kong:"arg,help='JSON file with activation update data'"`
+}
+
+func (c *CDPJourneyActivationsUpdateCmd) Run(ctx *CLIContext) error {
+	handleCDPJourneyActivationUpdate(ctx.Context, ctx.Client, []string{c.JourneyID, c.ActivationStepID, c.RequestFile}, ctx.GlobalFlags)
+	return nil
+}
+
+// CDP Activation Template commands
+type CDPActivationTemplatesCmd struct {
+	List   CDPActivationTemplatesListCmd   `kong:"cmd,aliases='ls',help='List activation templates by parent segment'"`
+	Create CDPActivationTemplatesCreateCmd `kong:"cmd,help='Create a new activation template'"`
+	Get    CDPActivationTemplatesGetCmd    `kong:"cmd,aliases='show',help='Get activation template details'"`
+	Update CDPActivationTemplatesUpdateCmd `kong:"cmd,help='Update activation template'"`
+	Delete CDPActivationTemplatesDeleteCmd `kong:"cmd,aliases='rm',help='Delete activation template'"`
+}
+
+type CDPActivationTemplatesListCmd struct {
+	ParentSegmentID string `kong:"arg,help='Parent Segment ID'"`
+}
+
+func (c *CDPActivationTemplatesListCmd) Run(ctx *CLIContext) error {
+	handleCDPActivationTemplateList(ctx.Context, ctx.Client, []string{c.ParentSegmentID}, ctx.GlobalFlags)
+	return nil
+}
+
+type CDPActivationTemplatesCreateCmd struct {
+	RequestFile string `kong:"arg,help='JSON file with activation template request data'"`
+}
+
+func (c *CDPActivationTemplatesCreateCmd) Run(ctx *CLIContext) error {
+	handleCDPActivationTemplateCreate(ctx.Context, ctx.Client, []string{c.RequestFile}, ctx.GlobalFlags)
+	return nil
+}
+
+type CDPActivationTemplatesGetCmd struct {
+	TemplateID string `kong:"arg,help='Activation Template ID'"`
+}
+
+func (c *CDPActivationTemplatesGetCmd) Run(ctx *CLIContext) error {
+	handleCDPActivationTemplateGet(ctx.Context, ctx.Client, []string{c.TemplateID}, ctx.GlobalFlags)
+	return nil
+}
+
+type CDPActivationTemplatesUpdateCmd struct {
+	TemplateID  string `kong:"arg,help='Activation Template ID'"`
+	RequestFile string `kong:"arg,help='JSON file with activation template update data'"`
+}
+
+func (c *CDPActivationTemplatesUpdateCmd) Run(ctx *CLIContext) error {
+	handleCDPActivationTemplateUpdate(ctx.Context, ctx.Client, []string{c.TemplateID, c.RequestFile}, ctx.GlobalFlags)
+	return nil
+}
+
+type CDPActivationTemplatesDeleteCmd struct {
+	TemplateID string `kong:"arg,help='Activation Template ID'"`
+}
+
+func (c *CDPActivationTemplatesDeleteCmd) Run(ctx *CLIContext) error {
+	handleCDPActivationTemplateDelete(ctx.Context, ctx.Client, []string{c.TemplateID}, ctx.GlobalFlags)
+	return nil
+}
+
 // Workflow commands
 type WorkflowCmd struct {
 	List     WorkflowListCmd     `kong:"cmd,aliases='ls',help='List workflows'"`
@@ -1176,7 +1502,8 @@ type WorkflowCmd struct {
 type WorkflowListCmd struct{}
 
 func (w *WorkflowListCmd) Run(ctx *CLIContext) error {
-	handleWorkflowList(ctx.Context, ctx.Client, ctx.GlobalFlags)
+	flags := workflow.Flags(ctx.GlobalFlags)
+	workflow.HandleWorkflowList(ctx.Context, ctx.Client, flags)
 	return nil
 }
 
@@ -1185,7 +1512,8 @@ type WorkflowGetCmd struct {
 }
 
 func (w *WorkflowGetCmd) Run(ctx *CLIContext) error {
-	handleWorkflowGet(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID)}, ctx.GlobalFlags)
+	flags := workflow.Flags(ctx.GlobalFlags)
+	workflow.HandleWorkflowGet(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID)}, flags)
 	return nil
 }
 
@@ -1196,7 +1524,8 @@ type WorkflowCreateCmd struct {
 }
 
 func (w *WorkflowCreateCmd) Run(ctx *CLIContext) error {
-	handleWorkflowCreate(ctx.Context, ctx.Client, []string{w.Name, w.Project, w.Config}, ctx.GlobalFlags)
+	flags := workflow.Flags(ctx.GlobalFlags)
+	workflow.HandleWorkflowCreate(ctx.Context, ctx.Client, []string{w.Name, w.Project, w.Config}, flags)
 	return nil
 }
 
@@ -1207,7 +1536,8 @@ type WorkflowUpdateCmd struct {
 
 func (w *WorkflowUpdateCmd) Run(ctx *CLIContext) error {
 	args := append([]string{fmt.Sprintf("%d", w.WorkflowID)}, w.Updates...)
-	handleWorkflowUpdate(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
+	flags := workflow.Flags(ctx.GlobalFlags)
+	workflow.HandleWorkflowUpdate(ctx.Context, ctx.Client, args, flags)
 	return nil
 }
 
@@ -1216,7 +1546,8 @@ type WorkflowDeleteCmd struct {
 }
 
 func (w *WorkflowDeleteCmd) Run(ctx *CLIContext) error {
-	handleWorkflowDelete(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID)}, ctx.GlobalFlags)
+	flags := workflow.Flags(ctx.GlobalFlags)
+	workflow.HandleWorkflowDelete(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID)}, flags)
 	return nil
 }
 
@@ -1230,7 +1561,8 @@ func (w *WorkflowStartCmd) Run(ctx *CLIContext) error {
 	if w.Params != "" {
 		args = append(args, w.Params)
 	}
-	handleWorkflowStart(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
+	flags := workflow.Flags(ctx.GlobalFlags)
+	workflow.HandleWorkflowStart(ctx.Context, ctx.Client, args, flags)
 	return nil
 }
 
@@ -1246,7 +1578,8 @@ type WorkflowAttemptsListCmd struct {
 }
 
 func (w *WorkflowAttemptsListCmd) Run(ctx *CLIContext) error {
-	handleWorkflowAttemptList(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID)}, ctx.GlobalFlags)
+	flags := workflow.Flags(ctx.GlobalFlags)
+	workflow.HandleWorkflowAttemptList(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID)}, flags)
 	return nil
 }
 
@@ -1256,7 +1589,8 @@ type WorkflowAttemptsGetCmd struct {
 }
 
 func (w *WorkflowAttemptsGetCmd) Run(ctx *CLIContext) error {
-	handleWorkflowAttemptGet(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID)}, ctx.GlobalFlags)
+	flags := workflow.Flags(ctx.GlobalFlags)
+	workflow.HandleWorkflowAttemptGet(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID)}, flags)
 	return nil
 }
 
@@ -1266,7 +1600,8 @@ type WorkflowAttemptsKillCmd struct {
 }
 
 func (w *WorkflowAttemptsKillCmd) Run(ctx *CLIContext) error {
-	handleWorkflowAttemptKill(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID)}, ctx.GlobalFlags)
+	flags := workflow.Flags(ctx.GlobalFlags)
+	workflow.HandleWorkflowAttemptKill(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID)}, flags)
 	return nil
 }
 
@@ -1281,7 +1616,8 @@ func (w *WorkflowAttemptsRetryCmd) Run(ctx *CLIContext) error {
 	if w.Params != "" {
 		args = append(args, w.Params)
 	}
-	handleWorkflowAttemptRetry(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
+	flags := workflow.Flags(ctx.GlobalFlags)
+	workflow.HandleWorkflowAttemptRetry(ctx.Context, ctx.Client, args, flags)
 	return nil
 }
 
@@ -1297,7 +1633,8 @@ type WorkflowScheduleGetCmd struct {
 }
 
 func (w *WorkflowScheduleGetCmd) Run(ctx *CLIContext) error {
-	handleWorkflowScheduleGet(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID)}, ctx.GlobalFlags)
+	flags := workflow.Flags(ctx.GlobalFlags)
+	workflow.HandleWorkflowScheduleGet(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID)}, flags)
 	return nil
 }
 
@@ -1306,7 +1643,8 @@ type WorkflowScheduleEnableCmd struct {
 }
 
 func (w *WorkflowScheduleEnableCmd) Run(ctx *CLIContext) error {
-	handleWorkflowScheduleEnable(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID)}, ctx.GlobalFlags)
+	flags := workflow.Flags(ctx.GlobalFlags)
+	workflow.HandleWorkflowScheduleEnable(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID)}, flags)
 	return nil
 }
 
@@ -1315,7 +1653,8 @@ type WorkflowScheduleDisableCmd struct {
 }
 
 func (w *WorkflowScheduleDisableCmd) Run(ctx *CLIContext) error {
-	handleWorkflowScheduleDisable(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID)}, ctx.GlobalFlags)
+	flags := workflow.Flags(ctx.GlobalFlags)
+	workflow.HandleWorkflowScheduleDisable(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID)}, flags)
 	return nil
 }
 
@@ -1327,9 +1666,10 @@ type WorkflowScheduleUpdateCmd struct {
 }
 
 func (w *WorkflowScheduleUpdateCmd) Run(ctx *CLIContext) error {
-	handleWorkflowScheduleUpdate(ctx.Context, ctx.Client, []string{
+	flags := workflow.Flags(ctx.GlobalFlags)
+	workflow.HandleWorkflowScheduleUpdate(ctx.Context, ctx.Client, []string{
 		fmt.Sprintf("%d", w.WorkflowID), w.Cron, w.Timezone, fmt.Sprintf("%d", w.Delay),
-	}, ctx.GlobalFlags)
+	}, flags)
 	return nil
 }
 
@@ -1344,7 +1684,8 @@ type WorkflowTasksListCmd struct {
 }
 
 func (w *WorkflowTasksListCmd) Run(ctx *CLIContext) error {
-	handleWorkflowTaskList(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID)}, ctx.GlobalFlags)
+	flags := workflow.Flags(ctx.GlobalFlags)
+	workflow.HandleWorkflowTaskList(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID)}, flags)
 	return nil
 }
 
@@ -1355,7 +1696,8 @@ type WorkflowTasksGetCmd struct {
 }
 
 func (w *WorkflowTasksGetCmd) Run(ctx *CLIContext) error {
-	handleWorkflowTaskGet(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID), w.TaskID}, ctx.GlobalFlags)
+	flags := workflow.Flags(ctx.GlobalFlags)
+	workflow.HandleWorkflowTaskGet(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID), w.TaskID}, flags)
 	return nil
 }
 
@@ -1370,7 +1712,8 @@ type WorkflowLogsAttemptCmd struct {
 }
 
 func (w *WorkflowLogsAttemptCmd) Run(ctx *CLIContext) error {
-	handleWorkflowAttemptLog(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID)}, ctx.GlobalFlags)
+	flags := workflow.Flags(ctx.GlobalFlags)
+	workflow.HandleWorkflowAttemptLog(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID)}, flags)
 	return nil
 }
 
@@ -1381,7 +1724,8 @@ type WorkflowLogsTaskCmd struct {
 }
 
 func (w *WorkflowLogsTaskCmd) Run(ctx *CLIContext) error {
-	handleWorkflowTaskLog(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID), w.TaskID}, ctx.GlobalFlags)
+	flags := workflow.Flags(ctx.GlobalFlags)
+	workflow.HandleWorkflowTaskLog(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID), w.TaskID}, flags)
 	return nil
 }
 
@@ -1390,7 +1734,8 @@ type WorkflowInitCmd struct {
 }
 
 func (w *WorkflowInitCmd) Run(ctx *CLIContext) error {
-	handleWorkflowInit(ctx.Context, []string{w.ProjectName}, ctx.GlobalFlags)
+	flags := workflow.Flags(ctx.GlobalFlags)
+	workflow.HandleWorkflowInit(ctx.Context, []string{w.ProjectName}, flags)
 	return nil
 }
 
@@ -1408,7 +1753,8 @@ type WorkflowProjectsCmd struct {
 type WorkflowProjectsListCmd struct{}
 
 func (w *WorkflowProjectsListCmd) Run(ctx *CLIContext) error {
-	handleWorkflowProjectList(ctx.Context, ctx.Client, ctx.GlobalFlags)
+	flags := workflow.Flags(ctx.GlobalFlags)
+	workflow.HandleWorkflowProjectList(ctx.Context, ctx.Client, flags)
 	return nil
 }
 
@@ -1417,7 +1763,8 @@ type WorkflowProjectsGetCmd struct {
 }
 
 func (w *WorkflowProjectsGetCmd) Run(ctx *CLIContext) error {
-	handleWorkflowProjectGet(ctx.Context, ctx.Client, []string{w.ProjectID}, ctx.GlobalFlags)
+	flags := workflow.Flags(ctx.GlobalFlags)
+	workflow.HandleWorkflowProjectGet(ctx.Context, ctx.Client, []string{w.ProjectID}, flags)
 	return nil
 }
 
@@ -1427,7 +1774,8 @@ type WorkflowProjectsCreateCmd struct {
 }
 
 func (w *WorkflowProjectsCreateCmd) Run(ctx *CLIContext) error {
-	handleWorkflowProjectCreate(ctx.Context, ctx.Client, []string{w.Name, w.Path}, ctx.GlobalFlags)
+	flags := workflow.Flags(ctx.GlobalFlags)
+	workflow.HandleWorkflowProjectCreate(ctx.Context, ctx.Client, []string{w.Name, w.Path}, flags)
 	return nil
 }
 
@@ -1437,7 +1785,8 @@ type WorkflowProjectsPushCmd struct {
 }
 
 func (w *WorkflowProjectsPushCmd) Run(ctx *CLIContext) error {
-	handleWorkflowProjectCreate(ctx.Context, ctx.Client, []string{w.Name, w.Path}, ctx.GlobalFlags)
+	flags := workflow.Flags(ctx.GlobalFlags)
+	workflow.HandleWorkflowProjectCreate(ctx.Context, ctx.Client, []string{w.Name, w.Path}, flags)
 	return nil
 }
 
@@ -1454,7 +1803,8 @@ func (w *WorkflowProjectsDownloadCmd) Run(ctx *CLIContext) error {
 	}
 	// For now, we'll handle revision in the handler function
 	// We can extend this later to pass revision through args or flags
-	handleWorkflowProjectDownload(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
+	flags := workflow.Flags(ctx.GlobalFlags)
+	workflow.HandleWorkflowProjectDownload(ctx.Context, ctx.Client, args, flags)
 	return nil
 }
 
@@ -1463,7 +1813,8 @@ type WorkflowProjectsWorkflowsCmd struct {
 }
 
 func (w *WorkflowProjectsWorkflowsCmd) Run(ctx *CLIContext) error {
-	handleWorkflowProjectWorkflows(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.ProjectID)}, ctx.GlobalFlags)
+	flags := workflow.Flags(ctx.GlobalFlags)
+	workflow.HandleWorkflowProjectWorkflows(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.ProjectID)}, flags)
 	return nil
 }
 
@@ -1478,7 +1829,8 @@ type WorkflowProjectsSecretsListCmd struct {
 }
 
 func (w *WorkflowProjectsSecretsListCmd) Run(ctx *CLIContext) error {
-	handleWorkflowProjectSecretsList(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.ProjectID)}, ctx.GlobalFlags)
+	flags := workflow.Flags(ctx.GlobalFlags)
+	workflow.HandleWorkflowProjectSecretsList(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.ProjectID)}, flags)
 	return nil
 }
 
@@ -1489,7 +1841,8 @@ type WorkflowProjectsSecretsSetCmd struct {
 }
 
 func (w *WorkflowProjectsSecretsSetCmd) Run(ctx *CLIContext) error {
-	handleWorkflowProjectSecretsSet(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.ProjectID), w.Key, w.Value}, ctx.GlobalFlags)
+	flags := workflow.Flags(ctx.GlobalFlags)
+	workflow.HandleWorkflowProjectSecretsSet(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.ProjectID), w.Key, w.Value}, flags)
 	return nil
 }
 
@@ -1499,7 +1852,8 @@ type WorkflowProjectsSecretsDeleteCmd struct {
 }
 
 func (w *WorkflowProjectsSecretsDeleteCmd) Run(ctx *CLIContext) error {
-	handleWorkflowProjectSecretsDelete(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.ProjectID), w.Key}, ctx.GlobalFlags)
+	flags := workflow.Flags(ctx.GlobalFlags)
+	workflow.HandleWorkflowProjectSecretsDelete(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.ProjectID), w.Key}, flags)
 	return nil
 }
 
@@ -1516,7 +1870,8 @@ type WorkflowProjectsHooksShowCmd struct {
 }
 
 func (w *WorkflowProjectsHooksShowCmd) Run(ctx *CLIContext) error {
-	handleWorkflowHooksShow(ctx.Context, ctx.Client, []string{w.Path}, ctx.GlobalFlags)
+	flags := workflow.Flags(ctx.GlobalFlags)
+	workflow.HandleWorkflowHooksShow(ctx.Context, ctx.Client, []string{w.Path}, flags)
 	return nil
 }
 
@@ -1525,7 +1880,8 @@ type WorkflowProjectsHooksInitCmd struct {
 }
 
 func (w *WorkflowProjectsHooksInitCmd) Run(ctx *CLIContext) error {
-	handleWorkflowHooksInit(ctx.Context, ctx.Client, []string{w.Path}, ctx.GlobalFlags)
+	flags := workflow.Flags(ctx.GlobalFlags)
+	workflow.HandleWorkflowHooksInit(ctx.Context, ctx.Client, []string{w.Path}, flags)
 	return nil
 }
 
@@ -1541,7 +1897,8 @@ type WorkflowProjectsHooksAddCmd struct {
 func (w *WorkflowProjectsHooksAddCmd) Run(ctx *CLIContext) error {
 	args := []string{w.Path, w.Name, fmt.Sprintf("%d", w.Timeout), fmt.Sprintf("%t", w.FailOnError), w.WorkingDir}
 	args = append(args, w.Command...)
-	handleWorkflowHooksAdd(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
+	flags := workflow.Flags(ctx.GlobalFlags)
+	workflow.HandleWorkflowHooksAdd(ctx.Context, ctx.Client, args, flags)
 	return nil
 }
 
@@ -1551,7 +1908,8 @@ type WorkflowProjectsHooksRemoveCmd struct {
 }
 
 func (w *WorkflowProjectsHooksRemoveCmd) Run(ctx *CLIContext) error {
-	handleWorkflowHooksRemove(ctx.Context, ctx.Client, []string{w.Path, w.Name}, ctx.GlobalFlags)
+	flags := workflow.Flags(ctx.GlobalFlags)
+	workflow.HandleWorkflowHooksRemove(ctx.Context, ctx.Client, []string{w.Path, w.Name}, flags)
 	return nil
 }
 
@@ -1560,7 +1918,8 @@ type WorkflowProjectsHooksTestCmd struct {
 }
 
 func (w *WorkflowProjectsHooksTestCmd) Run(ctx *CLIContext) error {
-	handleWorkflowHooksValidate(ctx.Context, ctx.Client, []string{w.Path}, ctx.GlobalFlags)
+	flags := workflow.Flags(ctx.GlobalFlags)
+	workflow.HandleWorkflowHooksValidate(ctx.Context, ctx.Client, []string{w.Path}, flags)
 	return nil
 }
 

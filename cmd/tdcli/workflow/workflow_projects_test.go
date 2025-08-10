@@ -1,34 +1,15 @@
-package main
+package workflow
 
 import (
 	"context"
 	"fmt"
 	"io"
 	"net/http"
-	"net/http/httptest"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	td "github.com/mickeey2525/treasuredata-go-sdk"
 )
-
-// setupWorkflowTest sets up a test HTTP server for workflow testing
-func setupWorkflowTest() (client *td.Client, mux *http.ServeMux, teardown func()) {
-	mux = http.NewServeMux()
-	server := httptest.NewServer(mux)
-
-	client, _ = td.NewClient("test-api-key")
-	url, _ := url.Parse(server.URL + "/")
-	client.BaseURL = url
-	client.WorkflowURL = url
-
-	return client, mux, func() {
-		server.Close()
-	}
-}
 
 func TestHandleWorkflowProjectList(t *testing.T) {
 	tests := []struct {
@@ -345,23 +326,21 @@ func TestHandleWorkflowProjectWorkflows(t *testing.T) {
 						"name": "daily-etl",
 						"project": {"id": "test-project", "name": "test-project"},
 						"status": "active",
-						"createdAt": 1609459200,
-						"updatedAt": 1609459200
+						"timezone": "UTC"
 					},
 					{
 						"id": "2",
 						"name": "hourly-sync",
 						"project": {"id": "test-project", "name": "test-project"}, 
 						"status": "inactive",
-						"createdAt": 1609545600,
-						"updatedAt": 1609545600
+						"timezone": "Asia/Tokyo"
 					}
 				]
 			}`,
 			expectedOutput: []string{
-				"ID", "NAME", "STATUS", "CREATED",
-				"1", "daily-etl", "active",
-				"2", "hourly-sync", "inactive",
+				"ID", "NAME", "STATUS", "TIMEZONE",
+				"1", "daily-etl", "active", "UTC",
+				"2", "hourly-sync", "inactive", "Asia/Tokyo",
 				"Total: 2 workflows",
 			},
 		},
@@ -672,76 +651,5 @@ func TestHandleWorkflowProjectCreateArchiveFile(t *testing.T) {
 
 	if !strings.Contains(outputStr, "Project created successfully") {
 		t.Errorf("Expected success message, got: %s", outputStr)
-	}
-}
-
-func TestWorkflowInitCmd(t *testing.T) {
-	// Create a temporary directory to run the test in
-	tempDir := t.TempDir()
-	// Change to the temporary directory
-	oldWd, _ := os.Getwd()
-	os.Chdir(tempDir)
-	defer os.Chdir(oldWd)
-
-	projectName := "my-new-workflow"
-	cmd := &WorkflowInitCmd{
-		ProjectName: projectName,
-	}
-
-	// Capture stdout
-	oldStdout := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	// Run the command
-	err := cmd.Run(&CLIContext{})
-	if err != nil {
-		t.Fatalf("WorkflowInitCmd.Run() returned an error: %v", err)
-	}
-
-	// Restore stdout and read output
-	w.Close()
-	os.Stdout = oldStdout
-	output, _ := io.ReadAll(r)
-	outputStr := string(output)
-
-	// Verify output message
-	expectedMsg := fmt.Sprintf("Sample workflow project '%s' created successfully", projectName)
-	if !strings.Contains(outputStr, expectedMsg) {
-		t.Errorf("Expected output to contain %q, but got: %s", expectedMsg, outputStr)
-	}
-
-	// Verify directory and files were created
-	// 1. Project directory
-	if _, err := os.Stat(projectName); os.IsNotExist(err) {
-		t.Errorf("Project directory '%s' was not created", projectName)
-	}
-
-	// 2. workflow.dig file
-	digFilePath := filepath.Join(projectName, "workflow.dig")
-	if _, err := os.Stat(digFilePath); os.IsNotExist(err) {
-		t.Errorf("workflow.dig file was not created at %s", digFilePath)
-	}
-
-	// 3. queries subdirectory
-	queriesDirPath := filepath.Join(projectName, "queries")
-	if _, err := os.Stat(queriesDirPath); os.IsNotExist(err) {
-		t.Errorf("queries subdirectory was not created at %s", queriesDirPath)
-	}
-
-	// 4. sample_query.sql file
-	sqlFilePath := filepath.Join(queriesDirPath, "sample_query.sql")
-	if _, err := os.Stat(sqlFilePath); os.IsNotExist(err) {
-		t.Errorf("sample_query.sql file was not created at %s", sqlFilePath)
-	}
-
-	// 5. Verify content of sample_query.sql
-	sqlContent, err := os.ReadFile(sqlFilePath)
-	if err != nil {
-		t.Fatalf("Failed to read sample_query.sql: %v", err)
-	}
-	expectedSQL := "SELECT count(1) FROM www_access;"
-	if !strings.Contains(string(sqlContent), expectedSQL) {
-		t.Errorf("Expected SQL content to contain %q, but got: %s", expectedSQL, string(sqlContent))
 	}
 }
