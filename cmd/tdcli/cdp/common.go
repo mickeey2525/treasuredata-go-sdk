@@ -42,6 +42,14 @@ func HandleError(err error, verbose bool) {
 	handleError(err, "Operation failed", verbose)
 }
 
+// handleUsageError handles usage errors with consistent formatting
+func handleUsageError(usageMessage string, verbose bool) {
+	if verbose {
+		log.Fatalf("Usage error: %s", usageMessage)
+	}
+	log.Fatalf("%s", usageMessage)
+}
+
 // FormatOutput formats and outputs data using JSON by default
 func FormatOutput(data interface{}, format, output string) {
 	switch format {

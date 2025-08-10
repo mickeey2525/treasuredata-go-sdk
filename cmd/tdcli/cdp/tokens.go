@@ -84,7 +84,7 @@ func HandleListTokens(ctx context.Context, client *td.Client, cmd interface{}, f
 // HandleGetEntityToken gets an entity token
 func HandleGetEntityToken(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		log.Fatal("Token ID required")
+		handleUsageError("Token ID required", flags.Verbose)
 	}
 
 	token, err := client.CDP.GetEntityToken(ctx, args[0])
@@ -126,7 +126,7 @@ func HandleGetEntityToken(ctx context.Context, client *td.Client, args []string,
 // HandleUpdateEntityToken updates an entity token
 func HandleUpdateEntityToken(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 2 {
-		log.Fatal("Token ID and updates (key=value) required")
+		handleUsageError("Token ID and updates (key=value) required", flags.Verbose)
 	}
 
 	tokenID := args[0]
@@ -136,7 +136,7 @@ func HandleUpdateEntityToken(ctx context.Context, client *td.Client, args []stri
 	for _, arg := range args[1:] {
 		parts := strings.SplitN(arg, "=", 2)
 		if len(parts) != 2 {
-			log.Fatalf("Invalid update format: %s (expected key=value)", arg)
+			handleUsageError(fmt.Sprintf("Invalid update format: %s (expected key=value)", arg), flags.Verbose)
 		}
 		switch parts[0] {
 		case "name":
@@ -152,11 +152,11 @@ func HandleUpdateEntityToken(ctx context.Context, client *td.Client, args []stri
 			var metadata map[string]interface{}
 			err := json.Unmarshal([]byte(parts[1]), &metadata)
 			if err != nil {
-				log.Fatalf("Invalid metadata JSON: %v", err)
+				handleUsageError(fmt.Sprintf("Invalid metadata JSON: %v", err), flags.Verbose)
 			}
 			req.Metadata = metadata
 		default:
-			log.Fatalf("Unknown field: %s", parts[0])
+			handleUsageError(fmt.Sprintf("Unknown field: %s", parts[0]), flags.Verbose)
 		}
 	}
 
@@ -171,7 +171,7 @@ func HandleUpdateEntityToken(ctx context.Context, client *td.Client, args []stri
 // HandleDeleteEntityToken deletes an entity token
 func HandleDeleteEntityToken(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		log.Fatal("Token ID required")
+		handleUsageError("Token ID required", flags.Verbose)
 	}
 
 	err := client.CDP.DeleteEntityToken(ctx, args[0])
@@ -185,13 +185,13 @@ func HandleDeleteEntityToken(ctx context.Context, client *td.Client, args []stri
 // HandleCreateToken creates a legacy token (audience-level)
 func HandleCreateToken(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 4 {
-		log.Fatal("Usage: cdp token create <audience-id> <key-column> <attribute-columns-json> [description]")
+		handleUsageError("Usage: cdp token create <audience-id> <key-column> <attribute-columns-json> [description]", flags.Verbose)
 	}
 
 	var attributeColumns []string
 	err := json.Unmarshal([]byte(args[2]), &attributeColumns)
 	if err != nil {
-		log.Fatalf("Invalid attribute columns JSON: %v", err)
+		handleUsageError(fmt.Sprintf("Invalid attribute columns JSON: %v", err), flags.Verbose)
 	}
 
 	req := &td.CDPLegacyTokenRequest{
@@ -215,7 +215,7 @@ func HandleCreateToken(ctx context.Context, client *td.Client, args []string, fl
 // HandleGetToken gets a legacy token
 func HandleGetToken(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 2 {
-		log.Fatal("Usage: cdp token get <audience-id> <token-id>")
+		handleUsageError("Usage: cdp token get <audience-id> <token-id>", flags.Verbose)
 	}
 
 	token, err := client.CDP.GetToken(ctx, args[0], args[1])
@@ -249,13 +249,13 @@ func HandleGetToken(ctx context.Context, client *td.Client, args []string, flags
 // HandleUpdateToken updates a legacy token
 func HandleUpdateToken(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 3 {
-		log.Fatal("Usage: cdp token update <audience-id> <token-id> <key-column> <attribute-columns-json> [description]")
+		handleUsageError("Usage: cdp token update <audience-id> <token-id> <key-column> <attribute-columns-json> [description]", flags.Verbose)
 	}
 
 	var attributeColumns []string
 	err := json.Unmarshal([]byte(args[3]), &attributeColumns)
 	if err != nil {
-		log.Fatalf("Invalid attribute columns JSON: %v", err)
+		handleUsageError(fmt.Sprintf("Invalid attribute columns JSON: %v", err), flags.Verbose)
 	}
 
 	req := &td.CDPLegacyTokenRequest{
@@ -277,7 +277,7 @@ func HandleUpdateToken(ctx context.Context, client *td.Client, args []string, fl
 // HandleDeleteToken deletes a legacy token
 func HandleDeleteToken(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 2 {
-		log.Fatal("Usage: cdp token delete <audience-id> <token-id>")
+		handleUsageError("Usage: cdp token delete <audience-id> <token-id>", flags.Verbose)
 	}
 
 	err := client.CDP.DeleteToken(ctx, args[0], args[1])
@@ -291,13 +291,13 @@ func HandleDeleteToken(ctx context.Context, client *td.Client, args []string, fl
 // HandleCreateEntityToken creates an entity token
 func HandleCreateEntityToken(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		log.Fatal("JSON string with token details required")
+		handleUsageError("JSON string with token details required", flags.Verbose)
 	}
 
 	var req td.CDPTokenCreateRequest
 	err := json.Unmarshal([]byte(args[0]), &req)
 	if err != nil {
-		log.Fatalf("Invalid JSON: %v", err)
+		handleUsageError(fmt.Sprintf("Invalid JSON: %v", err), flags.Verbose)
 	}
 
 	token, err := client.CDP.CreateEntityToken(ctx, &req)

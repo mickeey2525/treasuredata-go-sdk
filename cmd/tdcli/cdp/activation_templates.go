@@ -12,8 +12,7 @@ import (
 // HandleActivationTemplateList handles listing activation templates by parent segment
 func HandleActivationTemplateList(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		fmt.Fprintf(os.Stderr, "Error: Parent Segment ID is required\n")
-		os.Exit(1)
+		handleUsageError("Error: Parent Segment ID is required", flags.Verbose)
 	}
 
 	parentSegmentID := args[0]
@@ -30,8 +29,7 @@ func HandleActivationTemplateList(ctx context.Context, client *td.Client, args [
 // HandleActivationTemplateCreate handles activation template creation
 func HandleActivationTemplateCreate(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		fmt.Fprintf(os.Stderr, "Error: Request file is required\n")
-		os.Exit(1)
+		handleUsageError("Error: Request file is required", flags.Verbose)
 	}
 
 	requestFile := args[0]
@@ -39,15 +37,13 @@ func HandleActivationTemplateCreate(ctx context.Context, client *td.Client, args
 	// Read the request file
 	requestData, err := os.ReadFile(requestFile)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading request file: %v\n", err)
-		os.Exit(1)
+		handleUsageError(fmt.Sprintf("Error reading request file: %v", err), flags.Verbose)
 	}
 
 	// Parse the request
 	var request td.CDPActivationTemplateRequest
 	if err := json.Unmarshal(requestData, &request); err != nil {
-		fmt.Fprintf(os.Stderr, "Error parsing request JSON: %v\n", err)
-		os.Exit(1)
+		handleUsageError(fmt.Sprintf("Error parsing request JSON: %v", err), flags.Verbose)
 	}
 
 	template, err := client.CDP.CreateActivationTemplate(ctx, &request)
@@ -62,8 +58,7 @@ func HandleActivationTemplateCreate(ctx context.Context, client *td.Client, args
 // HandleActivationTemplateGet handles getting activation template details
 func HandleActivationTemplateGet(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		fmt.Fprintf(os.Stderr, "Error: Template ID is required\n")
-		os.Exit(1)
+		handleUsageError("Error: Template ID is required", flags.Verbose)
 	}
 
 	templateID := args[0]
@@ -80,8 +75,7 @@ func HandleActivationTemplateGet(ctx context.Context, client *td.Client, args []
 // HandleActivationTemplateUpdate handles activation template updates
 func HandleActivationTemplateUpdate(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 2 {
-		fmt.Fprintf(os.Stderr, "Error: Template ID and request file are required\n")
-		os.Exit(1)
+		handleUsageError("Error: Template ID and request file are required", flags.Verbose)
 	}
 
 	templateID := args[0]
@@ -90,15 +84,13 @@ func HandleActivationTemplateUpdate(ctx context.Context, client *td.Client, args
 	// Read the request file
 	requestData, err := os.ReadFile(requestFile)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading request file: %v\n", err)
-		os.Exit(1)
+		handleUsageError(fmt.Sprintf("Error reading request file: %v", err), flags.Verbose)
 	}
 
 	// Parse the request
 	var request td.CDPActivationTemplateRequest
 	if err := json.Unmarshal(requestData, &request); err != nil {
-		fmt.Fprintf(os.Stderr, "Error parsing request JSON: %v\n", err)
-		os.Exit(1)
+		handleUsageError(fmt.Sprintf("Error parsing request JSON: %v", err), flags.Verbose)
 	}
 
 	template, err := client.CDP.UpdateActivationTemplate(ctx, templateID, &request)
@@ -113,8 +105,7 @@ func HandleActivationTemplateUpdate(ctx context.Context, client *td.Client, args
 // HandleActivationTemplateDelete handles activation template deletion
 func HandleActivationTemplateDelete(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		fmt.Fprintf(os.Stderr, "Error: Template ID is required\n")
-		os.Exit(1)
+		handleUsageError("Error: Template ID is required", flags.Verbose)
 	}
 
 	templateID := args[0]

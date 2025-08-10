@@ -13,7 +13,7 @@ import (
 // HandleSegmentCreate creates a new CDP segment
 func HandleSegmentCreate(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 4 {
-		log.Fatal("Usage: cdp segment create <audience-id> <name> <description> <query>")
+		handleUsageError("Usage: cdp segment create <audience-id> <name> <description> <query>", flags.Verbose)
 	}
 
 	segment, err := client.CDP.CreateSegment(ctx, args[0], args[1], args[2], args[3])
@@ -29,7 +29,7 @@ func HandleSegmentCreate(ctx context.Context, client *td.Client, args []string, 
 // HandleSegmentList lists CDP segments
 func HandleSegmentList(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		log.Fatal("Usage: cdp segment list <audience-id>")
+		handleUsageError("Usage: cdp segment list <audience-id>", flags.Verbose)
 	}
 
 	opts := &td.CDPSegmentListOptions{
@@ -80,7 +80,7 @@ func HandleSegmentList(ctx context.Context, client *td.Client, args []string, fl
 // HandleSegmentGet retrieves a specific CDP segment
 func HandleSegmentGet(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 2 {
-		log.Fatal("Usage: cdp segment get <audience-id> <segment-id>")
+		handleUsageError("Usage: cdp segment get <audience-id> <segment-id>", flags.Verbose)
 	}
 
 	segment, err := client.CDP.GetSegment(ctx, args[0], args[1])
@@ -113,7 +113,7 @@ func HandleSegmentGet(ctx context.Context, client *td.Client, args []string, fla
 // HandleSegmentUpdate updates a CDP segment
 func HandleSegmentUpdate(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 3 {
-		log.Fatal("Usage: cdp segment update <audience-id> <segment-id> <key=value>...")
+		handleUsageError("Usage: cdp segment update <audience-id> <segment-id> <key=value>...", flags.Verbose)
 	}
 
 	audienceID := args[0]
@@ -124,7 +124,7 @@ func HandleSegmentUpdate(ctx context.Context, client *td.Client, args []string, 
 	for _, arg := range args[2:] {
 		parts := strings.SplitN(arg, "=", 2)
 		if len(parts) != 2 {
-			log.Fatalf("Invalid update format: %s (expected key=value)", arg)
+			handleUsageError(fmt.Sprintf("Invalid update format: %s (expected key=value)", arg), flags.Verbose)
 		}
 		updates[parts[0]] = parts[1]
 	}
@@ -140,7 +140,7 @@ func HandleSegmentUpdate(ctx context.Context, client *td.Client, args []string, 
 // HandleSegmentDelete deletes a CDP segment
 func HandleSegmentDelete(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 2 {
-		log.Fatal("Usage: cdp segment delete <audience-id> <segment-id>")
+		handleUsageError("Usage: cdp segment delete <audience-id> <segment-id>", flags.Verbose)
 	}
 
 	err := client.CDP.DeleteSegment(ctx, args[0], args[1])
@@ -154,7 +154,7 @@ func HandleSegmentDelete(ctx context.Context, client *td.Client, args []string, 
 // HandleSegmentFolders lists segments in a folder
 func HandleSegmentFolders(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 2 {
-		log.Fatal("Usage: cdp segment folders <audience-id> <folder-id>")
+		handleUsageError("Usage: cdp segment folders <audience-id> <folder-id>", flags.Verbose)
 	}
 
 	opts := &td.CDPSegmentListOptions{
@@ -205,7 +205,7 @@ func HandleSegmentFolders(ctx context.Context, client *td.Client, args []string,
 // HandleSegmentQuery executes a query for a segment
 func HandleSegmentQuery(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 2 {
-		log.Fatal("Usage: cdp segment query <audience-id> <query>")
+		handleUsageError("Usage: cdp segment query <audience-id> <query>", flags.Verbose)
 	}
 
 	resp, err := client.CDP.CreateSegmentQuery(ctx, args[0], args[1])
@@ -239,7 +239,7 @@ func HandleSegmentQuery(ctx context.Context, client *td.Client, args []string, f
 // HandleSegmentNewQuery creates a new segment query
 func HandleSegmentNewQuery(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 2 {
-		log.Fatal("Usage: cdp segment new-query <audience-id> <query>")
+		handleUsageError("Usage: cdp segment new-query <audience-id> <query>", flags.Verbose)
 	}
 
 	segmentQuery, err := client.CDP.CreateSegmentQuery(ctx, args[0], args[1])
@@ -254,7 +254,7 @@ func HandleSegmentNewQuery(ctx context.Context, client *td.Client, args []string
 // HandleSegmentQueryStatus gets the status of a segment query
 func HandleSegmentQueryStatus(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 2 {
-		log.Fatal("Usage: cdp segment query-status <audience-id> <query-id>")
+		handleUsageError("Usage: cdp segment query-status <audience-id> <query-id>", flags.Verbose)
 	}
 
 	status, err := client.CDP.GetSegmentQueryStatus(ctx, args[0], args[1])
@@ -288,7 +288,7 @@ func HandleSegmentQueryStatus(ctx context.Context, client *td.Client, args []str
 // HandleSegmentKillQuery kills a running segment query
 func HandleSegmentKillQuery(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 2 {
-		log.Fatal("Usage: cdp segment kill-query <audience-id> <query-id>")
+		handleUsageError("Usage: cdp segment kill-query <audience-id> <query-id>", flags.Verbose)
 	}
 
 	err := client.CDP.KillSegmentQuery(ctx, args[0], args[1])
@@ -302,7 +302,7 @@ func HandleSegmentKillQuery(ctx context.Context, client *td.Client, args []strin
 // HandleSegmentCustomers gets customers in a segment
 func HandleSegmentCustomers(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 2 {
-		log.Fatal("Usage: cdp segment customers <audience-id> <segment-id>")
+		handleUsageError("Usage: cdp segment customers <audience-id> <segment-id>", flags.Verbose)
 	}
 
 	opts := &td.CDPSegmentCustomerListOptions{
@@ -345,7 +345,7 @@ func HandleSegmentCustomers(ctx context.Context, client *td.Client, args []strin
 // HandleSegmentStatistics gets statistics for a segment
 func HandleSegmentStatistics(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 2 {
-		log.Fatal("Usage: cdp segment statistics <audience-id> <segment-id>")
+		handleUsageError("Usage: cdp segment statistics <audience-id> <segment-id>", flags.Verbose)
 	}
 
 	stats, err := client.CDP.GetSegmentStatistics(ctx, args[0], args[1])
@@ -380,7 +380,7 @@ func HandleSegmentStatistics(ctx context.Context, client *td.Client, args []stri
 // HandleCreateEntitySegment creates a new entity segment
 func HandleCreateEntitySegment(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 4 {
-		log.Fatal("Usage: cdp segment create-entity <name> <description> <segment-type> <parent-folder-id>")
+		handleUsageError("Usage: cdp segment create-entity <name> <description> <segment-type> <parent-folder-id>", flags.Verbose)
 	}
 
 	attributes := make(map[string]interface{})
@@ -409,7 +409,7 @@ func HandleCreateEntitySegment(ctx context.Context, client *td.Client, args []st
 // HandleGetEntitySegment retrieves an entity segment
 func HandleGetEntitySegment(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		log.Fatal("Usage: cdp segment get-entity <segment-id>")
+		handleUsageError("Usage: cdp segment get-entity <segment-id>", flags.Verbose)
 	}
 
 	segment, err := client.CDP.GetEntitySegment(ctx, args[0])
@@ -501,7 +501,7 @@ func HandleListEntitySegments(ctx context.Context, client *td.Client, flags Flag
 // HandleUpdateEntitySegment updates an entity segment
 func HandleUpdateEntitySegment(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		log.Fatal("Usage: cdp segment update-entity <segment-id> [options]")
+		handleUsageError("Usage: cdp segment update-entity <segment-id> [options]", flags.Verbose)
 	}
 
 	updates := make(map[string]interface{})
@@ -533,7 +533,7 @@ func HandleUpdateEntitySegment(ctx context.Context, client *td.Client, args []st
 // HandleDeleteEntitySegment deletes an entity segment
 func HandleDeleteEntitySegment(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		log.Fatal("Usage: cdp segment delete-entity <segment-id>")
+		handleUsageError("Usage: cdp segment delete-entity <segment-id>", flags.Verbose)
 	}
 
 	err := client.CDP.DeleteEntitySegment(ctx, args[0])

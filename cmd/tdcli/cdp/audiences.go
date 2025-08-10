@@ -14,7 +14,7 @@ import (
 // HandleAudienceCreate creates a new CDP audience
 func HandleAudienceCreate(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 4 {
-		log.Fatal("Name, description, parent database name, and parent table name required")
+		handleUsageError("Name, description, parent database name, and parent table name required", flags.Verbose)
 	}
 
 	audience, err := client.CDP.CreateAudience(ctx, args[0], args[1], args[2], args[3])
@@ -72,7 +72,7 @@ func HandleAudienceList(ctx context.Context, client *td.Client, flags Flags) {
 // HandleAudienceGet retrieves a specific CDP audience
 func HandleAudienceGet(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		log.Fatal("Audience ID required")
+		handleUsageError("Audience ID required", flags.Verbose)
 	}
 
 	audience, err := client.CDP.GetAudience(ctx, args[0])
@@ -119,7 +119,7 @@ func HandleAudienceGet(ctx context.Context, client *td.Client, args []string, fl
 // HandleAudienceDelete deletes a CDP audience
 func HandleAudienceDelete(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		log.Fatal("Audience ID required")
+		handleUsageError("Audience ID required", flags.Verbose)
 	}
 
 	err := client.CDP.DeleteAudience(ctx, args[0])
@@ -133,7 +133,7 @@ func HandleAudienceDelete(ctx context.Context, client *td.Client, args []string,
 // HandleAudienceUpdate updates a CDP audience
 func HandleAudienceUpdate(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 2 {
-		log.Fatal("Usage: cdp audience update <audience-id> <key=value>...")
+		handleUsageError("Usage: cdp audience update <audience-id> <key=value>...", flags.Verbose)
 	}
 
 	audienceID := args[0]
@@ -143,7 +143,7 @@ func HandleAudienceUpdate(ctx context.Context, client *td.Client, args []string,
 	for _, arg := range args[1:] {
 		parts := strings.SplitN(arg, "=", 2)
 		if len(parts) != 2 {
-			log.Fatalf("Invalid update format: %s (expected key=value)", arg)
+			handleUsageError(fmt.Sprintf("Invalid update format: %s (expected key=value)", arg), flags.Verbose)
 		}
 		switch parts[0] {
 		case "name":
@@ -169,7 +169,7 @@ func HandleAudienceUpdate(ctx context.Context, client *td.Client, args []string,
 		case "presto_pool_name":
 			req.PrestoPoolName = &parts[1]
 		default:
-			log.Fatalf("Unknown field: %s", parts[0])
+			handleUsageError(fmt.Sprintf("Unknown field: %s", parts[0]), flags.Verbose)
 		}
 	}
 
@@ -184,7 +184,7 @@ func HandleAudienceUpdate(ctx context.Context, client *td.Client, args []string,
 // HandleAudienceAttributes gets audience attributes
 func HandleAudienceAttributes(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		log.Fatal("Audience ID required")
+		handleUsageError("Audience ID required", flags.Verbose)
 	}
 
 	attributes, err := client.CDP.GetAudienceAttributes(ctx, args[0])
@@ -227,7 +227,7 @@ func HandleAudienceAttributes(ctx context.Context, client *td.Client, args []str
 // HandleAudienceBehaviors gets audience behaviors
 func HandleAudienceBehaviors(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		log.Fatal("Audience ID required")
+		handleUsageError("Audience ID required", flags.Verbose)
 	}
 
 	behaviors, err := client.CDP.GetAudienceBehaviors(ctx, args[0])
@@ -262,7 +262,7 @@ func HandleAudienceBehaviors(ctx context.Context, client *td.Client, args []stri
 // HandleAudienceRun runs an audience execution
 func HandleAudienceRun(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		log.Fatal("Audience ID required")
+		handleUsageError("Audience ID required", flags.Verbose)
 	}
 
 	execution, err := client.CDP.RunAudience(ctx, args[0])
@@ -279,7 +279,7 @@ func HandleAudienceRun(ctx context.Context, client *td.Client, args []string, fl
 // HandleAudienceExecutions gets audience execution history
 func HandleAudienceExecutions(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		log.Fatal("Audience ID required")
+		handleUsageError("Audience ID required", flags.Verbose)
 	}
 
 	executions, err := client.CDP.GetAudienceExecutions(ctx, args[0])
@@ -322,7 +322,7 @@ func HandleAudienceExecutions(ctx context.Context, client *td.Client, args []str
 // HandleAudienceStatistics gets audience statistics
 func HandleAudienceStatistics(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		log.Fatal("Audience ID required")
+		handleUsageError("Audience ID required", flags.Verbose)
 	}
 
 	stats, err := client.CDP.GetAudienceStatistics(ctx, args[0])
@@ -355,7 +355,7 @@ func HandleAudienceStatistics(ctx context.Context, client *td.Client, args []str
 // HandleAudienceSampleValues gets audience sample values
 func HandleAudienceSampleValues(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 2 {
-		log.Fatal("Audience ID and attribute name required")
+		handleUsageError("Audience ID and attribute name required", flags.Verbose)
 	}
 
 	values, err := client.CDP.GetAudienceSampleValues(ctx, args[0], args[1])
@@ -388,7 +388,7 @@ func HandleAudienceSampleValues(ctx context.Context, client *td.Client, args []s
 // HandleAudienceBehaviorSamples gets behavior sample values
 func HandleAudienceBehaviorSamples(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 3 {
-		log.Fatal("Usage: cdp audience behavior-samples <audience-id> <behavior-id> <column>")
+		handleUsageError("Usage: cdp audience behavior-samples <audience-id> <behavior-id> <column>", flags.Verbose)
 	}
 
 	samples, err := client.CDP.GetAudienceBehaviorSampleValues(ctx, args[0], args[1], args[2])

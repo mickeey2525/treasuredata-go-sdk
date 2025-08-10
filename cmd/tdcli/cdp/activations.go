@@ -15,14 +15,14 @@ import (
 // HandleActivationCreate creates a new CDP activation
 func HandleActivationCreate(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 4 {
-		log.Fatal("Segment ID, name, description, and configuration (JSON) required")
+		handleUsageError("Segment ID, name, description, and configuration (JSON) required", flags.Verbose)
 	}
 
 	var config map[string]interface{}
 	if args[3] != "" {
 		err := json.Unmarshal([]byte(args[3]), &config)
 		if err != nil {
-			log.Fatalf("Invalid configuration JSON: %v", err)
+			handleUsageError(fmt.Sprintf("Invalid configuration JSON: %v", err), flags.Verbose)
 		}
 	}
 
@@ -40,14 +40,14 @@ func HandleActivationCreate(ctx context.Context, client *td.Client, args []strin
 // HandleActivationCreateWithStruct creates a new CDP activation using struct-based API
 func HandleActivationCreateWithStruct(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 4 {
-		log.Fatal("Name, type, segment ID, and configuration (JSON) required")
+		handleUsageError("Name, type, segment ID, and configuration (JSON) required", flags.Verbose)
 	}
 
 	var config map[string]interface{}
 	if args[3] != "" {
 		err := json.Unmarshal([]byte(args[3]), &config)
 		if err != nil {
-			log.Fatalf("Invalid configuration JSON: %v", err)
+			handleUsageError(fmt.Sprintf("Invalid configuration JSON: %v", err), flags.Verbose)
 		}
 	}
 
@@ -172,7 +172,7 @@ func HandleActivationListWithForce(ctx context.Context, client *td.Client, flags
 // HandleActivationGet retrieves a specific activation
 func HandleActivationGet(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 3 {
-		log.Fatal("Usage: cdp activation get <audience-id> <segment-id> <activation-id>")
+		handleUsageError("Usage: cdp activation get <audience-id> <segment-id> <activation-id>", flags.Verbose)
 	}
 
 	activation, err := client.CDP.GetActivation(ctx, args[0], args[1], args[2])
@@ -259,7 +259,7 @@ func printActivationDetails(activation *td.CDPActivation, flags Flags) {
 // HandleActivationUpdateStatus updates activation status
 func HandleActivationUpdateStatus(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 4 {
-		log.Fatal("Usage: cdp activation update-status <audience-id> <segment-id> <activation-id> <status>")
+		handleUsageError("Usage: cdp activation update-status <audience-id> <segment-id> <activation-id> <status>", flags.Verbose)
 	}
 
 	_, err := client.CDP.UpdateActivationStatus(ctx, args[0], args[1], args[2], args[3])
@@ -273,13 +273,13 @@ func HandleActivationUpdateStatus(ctx context.Context, client *td.Client, args [
 // HandleActivationUpdate updates an activation
 func HandleActivationUpdate(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 4 {
-		log.Fatal("Usage: cdp activation update <audience-id> <segment-id> <activation-id> <updates-json>")
+		handleUsageError("Usage: cdp activation update <audience-id> <segment-id> <activation-id> <updates-json>", flags.Verbose)
 	}
 
 	var updates td.CDPActivationUpdateRequest
 	err := json.Unmarshal([]byte(args[3]), &updates)
 	if err != nil {
-		log.Fatalf("Invalid updates JSON: %v", err)
+		handleUsageError(fmt.Sprintf("Invalid updates JSON: %v", err), flags.Verbose)
 	}
 
 	activation, err := client.CDP.UpdateActivation(ctx, args[0], args[1], args[2], &updates)
@@ -296,7 +296,7 @@ func HandleActivationUpdate(ctx context.Context, client *td.Client, args []strin
 // HandleActivationDelete deletes an activation
 func HandleActivationDelete(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 3 {
-		log.Fatal("Usage: cdp activation delete <audience-id> <segment-id> <activation-id>")
+		handleUsageError("Usage: cdp activation delete <audience-id> <segment-id> <activation-id>", flags.Verbose)
 	}
 
 	err := client.CDP.DeleteActivation(ctx, args[0], args[1], args[2])
@@ -310,7 +310,7 @@ func HandleActivationDelete(ctx context.Context, client *td.Client, args []strin
 // HandleActivationExecute executes an activation
 func HandleActivationExecute(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 3 {
-		log.Fatal("Usage: cdp activation execute <audience-id> <segment-id> <activation-id>")
+		handleUsageError("Usage: cdp activation execute <audience-id> <segment-id> <activation-id>", flags.Verbose)
 	}
 
 	execution, err := client.CDP.ExecuteActivation(ctx, args[0], args[1], args[2])
@@ -335,7 +335,7 @@ func HandleActivationExecute(ctx context.Context, client *td.Client, args []stri
 // HandleActivationGetExecutions gets activation execution history
 func HandleActivationGetExecutions(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 3 {
-		log.Fatal("Usage: cdp activation executions <audience-id> <segment-id> <activation-id>")
+		handleUsageError("Usage: cdp activation executions <audience-id> <segment-id> <activation-id>", flags.Verbose)
 	}
 
 	executions, err := client.CDP.GetActivationExecutions(ctx, args[0], args[1], args[2])
@@ -378,7 +378,7 @@ func HandleActivationGetExecutions(ctx context.Context, client *td.Client, args 
 // HandleActivationListByAudience lists activations for a specific audience
 func HandleActivationListByAudience(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		log.Fatal("Audience ID required")
+		handleUsageError("Audience ID required", flags.Verbose)
 	}
 
 	resp, err := client.CDP.ListActivations(ctx, args[0], nil)
@@ -387,9 +387,9 @@ func HandleActivationListByAudience(ctx context.Context, client *td.Client, args
 		if tdErr, ok := err.(*td.ErrorResponse); ok {
 			switch tdErr.Response.StatusCode {
 			case 422:
-				log.Fatalf("Invalid audience ID '%s'. Please use a valid audience ID.\n\nTo find valid audience IDs, run:\n  cdp audiences ls\n\nIf you want activations for a parent segment, use:\n  cdp activations list-by-parent-segment %s", args[0], args[0])
+				handleUsageError(fmt.Sprintf("Invalid audience ID '%s'. Please use a valid audience ID.\n\nTo find valid audience IDs, run:\n  cdp audiences ls\n\nIf you want activations for a parent segment, use:\n  cdp activations list-by-parent-segment %s", args[0], args[0]), flags.Verbose)
 			case 404:
-				log.Fatalf("Audience '%s' not found. Please check the audience ID and try again.\n\nTo find valid audience IDs, run:\n  cdp audiences ls", args[0])
+				handleUsageError(fmt.Sprintf("Audience '%s' not found. Please check the audience ID and try again.\n\nTo find valid audience IDs, run:\n  cdp audiences ls", args[0]), flags.Verbose)
 			}
 		}
 		handleError(err, "Failed to list activations", flags.Verbose)
@@ -434,7 +434,7 @@ func HandleActivationListByAudience(ctx context.Context, client *td.Client, args
 // HandleActivationListBySegmentFolder lists activations for a segment folder
 func HandleActivationListBySegmentFolder(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		log.Fatal("Segment folder ID required")
+		handleUsageError("Segment folder ID required", flags.Verbose)
 	}
 
 	opts := &td.CDPActivationListOptions{
@@ -486,7 +486,7 @@ func HandleActivationListBySegmentFolder(ctx context.Context, client *td.Client,
 // HandleActivationRunForSegment runs activation for a segment
 func HandleActivationRunForSegment(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 2 {
-		log.Fatal("Usage: cdp activation run-segment <segment-id> <activation-id>")
+		handleUsageError("Usage: cdp activation run-segment <segment-id> <activation-id>", flags.Verbose)
 	}
 
 	execution, err := client.CDP.RunSegmentActivation(ctx, args[0], args[1])
@@ -511,7 +511,7 @@ func HandleActivationRunForSegment(ctx context.Context, client *td.Client, args 
 // HandleActivationListByParentSegment lists activations for a parent segment
 func HandleActivationListByParentSegment(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		log.Fatal("Parent segment ID required")
+		handleUsageError("Parent segment ID required", flags.Verbose)
 	}
 
 	opts := &td.CDPActivationListOptions{
@@ -563,7 +563,7 @@ func HandleActivationListByParentSegment(ctx context.Context, client *td.Client,
 // HandleGetMatchedActivationsForParentSegment gets matched activations for a parent segment
 func HandleGetMatchedActivationsForParentSegment(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		log.Fatal("Parent segment ID required")
+		handleUsageError("Parent segment ID required", flags.Verbose)
 	}
 
 	resp, err := client.CDP.GetParentSegmentMatchedActivations(ctx, args[0])
@@ -602,7 +602,7 @@ func HandleGetMatchedActivationsForParentSegment(ctx context.Context, client *td
 // HandleGetWorkflowProjectsForParentSegment gets workflow projects for a parent segment
 func HandleGetWorkflowProjectsForParentSegment(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		log.Fatal("Parent segment ID required")
+		handleUsageError("Parent segment ID required", flags.Verbose)
 	}
 
 	resp, err := client.CDP.GetParentSegmentUserDefinedWorkflowProjects(ctx, args[0])
@@ -641,7 +641,7 @@ func HandleGetWorkflowProjectsForParentSegment(ctx context.Context, client *td.C
 // HandleGetWorkflowsForParentSegment gets workflows for a parent segment
 func HandleGetWorkflowsForParentSegment(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 2 {
-		log.Fatal("Usage: cdp activations workflows <parent-segment-id> <workflow-project-name>")
+		handleUsageError("Usage: cdp activations workflows <parent-segment-id> <workflow-project-name>", flags.Verbose)
 	}
 
 	resp, err := client.CDP.GetParentSegmentUserDefinedWorkflows(ctx, args[0], args[1])

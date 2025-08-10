@@ -14,7 +14,7 @@ import (
 // HandleCreateAudienceFolder creates a new audience folder
 func HandleCreateAudienceFolder(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 2 {
-		log.Fatal("Audience ID and folder name required")
+		handleUsageError("Audience ID and folder name required", flags.Verbose)
 	}
 
 	req := &td.CDPAudienceFolderCreateRequest{
@@ -40,7 +40,7 @@ func HandleCreateAudienceFolder(ctx context.Context, client *td.Client, args []s
 // HandleUpdateAudienceFolder updates an audience folder
 func HandleUpdateAudienceFolder(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 3 {
-		log.Fatal("Usage: cdp folder update <audience-id> <folder-id> <key=value>...")
+		handleUsageError("Usage: cdp folder update <audience-id> <folder-id> <key=value>...", flags.Verbose)
 	}
 
 	audienceID := args[0]
@@ -51,7 +51,7 @@ func HandleUpdateAudienceFolder(ctx context.Context, client *td.Client, args []s
 	for _, arg := range args[2:] {
 		parts := strings.SplitN(arg, "=", 2)
 		if len(parts) != 2 {
-			log.Fatalf("Invalid update format: %s (expected key=value)", arg)
+			handleUsageError(fmt.Sprintf("Invalid update format: %s (expected key=value)", arg), flags.Verbose)
 		}
 		switch parts[0] {
 		case "name":
@@ -59,7 +59,7 @@ func HandleUpdateAudienceFolder(ctx context.Context, client *td.Client, args []s
 		case "description":
 			req.Description = parts[1]
 		default:
-			log.Fatalf("Unknown field: %s", parts[0])
+			handleUsageError(fmt.Sprintf("Unknown field: %s", parts[0]), flags.Verbose)
 		}
 	}
 
@@ -74,7 +74,7 @@ func HandleUpdateAudienceFolder(ctx context.Context, client *td.Client, args []s
 // HandleDeleteAudienceFolder deletes an audience folder
 func HandleDeleteAudienceFolder(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 2 {
-		log.Fatal("Usage: cdp folder delete <audience-id> <folder-id>")
+		handleUsageError("Usage: cdp folder delete <audience-id> <folder-id>", flags.Verbose)
 	}
 
 	err := client.CDP.DeleteAudienceFolder(ctx, args[0], args[1])
@@ -88,7 +88,7 @@ func HandleDeleteAudienceFolder(ctx context.Context, client *td.Client, args []s
 // HandleGetAudienceFolder gets an audience folder
 func HandleGetAudienceFolder(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 2 {
-		log.Fatal("Audience ID and folder ID required")
+		handleUsageError("Audience ID and folder ID required", flags.Verbose)
 	}
 
 	folder, err := client.CDP.GetAudienceFolder(ctx, args[0], args[1])
@@ -132,7 +132,7 @@ func HandleGetAudienceFolder(ctx context.Context, client *td.Client, args []stri
 // HandleListFolders lists all folders in an audience
 func HandleListFolders(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		log.Fatal("Audience ID required")
+		handleUsageError("Audience ID required", flags.Verbose)
 	}
 
 	resp, err := client.CDP.ListFolders(ctx, args[0])
@@ -194,7 +194,7 @@ func HandleListFolders(ctx context.Context, client *td.Client, args []string, fl
 // HandleCreateEntityFolder creates an entity folder
 func HandleCreateEntityFolder(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		log.Fatal("Folder name required")
+		handleUsageError("Folder name required", flags.Verbose)
 	}
 
 	req := &td.CDPFolderCreateRequest{
@@ -220,7 +220,7 @@ func HandleCreateEntityFolder(ctx context.Context, client *td.Client, args []str
 // HandleGetEntityFolder gets an entity folder
 func HandleGetEntityFolder(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		log.Fatal("Folder ID required")
+		handleUsageError("Folder ID required", flags.Verbose)
 	}
 
 	folder, err := client.CDP.GetEntityFolder(ctx, args[0])
@@ -263,7 +263,7 @@ func HandleGetEntityFolder(ctx context.Context, client *td.Client, args []string
 // HandleUpdateEntityFolder updates an entity folder
 func HandleUpdateEntityFolder(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 2 {
-		log.Fatal("Usage: cdp folder update-entity <folder-id> <key=value>...")
+		handleUsageError("Usage: cdp folder update-entity <folder-id> <key=value>...", flags.Verbose)
 	}
 
 	folderID := args[0]
@@ -273,7 +273,7 @@ func HandleUpdateEntityFolder(ctx context.Context, client *td.Client, args []str
 	for _, arg := range args[1:] {
 		parts := strings.SplitN(arg, "=", 2)
 		if len(parts) != 2 {
-			log.Fatalf("Invalid update format: %s (expected key=value)", arg)
+			handleUsageError(fmt.Sprintf("Invalid update format: %s (expected key=value)", arg), flags.Verbose)
 		}
 		switch parts[0] {
 		case "name":
@@ -281,7 +281,7 @@ func HandleUpdateEntityFolder(ctx context.Context, client *td.Client, args []str
 		case "description":
 			req.Description = parts[1]
 		default:
-			log.Fatalf("Unknown field: %s", parts[0])
+			handleUsageError(fmt.Sprintf("Unknown field: %s", parts[0]), flags.Verbose)
 		}
 	}
 
@@ -296,7 +296,7 @@ func HandleUpdateEntityFolder(ctx context.Context, client *td.Client, args []str
 // HandleDeleteEntityFolder deletes an entity folder
 func HandleDeleteEntityFolder(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		log.Fatal("Folder ID required")
+		handleUsageError("Folder ID required", flags.Verbose)
 	}
 
 	err := client.CDP.DeleteEntityFolder(ctx, args[0])
@@ -310,7 +310,7 @@ func HandleDeleteEntityFolder(ctx context.Context, client *td.Client, args []str
 // HandleGetEntitiesByFolder gets entities in a folder
 func HandleGetEntitiesByFolder(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		log.Fatal("Folder ID required")
+		handleUsageError("Folder ID required", flags.Verbose)
 	}
 
 	folderID := args[0]

@@ -15,8 +15,7 @@ import (
 // HandleJourneyList handles journey listing by folder
 func HandleJourneyList(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		fmt.Fprintf(os.Stderr, "Error: Folder ID is required\n")
-		os.Exit(1)
+		handleUsageError("Error: Folder ID is required", flags.Verbose)
 	}
 
 	folderID := args[0]
@@ -33,8 +32,7 @@ func HandleJourneyList(ctx context.Context, client *td.Client, args []string, fl
 // HandleJourneyCreate handles journey creation
 func HandleJourneyCreate(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		fmt.Fprintf(os.Stderr, "Error: Request file is required\n")
-		os.Exit(1)
+		handleUsageError("Error: Request file is required", flags.Verbose)
 	}
 
 	requestFile := args[0]
@@ -42,15 +40,13 @@ func HandleJourneyCreate(ctx context.Context, client *td.Client, args []string, 
 	// Read the request file
 	requestData, err := os.ReadFile(requestFile)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading request file: %v\n", err)
-		os.Exit(1)
+		handleUsageError(fmt.Sprintf("Error reading request file: %v", err), flags.Verbose)
 	}
 
 	// Parse the request
 	var request td.CDPJourneyRequest
 	if err := json.Unmarshal(requestData, &request); err != nil {
-		fmt.Fprintf(os.Stderr, "Error parsing request JSON: %v\n", err)
-		os.Exit(1)
+		handleUsageError(fmt.Sprintf("Error parsing request JSON: %v", err), flags.Verbose)
 	}
 
 	journey, err := client.CDP.CreateJourney(ctx, &request)
@@ -65,8 +61,7 @@ func HandleJourneyCreate(ctx context.Context, client *td.Client, args []string, 
 // HandleJourneyGet handles getting journey details
 func HandleJourneyGet(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		fmt.Fprintf(os.Stderr, "Error: Journey ID is required\n")
-		os.Exit(1)
+		handleUsageError("Error: Journey ID is required", flags.Verbose)
 	}
 
 	journeyID := args[0]
@@ -83,8 +78,7 @@ func HandleJourneyGet(ctx context.Context, client *td.Client, args []string, fla
 // HandleJourneyUpdate handles journey updates
 func HandleJourneyUpdate(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 2 {
-		fmt.Fprintf(os.Stderr, "Error: Journey ID and request file are required\n")
-		os.Exit(1)
+		handleUsageError("Error: Journey ID and request file are required", flags.Verbose)
 	}
 
 	journeyID := args[0]
@@ -93,15 +87,13 @@ func HandleJourneyUpdate(ctx context.Context, client *td.Client, args []string, 
 	// Read the request file
 	requestData, err := os.ReadFile(requestFile)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading request file: %v\n", err)
-		os.Exit(1)
+		handleUsageError(fmt.Sprintf("Error reading request file: %v", err), flags.Verbose)
 	}
 
 	// Parse the request
 	var request td.CDPJourneyRequest
 	if err := json.Unmarshal(requestData, &request); err != nil {
-		fmt.Fprintf(os.Stderr, "Error parsing request JSON: %v\n", err)
-		os.Exit(1)
+		handleUsageError(fmt.Sprintf("Error parsing request JSON: %v", err), flags.Verbose)
 	}
 
 	journey, err := client.CDP.UpdateJourney(ctx, journeyID, &request)
@@ -116,8 +108,7 @@ func HandleJourneyUpdate(ctx context.Context, client *td.Client, args []string, 
 // HandleJourneyDelete handles journey deletion
 func HandleJourneyDelete(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		fmt.Fprintf(os.Stderr, "Error: Journey ID is required\n")
-		os.Exit(1)
+		handleUsageError("Error: Journey ID is required", flags.Verbose)
 	}
 
 	journeyID := args[0]
@@ -134,8 +125,7 @@ func HandleJourneyDelete(ctx context.Context, client *td.Client, args []string, 
 // HandleJourneyDetail handles getting journey detail
 func HandleJourneyDetail(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		fmt.Fprintf(os.Stderr, "Error: Journey ID is required\n")
-		os.Exit(1)
+		handleUsageError("Error: Journey ID is required", flags.Verbose)
 	}
 
 	journeyID := args[0]
@@ -152,8 +142,7 @@ func HandleJourneyDetail(ctx context.Context, client *td.Client, args []string, 
 // HandleJourneyDuplicate handles journey duplication
 func HandleJourneyDuplicate(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		fmt.Fprintf(os.Stderr, "Error: Request file is required\n")
-		os.Exit(1)
+		handleUsageError("Error: Request file is required", flags.Verbose)
 	}
 
 	requestFile := args[0]
@@ -161,15 +150,13 @@ func HandleJourneyDuplicate(ctx context.Context, client *td.Client, args []strin
 	// Read the request file
 	requestData, err := os.ReadFile(requestFile)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading request file: %v\n", err)
-		os.Exit(1)
+		handleUsageError(fmt.Sprintf("Error reading request file: %v", err), flags.Verbose)
 	}
 
 	// Parse the request
 	var request td.CDPJourneyDuplicateRequest
 	if err := json.Unmarshal(requestData, &request); err != nil {
-		fmt.Fprintf(os.Stderr, "Error parsing request JSON: %v\n", err)
-		os.Exit(1)
+		handleUsageError(fmt.Sprintf("Error parsing request JSON: %v", err), flags.Verbose)
 	}
 
 	journey, err := client.CDP.DuplicateJourney(ctx, &request)
@@ -184,8 +171,7 @@ func HandleJourneyDuplicate(ctx context.Context, client *td.Client, args []strin
 // HandleJourneyPause handles journey pausing
 func HandleJourneyPause(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		fmt.Fprintf(os.Stderr, "Error: Journey ID is required\n")
-		os.Exit(1)
+		handleUsageError("Error: Journey ID is required", flags.Verbose)
 	}
 
 	journeyID := args[0]
@@ -202,8 +188,7 @@ func HandleJourneyPause(ctx context.Context, client *td.Client, args []string, f
 // HandleJourneyResume handles journey resuming
 func HandleJourneyResume(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		fmt.Fprintf(os.Stderr, "Error: Journey ID is required\n")
-		os.Exit(1)
+		handleUsageError("Error: Journey ID is required", flags.Verbose)
 	}
 
 	journeyID := args[0]
@@ -220,8 +205,7 @@ func HandleJourneyResume(ctx context.Context, client *td.Client, args []string, 
 // HandleJourneyStatistics handles getting journey statistics
 func HandleJourneyStatistics(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		fmt.Fprintf(os.Stderr, "Error: Journey ID is required\n")
-		os.Exit(1)
+		handleUsageError("Error: Journey ID is required", flags.Verbose)
 	}
 
 	journeyID := args[0]
@@ -237,15 +221,13 @@ func HandleJourneyStatistics(ctx context.Context, client *td.Client, args []stri
 		case "--from":
 			t, err := time.Parse(time.RFC3339, args[i+1])
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error parsing from date: %v\n", err)
-				os.Exit(1)
+				handleUsageError(fmt.Sprintf("Error parsing from date: %v", err), flags.Verbose)
 			}
 			from = &t
 		case "--to":
 			t, err := time.Parse(time.RFC3339, args[i+1])
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error parsing to date: %v\n", err)
-				os.Exit(1)
+				handleUsageError(fmt.Sprintf("Error parsing to date: %v", err), flags.Verbose)
 			}
 			to = &t
 		}
@@ -263,8 +245,7 @@ func HandleJourneyStatistics(ctx context.Context, client *td.Client, args []stri
 // HandleJourneyCustomers handles getting journey customers
 func HandleJourneyCustomers(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		fmt.Fprintf(os.Stderr, "Error: Journey ID is required\n")
-		os.Exit(1)
+		handleUsageError("Error: Journey ID is required", flags.Verbose)
 	}
 
 	journeyID := args[0]
@@ -275,15 +256,13 @@ func HandleJourneyCustomers(ctx context.Context, client *td.Client, args []strin
 		if strings.HasPrefix(arg, "--limit=") {
 			val, err := strconv.Atoi(strings.TrimPrefix(arg, "--limit="))
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error parsing limit: %v\n", err)
-				os.Exit(1)
+				handleUsageError(fmt.Sprintf("Error parsing limit: %v", err), flags.Verbose)
 			}
 			limit = &val
 		} else if strings.HasPrefix(arg, "--offset=") {
 			val, err := strconv.Atoi(strings.TrimPrefix(arg, "--offset="))
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error parsing offset: %v\n", err)
-				os.Exit(1)
+				handleUsageError(fmt.Sprintf("Error parsing offset: %v", err), flags.Verbose)
 			}
 			offset = &val
 		}
@@ -301,8 +280,7 @@ func HandleJourneyCustomers(ctx context.Context, client *td.Client, args []strin
 // HandleJourneyStageCustomers handles getting journey stage customers
 func HandleJourneyStageCustomers(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 2 {
-		fmt.Fprintf(os.Stderr, "Error: Journey ID and Stage ID are required\n")
-		os.Exit(1)
+		handleUsageError("Error: Journey ID and Stage ID are required", flags.Verbose)
 	}
 
 	journeyID := args[0]
@@ -314,15 +292,13 @@ func HandleJourneyStageCustomers(ctx context.Context, client *td.Client, args []
 		if strings.HasPrefix(arg, "--limit=") {
 			val, err := strconv.Atoi(strings.TrimPrefix(arg, "--limit="))
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error parsing limit: %v\n", err)
-				os.Exit(1)
+				handleUsageError(fmt.Sprintf("Error parsing limit: %v", err), flags.Verbose)
 			}
 			limit = &val
 		} else if strings.HasPrefix(arg, "--offset=") {
 			val, err := strconv.Atoi(strings.TrimPrefix(arg, "--offset="))
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error parsing offset: %v\n", err)
-				os.Exit(1)
+				handleUsageError(fmt.Sprintf("Error parsing offset: %v", err), flags.Verbose)
 			}
 			offset = &val
 		}
@@ -340,8 +316,7 @@ func HandleJourneyStageCustomers(ctx context.Context, client *td.Client, args []
 // HandleJourneyConversionSankey handles getting journey conversion sankey charts
 func HandleJourneyConversionSankey(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		fmt.Fprintf(os.Stderr, "Error: Journey ID is required\n")
-		os.Exit(1)
+		handleUsageError("Error: Journey ID is required", flags.Verbose)
 	}
 
 	journeyID := args[0]
@@ -357,15 +332,13 @@ func HandleJourneyConversionSankey(ctx context.Context, client *td.Client, args 
 		case "--from":
 			t, err := time.Parse(time.RFC3339, args[i+1])
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error parsing from date: %v\n", err)
-				os.Exit(1)
+				handleUsageError(fmt.Sprintf("Error parsing from date: %v", err), flags.Verbose)
 			}
 			from = &t
 		case "--to":
 			t, err := time.Parse(time.RFC3339, args[i+1])
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error parsing to date: %v\n", err)
-				os.Exit(1)
+				handleUsageError(fmt.Sprintf("Error parsing to date: %v", err), flags.Verbose)
 			}
 			to = &t
 		}
@@ -383,8 +356,7 @@ func HandleJourneyConversionSankey(ctx context.Context, client *td.Client, args 
 // HandleJourneyActivationSankey handles getting journey activation sankey charts
 func HandleJourneyActivationSankey(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		fmt.Fprintf(os.Stderr, "Error: Journey ID is required\n")
-		os.Exit(1)
+		handleUsageError("Error: Journey ID is required", flags.Verbose)
 	}
 
 	journeyID := args[0]
@@ -400,15 +372,13 @@ func HandleJourneyActivationSankey(ctx context.Context, client *td.Client, args 
 		case "--from":
 			t, err := time.Parse(time.RFC3339, args[i+1])
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error parsing from date: %v\n", err)
-				os.Exit(1)
+				handleUsageError(fmt.Sprintf("Error parsing from date: %v", err), flags.Verbose)
 			}
 			from = &t
 		case "--to":
 			t, err := time.Parse(time.RFC3339, args[i+1])
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error parsing to date: %v\n", err)
-				os.Exit(1)
+				handleUsageError(fmt.Sprintf("Error parsing to date: %v", err), flags.Verbose)
 			}
 			to = &t
 		}
@@ -426,8 +396,7 @@ func HandleJourneyActivationSankey(ctx context.Context, client *td.Client, args 
 // HandleJourneySegmentRules handles listing journey segment rules
 func HandleJourneySegmentRules(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		fmt.Fprintf(os.Stderr, "Error: Audience ID is required\n")
-		os.Exit(1)
+		handleUsageError("Error: Audience ID is required", flags.Verbose)
 	}
 
 	audienceID := args[0]
@@ -444,8 +413,7 @@ func HandleJourneySegmentRules(ctx context.Context, client *td.Client, args []st
 // HandleJourneyBehaviors handles getting available behaviors for step
 func HandleJourneyBehaviors(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		fmt.Fprintf(os.Stderr, "Error: Journey ID is required\n")
-		os.Exit(1)
+		handleUsageError("Error: Journey ID is required", flags.Verbose)
 	}
 
 	journeyID := args[0]
@@ -474,8 +442,7 @@ func HandleJourneyBehaviors(ctx context.Context, client *td.Client, args []strin
 // HandleJourneyTemplates handles getting activation templates for step
 func HandleJourneyTemplates(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		fmt.Fprintf(os.Stderr, "Error: Journey ID is required\n")
-		os.Exit(1)
+		handleUsageError("Error: Journey ID is required", flags.Verbose)
 	}
 
 	journeyID := args[0]
@@ -504,8 +471,7 @@ func HandleJourneyTemplates(ctx context.Context, client *td.Client, args []strin
 // Journey Activation handlers
 func HandleJourneyActivationList(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 1 {
-		fmt.Fprintf(os.Stderr, "Error: Journey ID is required\n")
-		os.Exit(1)
+		handleUsageError("Error: Journey ID is required", flags.Verbose)
 	}
 
 	journeyID := args[0]
@@ -521,8 +487,7 @@ func HandleJourneyActivationList(ctx context.Context, client *td.Client, args []
 
 func HandleJourneyActivationCreate(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 2 {
-		fmt.Fprintf(os.Stderr, "Error: Journey ID and request file are required\n")
-		os.Exit(1)
+		handleUsageError("Error: Journey ID and request file are required", flags.Verbose)
 	}
 
 	journeyID := args[0]
@@ -531,15 +496,13 @@ func HandleJourneyActivationCreate(ctx context.Context, client *td.Client, args 
 	// Read the request file
 	requestData, err := os.ReadFile(requestFile)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading request file: %v\n", err)
-		os.Exit(1)
+		handleUsageError(fmt.Sprintf("Error reading request file: %v", err), flags.Verbose)
 	}
 
 	// Parse the request
 	var request td.CDPJourneyActivationRequest
 	if err := json.Unmarshal(requestData, &request); err != nil {
-		fmt.Fprintf(os.Stderr, "Error parsing request JSON: %v\n", err)
-		os.Exit(1)
+		handleUsageError(fmt.Sprintf("Error parsing request JSON: %v", err), flags.Verbose)
 	}
 
 	activation, err := client.CDP.CreateJourneyActivation(ctx, journeyID, &request)
@@ -553,8 +516,7 @@ func HandleJourneyActivationCreate(ctx context.Context, client *td.Client, args 
 
 func HandleJourneyActivationGet(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 2 {
-		fmt.Fprintf(os.Stderr, "Error: Journey ID and Activation Step ID are required\n")
-		os.Exit(1)
+		handleUsageError("Error: Journey ID and Activation Step ID are required", flags.Verbose)
 	}
 
 	journeyID := args[0]
@@ -571,8 +533,7 @@ func HandleJourneyActivationGet(ctx context.Context, client *td.Client, args []s
 
 func HandleJourneyActivationUpdate(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 3 {
-		fmt.Fprintf(os.Stderr, "Error: Journey ID, Activation Step ID, and request file are required\n")
-		os.Exit(1)
+		handleUsageError("Error: Journey ID, Activation Step ID, and request file are required", flags.Verbose)
 	}
 
 	journeyID := args[0]
@@ -582,15 +543,13 @@ func HandleJourneyActivationUpdate(ctx context.Context, client *td.Client, args 
 	// Read the request file
 	requestData, err := os.ReadFile(requestFile)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading request file: %v\n", err)
-		os.Exit(1)
+		handleUsageError(fmt.Sprintf("Error reading request file: %v", err), flags.Verbose)
 	}
 
 	// Parse the request
 	var request td.CDPJourneyActivationRequest
 	if err := json.Unmarshal(requestData, &request); err != nil {
-		fmt.Fprintf(os.Stderr, "Error parsing request JSON: %v\n", err)
-		os.Exit(1)
+		handleUsageError(fmt.Sprintf("Error parsing request JSON: %v", err), flags.Verbose)
 	}
 
 	activation, err := client.CDP.UpdateJourneyActivation(ctx, journeyID, activationStepID, &request)
