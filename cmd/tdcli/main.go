@@ -17,6 +17,30 @@ var (
 	date    = "unknown"
 )
 
+// isFlagExplicitlySet checks if a flag was explicitly set on the command line
+// This is more robust than string matching as it handles edge cases like
+// flag values containing the flag name
+func isFlagExplicitlySet(flagName string) bool {
+	for _, arg := range os.Args {
+		// Check for --flag format
+		if arg == flagName {
+			return true
+		}
+		// Check for --flag=value format
+		if strings.HasPrefix(arg, flagName+"=") {
+			return true
+		}
+		// Check for short flags (if applicable)
+		// Note: This implementation assumes long flags, extend as needed for short flags
+		if strings.HasPrefix(arg, "-") && !strings.HasPrefix(arg, "--") {
+			// This is a short flag or combined short flags
+			// For now, we only handle long flags to avoid complexity
+			continue
+		}
+	}
+	return false
+}
+
 func main() {
 	var cli CLI
 
@@ -40,11 +64,18 @@ func main() {
 	}
 
 	// Apply config values if not overridden by flags/env
-	// Check if values were explicitly set by looking at the original args
-	argsString := strings.Join(os.Args, " ")
-	regionExplicitlySet := strings.Contains(argsString, "--region") || os.Getenv("TD_REGION") != ""
-	formatExplicitlySet := strings.Contains(argsString, "--format") || os.Getenv("TD_FORMAT") != ""
-	outputExplicitlySet := strings.Contains(argsString, "--output") || os.Getenv("TD_OUTPUT") != ""
+	// Check if values were explicitly set via command line flags or environment
+	regionExplicitlySet := isFlagExplicitlySet("--region") || os.Getenv("TD_REGION") != ""
+	formatExplicitlySet := isFlagExplicitlySet("--format") || os.Getenv("TD_FORMAT") != ""
+	outputExplicitlySet := isFlagExplicitlySet("--output") || os.Getenv("TD_OUTPUT") != ""
+	sslExplicitlySet := isFlagExplicitlySet("--insecure-skip-verify") ||
+		isFlagExplicitlySet("--cert-file") ||
+		isFlagExplicitlySet("--key-file") ||
+		isFlagExplicitlySet("--ca-file") ||
+		os.Getenv("TD_INSECURE_SKIP_VERIFY") != "" ||
+		os.Getenv("TD_CERT_FILE") != "" ||
+		os.Getenv("TD_KEY_FILE") != "" ||
+		os.Getenv("TD_CA_FILE") != ""
 
 	// Get command for validation
 	command := ctx.Command()
@@ -60,6 +91,21 @@ func main() {
 	}
 	if !outputExplicitlySet && config.Output != "" {
 		cli.Output = config.Output
+	}
+	// Apply SSL config values if not explicitly set via flags/env
+	if !sslExplicitlySet {
+		if config.InsecureSkipVerify && !cli.InsecureSkipVerify {
+			cli.InsecureSkipVerify = config.InsecureSkipVerify
+		}
+		if cli.CertFile == "" && config.CertFile != "" {
+			cli.CertFile = config.CertFile
+		}
+		if cli.KeyFile == "" && config.KeyFile != "" {
+			cli.KeyFile = config.KeyFile
+		}
+		if cli.CAFile == "" && config.CAFile != "" {
+			cli.CAFile = config.CAFile
+		}
 	}
 
 	// Validate API key for non-version and non-config commands
@@ -89,6 +135,18 @@ func main() {
 		if cli.Region != "" {
 			clientOptions = append(clientOptions, td.WithRegion(cli.Region))
 		}
+
+		// Apply SSL options if any are configured
+		if cli.InsecureSkipVerify || cli.CertFile != "" || cli.KeyFile != "" || cli.CAFile != "" {
+			sslOptions := td.SSLOptions{
+				InsecureSkipVerify: cli.InsecureSkipVerify,
+				CertFile:           cli.CertFile,
+				KeyFile:            cli.KeyFile,
+				CAFile:             cli.CAFile,
+			}
+			clientOptions = append(clientOptions, td.WithSSLOptions(sslOptions))
+		}
+
 		client, err = td.NewClient(cli.APIKey, clientOptions...)
 		if err != nil {
 			log.Fatalf("Failed to create client: %v", err)

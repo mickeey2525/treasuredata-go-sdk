@@ -27,8 +27,8 @@ func HandleWorkflowProjectList(ctx context.Context, client *td.Client, flags Fla
 		for _, project := range resp.Projects {
 			fmt.Printf("%s,%s,%s,%s,%s,%s\n",
 				project.ID, project.Name, project.Revision, project.ArchiveType,
-				project.CreatedAt.Time.Format("2006-01-02 15:04:05"),
-				project.UpdatedAt.Time.Format("2006-01-02 15:04:05"))
+				project.CreatedAt.Time.UTC().Format("2006-01-02 15:04:05"),
+				project.UpdatedAt.Time.UTC().Format("2006-01-02 15:04:05"))
 		}
 	default:
 		if len(resp.Projects) == 0 {
@@ -41,7 +41,7 @@ func HandleWorkflowProjectList(ctx context.Context, client *td.Client, flags Fla
 		for _, project := range resp.Projects {
 			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
 				project.ID, project.Name, project.Revision, project.ArchiveType,
-				project.CreatedAt.Time.Format("2006-01-02 15:04:05"))
+				project.CreatedAt.Time.UTC().Format("2006-01-02 15:04:05"))
 		}
 		w.Flush()
 		fmt.Printf("\nTotal: %d projects\n", len(resp.Projects))
@@ -77,13 +77,13 @@ func HandleWorkflowProjectGet(ctx context.Context, client *td.Client, args []str
 		fmt.Println("id,name,revision,archive_type,archive_md5,created_at,updated_at,deleted_at")
 		deletedAt := ""
 		if project.DeletedAt != nil {
-			deletedAt = project.DeletedAt.Time.Format("2006-01-02 15:04:05")
+			deletedAt = project.DeletedAt.Time.UTC().Format("2006-01-02 15:04:05")
 		}
 		fmt.Printf("%s,%s,%s,%s,%s,%s,%s,%s\n",
 			project.ID, project.Name, project.Revision, project.ArchiveType,
 			project.ArchiveMD5,
-			project.CreatedAt.Time.Format("2006-01-02 15:04:05"),
-			project.UpdatedAt.Time.Format("2006-01-02 15:04:05"),
+			project.CreatedAt.Time.UTC().Format("2006-01-02 15:04:05"),
+			project.UpdatedAt.Time.UTC().Format("2006-01-02 15:04:05"),
 			deletedAt)
 	default:
 		fmt.Printf("ID: %s\n", project.ID)
@@ -91,10 +91,10 @@ func HandleWorkflowProjectGet(ctx context.Context, client *td.Client, args []str
 		fmt.Printf("Revision: %s\n", project.Revision)
 		fmt.Printf("Archive Type: %s\n", project.ArchiveType)
 		fmt.Printf("Archive MD5: %s\n", project.ArchiveMD5)
-		fmt.Printf("Created: %s\n", project.CreatedAt.Time.Format("2006-01-02 15:04:05"))
-		fmt.Printf("Updated: %s\n", project.UpdatedAt.Time.Format("2006-01-02 15:04:05"))
+		fmt.Printf("Created: %s\n", project.CreatedAt.Time.UTC().Format("2006-01-02 15:04:05"))
+		fmt.Printf("Updated: %s\n", project.UpdatedAt.Time.UTC().Format("2006-01-02 15:04:05"))
 		if project.DeletedAt != nil {
-			fmt.Printf("Deleted: %s\n", project.DeletedAt.Time.Format("2006-01-02 15:04:05"))
+			fmt.Printf("Deleted: %s\n", project.DeletedAt.Time.UTC().Format("2006-01-02 15:04:05"))
 		}
 	}
 }

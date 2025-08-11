@@ -12,10 +12,14 @@ import (
 
 // Config represents the CLI configuration
 type Config struct {
-	APIKey string `toml:"api_key"`
-	Region string `toml:"region"`
-	Format string `toml:"format"`
-	Output string `toml:"output"`
+	APIKey             string `toml:"api_key"`
+	Region             string `toml:"region"`
+	Format             string `toml:"format"`
+	Output             string `toml:"output"`
+	InsecureSkipVerify bool   `toml:"insecure_skip_verify"`
+	CertFile           string `toml:"cert_file"`
+	KeyFile            string `toml:"key_file"`
+	CAFile             string `toml:"ca_file"`
 }
 
 // DefaultConfig returns a config with default values
@@ -94,6 +98,19 @@ func mergeConfig(target, source *Config) {
 	if source.Output != "" {
 		target.Output = source.Output
 	}
+	// SSL options - merge boolean and file paths
+	if source.InsecureSkipVerify {
+		target.InsecureSkipVerify = source.InsecureSkipVerify
+	}
+	if source.CertFile != "" {
+		target.CertFile = source.CertFile
+	}
+	if source.KeyFile != "" {
+		target.KeyFile = source.KeyFile
+	}
+	if source.CAFile != "" {
+		target.CAFile = source.CAFile
+	}
 }
 
 // SaveConfig saves configuration to the specified path
@@ -151,6 +168,10 @@ func (c *ConfigShowCmd) Run(ctx *CLIContext) error {
 	fmt.Printf("Region: %s\n", config.Region)
 	fmt.Printf("Format: %s\n", config.Format)
 	fmt.Printf("Output: %s\n", config.Output)
+	fmt.Printf("Skip TLS Verify: %t\n", config.InsecureSkipVerify)
+	fmt.Printf("Client Cert: %s\n", config.CertFile)
+	fmt.Printf("Client Key: %s\n", config.KeyFile)
+	fmt.Printf("CA File: %s\n", config.CAFile)
 
 	fmt.Println("\nConfiguration file locations (in priority order):")
 	for i, path := range GetConfigPaths() {
@@ -166,7 +187,7 @@ func (c *ConfigShowCmd) Run(ctx *CLIContext) error {
 
 // ConfigSetCmd sets a configuration value
 type ConfigSetCmd struct {
-	Key    string `kong:"arg,help='Configuration key (api_key, region, format, output)'"`
+	Key    string `kong:"arg,help='Configuration key (api_key, region, format, output, insecure_skip_verify, cert_file, key_file, ca_file)'"`
 	Value  string `kong:"arg,help='Configuration value'"`
 	Global bool   `kong:"help='Save to global config (~/.tdcli/.tdcli.toml)'"`
 }
@@ -212,6 +233,36 @@ func (c *ConfigSetCmd) Run(ctx *CLIContext) error {
 		config.Format = c.Value
 	case "output":
 		config.Output = c.Value
+	case "insecure_skip_verify":
+		// Parse boolean
+		if c.Value == "true" || c.Value == "1" || c.Value == "yes" {
+			config.InsecureSkipVerify = true
+		} else if c.Value == "false" || c.Value == "0" || c.Value == "no" {
+			config.InsecureSkipVerify = false
+		} else {
+			return fmt.Errorf("invalid boolean value: %s. Use true/false, 1/0, or yes/no", c.Value)
+		}
+	case "cert_file":
+		if c.Value != "" {
+			if _, err := os.Stat(c.Value); os.IsNotExist(err) {
+				return fmt.Errorf("certificate file does not exist: %s", c.Value)
+			}
+		}
+		config.CertFile = c.Value
+	case "key_file":
+		if c.Value != "" {
+			if _, err := os.Stat(c.Value); os.IsNotExist(err) {
+				return fmt.Errorf("key file does not exist: %s", c.Value)
+			}
+		}
+		config.KeyFile = c.Value
+	case "ca_file":
+		if c.Value != "" {
+			if _, err := os.Stat(c.Value); os.IsNotExist(err) {
+				return fmt.Errorf("CA certificate file does not exist: %s", c.Value)
+			}
+		}
+		config.CAFile = c.Value
 	default:
 		return fmt.Errorf("unknown configuration key: %s", c.Key)
 	}
@@ -241,7 +292,7 @@ func (c *ConfigSetCmd) Run(ctx *CLIContext) error {
 
 // ConfigGetCmd gets a configuration value
 type ConfigGetCmd struct {
-	Key string `kong:"arg,help='Configuration key (api_key, region, format, output)'"`
+	Key string `kong:"arg,help='Configuration key (api_key, region, format, output, insecure_skip_verify, cert_file, key_file, ca_file)'"`
 }
 
 func (c *ConfigGetCmd) Run(ctx *CLIContext) error {
@@ -260,6 +311,18 @@ func (c *ConfigGetCmd) Run(ctx *CLIContext) error {
 		value = config.Format
 	case "output":
 		value = config.Output
+	case "insecure_skip_verify":
+		if config.InsecureSkipVerify {
+			value = "true"
+		} else {
+			value = "false"
+		}
+	case "cert_file":
+		value = config.CertFile
+	case "key_file":
+		value = config.KeyFile
+	case "ca_file":
+		value = config.CAFile
 	default:
 		return fmt.Errorf("unknown configuration key: %s", c.Key)
 	}

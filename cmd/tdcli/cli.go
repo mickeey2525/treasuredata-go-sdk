@@ -17,6 +17,12 @@ type CLI struct {
 	Output  string `kong:"help='Output to file'"`
 	Verbose bool   `kong:"short='v',help='Verbose output'"`
 
+	// SSL/TLS Options
+	InsecureSkipVerify bool   `kong:"help='Skip TLS certificate verification',env='TD_INSECURE_SKIP_VERIFY'"`
+	CertFile           string `kong:"help='Client certificate file path',env='TD_CERT_FILE'"`
+	KeyFile            string `kong:"help='Client private key file path',env='TD_KEY_FILE'"`
+	CAFile             string `kong:"help='Custom CA certificate file path',env='TD_CA_FILE'"`
+
 	// Commands
 	Version   VersionCmd   `kong:"cmd,help='Show version'"`
 	Config    ConfigCmd    `kong:"cmd,help='Configuration management'"`
@@ -530,17 +536,21 @@ func (i *ImportPartsCmd) Run(ctx *CLIContext) error {
 
 // Flags struct for compatibility with existing handlers
 type Flags struct {
-	APIKey      string
-	Region      string
-	Format      string
-	Output      string
-	Verbose     bool
-	Database    string
-	Status      string
-	Priority    int
-	Limit       int
-	WithDetails bool
-	Engine      string
+	APIKey             string
+	Region             string
+	Format             string
+	Output             string
+	Verbose            bool
+	Database           string
+	Status             string
+	Priority           int
+	Limit              int
+	WithDetails        bool
+	Engine             string
+	InsecureSkipVerify bool
+	CertFile           string
+	KeyFile            string
+	CAFile             string
 }
 
 // Context structure for command execution
@@ -1926,15 +1936,19 @@ func (w *WorkflowProjectsHooksTestCmd) Run(ctx *CLIContext) error {
 // Convert Kong CLI to legacy Flags structure for compatibility
 func (cli *CLI) ToFlags() Flags {
 	return Flags{
-		APIKey:      cli.APIKey,
-		Region:      cli.Region,
-		Format:      cli.Format,
-		Output:      cli.Output,
-		Verbose:     cli.Verbose,
-		Database:    "",    // Will be set by individual commands
-		Status:      "",    // Will be set by individual commands
-		Priority:    0,     // Will be set by individual commands
-		Limit:       0,     // Will be set by individual commands
-		WithDetails: false, // Will be set by individual commands
+		APIKey:             cli.APIKey,
+		Region:             cli.Region,
+		Format:             cli.Format,
+		Output:             cli.Output,
+		Verbose:            cli.Verbose,
+		Database:           "",    // Will be set by individual commands
+		Status:             "",    // Will be set by individual commands
+		Priority:           0,     // Will be set by individual commands
+		Limit:              0,     // Will be set by individual commands
+		WithDetails:        false, // Will be set by individual commands
+		InsecureSkipVerify: cli.InsecureSkipVerify,
+		CertFile:           cli.CertFile,
+		KeyFile:            cli.KeyFile,
+		CAFile:             cli.CAFile,
 	}
 }

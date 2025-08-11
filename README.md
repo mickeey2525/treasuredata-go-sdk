@@ -1,6 +1,31 @@
 # Treasure Data Go SDK
 
-A Go client library for interacting with the Treasure Data REST API.
+A comprehensive Go client library for interacting with the Treasure Data REST API, including support for databases, queries, jobs, CDP (Customer Data Platform), workflows, and more.
+
+## Table of Contents
+
+- [Installation](#installation)
+  - [Go SDK](#go-sdk)
+  - [CLI Tool (tdcli)](#cli-tool-tdcli)
+- [Quick Start](#quick-start)
+- [Configuration](#configuration)
+  - [Client Options](#client-options)
+  - [Available Regions](#available-regions)
+- [Usage Examples](#usage-examples)
+  - [Database Operations](#database-operations)
+  - [Table Operations](#table-operations)
+  - [Query Execution](#query-execution)
+  - [Job Management](#job-management)
+  - [Retrieving Query Results](#retrieving-query-results)
+  - [User Management](#user-management)
+  - [Permission Management](#permission-management)
+  - [Bulk Import](#bulk-import)
+  - [Customer Data Platform (CDP)](#customer-data-platform-cdp)
+  - [Workflow Management](#workflow-management)
+- [Error Handling](#error-handling)
+- [Advanced Usage](#advanced-usage)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Installation
 
@@ -24,16 +49,72 @@ The CLI provides convenient access to all Treasure Data API operations:
 # Configure your API key
 export TD_API_KEY="your_account_id/your_api_key"
 
-# List databases
+# Basic operations
 tdcli databases list
-
-# Submit a query
+tdcli tables list --database my_db
 tdcli queries submit --database my_db --query "SELECT COUNT(*) FROM my_table"
+
+# Job management
+tdcli jobs list --status running
+tdcli jobs get 12345
+tdcli jobs cancel 12345
+
+# User and permission management
+tdcli users list
+tdcli perms policies list
+
+# Bulk import operations
+tdcli import create session_name my_db my_table
+tdcli import upload session_name part1 data.json
+
+# CDP operations
+tdcli cdp audiences list
+tdcli cdp segments list --audience-id 123
+tdcli cdp activations list --audience-id 123
+
+# Workflow management
+tdcli workflow list --project-id 123
+tdcli workflow start --project-id 123 workflow_name
+tdcli workflow attempts list --project-id 123 workflow_name
 
 # Get help for any command
 tdcli --help
 tdcli databases --help
+tdcli cdp --help
+tdcli workflow --help
 ```
+
+#### CLI Global Flags
+
+- `--api-key STRING`: Treasure Data API key (format: account_id/api_key) ($TD_API_KEY)
+- `--region STRING`: API region (us, eu, tokyo, ap02) [default: "us"]
+- `--format STRING`: Output format (json, table, csv) [default: "table"]
+- `--output STRING`: Output to file
+- `-v, --verbose`: Verbose output
+
+#### CLI Command Structure
+
+The CLI follows a hierarchical command structure:
+
+- **databases (db)**: Database management (list, create, get, delete, update)
+- **tables (table)**: Table management (list, create, get, delete, swap, rename)
+- **queries (query, q)**: Query execution (submit, status, result, list, cancel)
+- **jobs (job)**: Job management (list, get, cancel)
+- **users (user)**: User management (list, get)
+- **perms (permissions, acl)**: Access control and permissions
+- **import (bulk-import)**: Bulk data import operations
+- **cdp**: Customer Data Platform operations
+  - **segments**: Segment management
+  - **audiences**: Audience management
+  - **activations**: Activation management
+  - **folders**: Folder management
+  - **tokens**: Token management
+- **workflow (wf)**: Workflow automation
+  - **attempts**: Attempt management
+  - **schedule**: Schedule management
+  - **tasks**: Task management
+  - **logs**: Log management
+  - **projects**: Project management
 
 For more CLI usage examples, see the [CLI documentation](cmd/tdcli/README.md).
 
@@ -315,6 +396,263 @@ session, err := client.BulkImport.Show(ctx, "import_session")
 // Delete a session
 err := client.BulkImport.Delete(ctx, "import_session")
 ```
+
+### Customer Data Platform (CDP)
+
+The SDK provides comprehensive CDP functionality including segments, audiences, activations, journeys, and more.
+
+#### Segment Management
+
+```go
+// List segments
+segments, err := client.CDP.ListSegments(ctx, "audience_id")
+
+// Create a segment
+createOpts := &td.CreateSegmentOptions{
+    Name:        "High Value Customers",
+    Description: "Customers with high purchase value",
+    SQL:         "SELECT customer_id FROM customers WHERE total_spent > 1000",
+}
+segment, err := client.CDP.CreateSegment(ctx, "audience_id", createOpts)
+
+// Get segment details
+segment, err := client.CDP.GetSegment(ctx, "audience_id", "segment_id")
+
+// Query segment data
+queryOpts := &td.SegmentQueryOptions{
+    Query: "SELECT * FROM segment_customers LIMIT 100",
+}
+job, err := client.CDP.QuerySegment(ctx, "audience_id", "segment_id", queryOpts)
+
+// Get segment statistics
+stats, err := client.CDP.GetSegmentStatistics(ctx, "audience_id", "segment_id")
+```
+
+#### Audience Management
+
+```go
+// List audiences
+audiences, err := client.CDP.ListAudiences(ctx)
+
+// Create an audience
+createOpts := &td.CreateAudienceOptions{
+    Name:        "Marketing Audience",
+    Description: "Audience for marketing campaigns",
+}
+audience, err := client.CDP.CreateAudience(ctx, createOpts)
+
+// Get audience details
+audience, err := client.CDP.GetAudience(ctx, "audience_id")
+
+// Get audience behaviors
+behaviors, err := client.CDP.GetAudienceBehaviors(ctx, "audience_id")
+
+// Run audience execution
+execution, err := client.CDP.RunAudienceExecution(ctx, "audience_id")
+
+// Get execution history
+executions, err := client.CDP.GetAudienceExecutions(ctx, "audience_id")
+```
+
+#### Activation Management
+
+```go
+// List activations
+activations, err := client.CDP.ListActivations(ctx, "audience_id")
+
+// Create an activation
+createOpts := &td.CreateActivationOptions{
+    Name:           "Email Campaign",
+    Description:    "Send email to high-value customers",
+    DestinationType: "email",
+    Configuration:  map[string]interface{}{"template_id": "123"},
+}
+activation, err := client.CDP.CreateActivation(ctx, "audience_id", "segment_id", createOpts)
+
+// Execute an activation
+err := client.CDP.ExecuteActivation(ctx, "audience_id", "segment_id", "activation_id")
+
+// Get activation executions
+executions, err := client.CDP.GetActivationExecutions(ctx, "audience_id", "segment_id", "activation_id")
+```
+
+#### Journey Management
+
+```go
+// List journeys
+journeys, err := client.CDP.ListJourneys(ctx, "audience_id")
+
+// Create a journey
+createOpts := &td.CreateJourneyOptions{
+    Name:        "Onboarding Journey",
+    Description: "Customer onboarding flow",
+    Steps:       []td.JourneyStep{...},
+}
+journey, err := client.CDP.CreateJourney(ctx, "audience_id", createOpts)
+
+// Start/pause/resume journey
+err := client.CDP.PauseJourney(ctx, "audience_id", "journey_id")
+err := client.CDP.ResumeJourney(ctx, "audience_id", "journey_id")
+
+// Get journey statistics
+stats, err := client.CDP.GetJourneyStatistics(ctx, "audience_id", "journey_id")
+
+// Get journey customers
+customers, err := client.CDP.GetJourneyCustomers(ctx, "audience_id", "journey_id")
+```
+
+### Workflow Management
+
+The SDK provides comprehensive workflow automation capabilities.
+
+#### Workflow Operations
+
+```go
+// List workflows
+workflows, err := client.Workflow.List(ctx, "project_id", nil)
+
+// Create a workflow
+createOpts := &td.CreateWorkflowOptions{
+    Name:     "data-pipeline",
+    TimeZone: "UTC",
+    Schedule: &td.WorkflowSchedule{
+        Cron: "0 1 * * *", // Daily at 1 AM
+    },
+}
+workflow, err := client.Workflow.Create(ctx, "project_id", createOpts)
+
+// Get workflow details
+workflow, err := client.Workflow.Get(ctx, "project_id", "workflow_name")
+
+// Start workflow execution
+attempt, err := client.Workflow.Start(ctx, "project_id", "workflow_name", nil)
+
+// Update workflow
+updateOpts := &td.UpdateWorkflowOptions{
+    Schedule: &td.WorkflowSchedule{
+        Cron: "0 2 * * *", // Change to 2 AM
+    },
+}
+workflow, err := client.Workflow.Update(ctx, "project_id", "workflow_name", updateOpts)
+```
+
+#### Workflow Attempts and Monitoring
+
+```go
+// List workflow attempts
+attempts, err := client.Workflow.ListAttempts(ctx, "project_id", "workflow_name", nil)
+
+// Get attempt details
+attempt, err := client.Workflow.GetAttempt(ctx, "project_id", "workflow_name", "attempt_id")
+
+// Kill running attempt
+err := client.Workflow.KillAttempt(ctx, "project_id", "workflow_name", "attempt_id")
+
+// Retry failed attempt
+attempt, err := client.Workflow.RetryAttempt(ctx, "project_id", "workflow_name", "attempt_id", nil)
+
+// Get workflow tasks
+tasks, err := client.Workflow.ListTasks(ctx, "project_id", "workflow_name", "attempt_id")
+
+// Get task details
+task, err := client.Workflow.GetTask(ctx, "project_id", "workflow_name", "attempt_id", "task_name")
+```
+
+#### Workflow Schedules
+
+```go
+// Get workflow schedule
+schedule, err := client.Workflow.GetSchedule(ctx, "project_id", "workflow_name")
+
+// Enable workflow schedule
+schedule, err := client.Workflow.EnableSchedule(ctx, "project_id", "workflow_name")
+
+// Disable workflow schedule
+schedule, err := client.Workflow.DisableSchedule(ctx, "project_id", "workflow_name")
+
+// Update schedule
+updateOpts := &td.UpdateScheduleOptions{
+    Cron: "0 3 * * *", // Change to 3 AM
+}
+schedule, err := client.Workflow.UpdateSchedule(ctx, "project_id", "workflow_name", updateOpts)
+```
+
+#### Workflow Projects
+
+```go
+// List projects
+projects, err := client.Workflow.ListProjects(ctx, nil)
+
+// Create a project
+createOpts := &td.CreateProjectOptions{
+    Name: "my-data-pipeline",
+}
+project, err := client.Workflow.CreateProject(ctx, createOpts)
+
+// Get project details
+project, err := client.Workflow.GetProject(ctx, "project_id")
+
+// Push project from directory
+archive := &td.WorkflowArchive{
+    Files: map[string][]byte{
+        "workflow.dig": []byte("timezone: UTC\n+task1:\n  sh>: echo 'Hello World'"),
+    },
+}
+revision, err := client.Workflow.PushProject(ctx, "project_id", archive)
+```
+
+#### Project Secrets Management
+
+```go
+// List project secrets
+secrets, err := client.Workflow.ListSecrets(ctx, "project_id")
+
+// Set a secret
+err := client.Workflow.SetSecret(ctx, "project_id", "API_KEY", "secret_value")
+
+// Delete a secret
+err := client.Workflow.DeleteSecret(ctx, "project_id", "API_KEY")
+```
+
+## Features Overview
+
+This SDK provides comprehensive coverage of the Treasure Data platform:
+
+### Core Data Platform
+- **Database Management**: Create, list, get, update, and delete databases
+- **Table Operations**: Manage tables including CRUD operations, swapping, and renaming
+- **Query Engine**: Execute Trino (Presto) and Hive queries with full job lifecycle management
+- **Job Management**: Monitor, control, and export query results
+- **Bulk Data Import**: High-performance data ingestion with session management
+
+### User & Access Control
+- **User Management**: Complete user lifecycle and API key management
+- **Permission System**: Policy-based access control with groups and user assignments
+
+### Customer Data Platform (CDP)
+- **Audience Management**: Create and manage customer audiences
+- **Segment Operations**: Build customer segments with SQL queries and analytics
+- **Journey Orchestration**: Design and execute customer journey workflows
+- **Activation Engine**: Connect audiences to external destinations (email, ads, etc.)
+- **Folder Organization**: Organize segments and audiences in hierarchical folders
+- **Token Management**: Secure API access with entity-specific tokens
+- **Funnel Analytics**: Track conversion funnels and customer behavior
+- **Predictive Segments**: AI-powered customer segmentation
+
+### Workflow Automation
+- **Workflow Management**: Create, update, and execute data processing workflows
+- **Schedule Management**: Cron-based workflow scheduling with timezone support
+- **Project Organization**: Organize workflows in projects with version control
+- **Attempt Monitoring**: Track workflow executions, retry failed runs, and kill active runs
+- **Task Management**: Monitor individual workflow tasks and their logs
+- **Secrets Management**: Secure storage and management of workflow secrets
+- **Archive Handling**: Upload and manage workflow project archives
+
+### CLI Tool (tdcli)
+- **Complete API Coverage**: All SDK features accessible via command line
+- **Multiple Output Formats**: JSON, table, and CSV output options
+- **Regional Support**: Connect to different Treasure Data regions
+- **Batch Operations**: Efficient bulk operations for common tasks
 
 ## Error Handling
 
