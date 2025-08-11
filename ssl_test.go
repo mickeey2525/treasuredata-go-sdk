@@ -8,6 +8,29 @@ import (
 	"testing"
 )
 
+func TestSSLOptions_StructFields(t *testing.T) {
+	// Test that SSLOptions struct has all expected fields
+	opts := SSLOptions{
+		InsecureSkipVerify: true,
+		CertFile:          "cert.pem", 
+		KeyFile:           "key.pem",
+		CAFile:            "ca.pem",
+	}
+
+	if !opts.InsecureSkipVerify {
+		t.Error("Expected InsecureSkipVerify to be set")
+	}
+	if opts.CertFile != "cert.pem" {
+		t.Error("Expected CertFile to be set")
+	}
+	if opts.KeyFile != "key.pem" {
+		t.Error("Expected KeyFile to be set")
+	}
+	if opts.CAFile != "ca.pem" {
+		t.Error("Expected CAFile to be set")
+	}
+}
+
 func TestWithSSLOptions_InsecureSkipVerify(t *testing.T) {
 	client, err := NewClient("test-api-key", WithSSLOptions(SSLOptions{
 		InsecureSkipVerify: true,
@@ -293,6 +316,46 @@ func TestWithSSLOptions_MismatchedCertAndKey(t *testing.T) {
 	if transport, ok := client2.httpClient.Transport.(*http.Transport); ok {
 		if transport.TLSClientConfig != nil && len(transport.TLSClientConfig.Certificates) > 0 {
 			t.Error("Expected no certificates loaded when cert file missing")
+		}
+	}
+}
+
+func TestWithSSLOptions_MalformedCertificate(t *testing.T) {
+	// Ensure testdata directory exists
+	if err := os.MkdirAll("testdata/ssl", 0755); err != nil {
+		t.Fatalf("Failed to create testdata/ssl directory: %v", err)
+	}
+
+	// Test with malformed certificate
+	client, err := NewClient("test-api-key", WithSSLOptions(SSLOptions{
+		CertFile: "testdata/ssl/invalid.pem",
+		KeyFile:  "testdata/ssl/client.key", // Valid key but won't match invalid cert
+	}))
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+
+	// Should not load certificates when cert is malformed
+	if transport, ok := client.httpClient.Transport.(*http.Transport); ok {
+		if transport.TLSClientConfig != nil && len(transport.TLSClientConfig.Certificates) > 0 {
+			t.Error("Expected no certificates loaded for malformed certificate")
+		}
+	}
+}
+
+func TestWithSSLOptions_MalformedCA(t *testing.T) {
+	// Test with malformed CA certificate  
+	client, err := NewClient("test-api-key", WithSSLOptions(SSLOptions{
+		CAFile: "testdata/ssl/invalid.pem", // Malformed CA cert
+	}))
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+
+	// Should not set custom CA pool for malformed CA
+	if transport, ok := client.httpClient.Transport.(*http.Transport); ok {
+		if transport.TLSClientConfig != nil && transport.TLSClientConfig.RootCAs != nil {
+			t.Error("Expected no custom CA loaded for malformed CA certificate")
 		}
 	}
 }
