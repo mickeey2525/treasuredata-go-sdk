@@ -11,17 +11,21 @@ import (
 
 // Flags struct for compatibility with existing handlers
 type Flags struct {
-	APIKey      string
-	Region      string
-	Format      string
-	Output      string
-	Verbose     bool
-	Database    string
-	Status      string
-	Priority    int
-	Limit       int
-	WithDetails bool
-	Engine      string
+	APIKey             string
+	Region             string
+	Format             string
+	Output             string
+	Verbose            bool
+	Database           string
+	Status             string
+	Priority           int
+	Limit              int
+	WithDetails        bool
+	Engine             string
+	InsecureSkipVerify bool
+	CertFile           string
+	KeyFile            string
+	CAFile             string
 }
 
 // CLIContext structure for command execution - matches main CLI
