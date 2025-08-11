@@ -105,7 +105,7 @@ func main() {
 		if cli.Region != "" {
 			clientOptions = append(clientOptions, td.WithRegion(cli.Region))
 		}
-		
+
 		// Apply SSL options if any are configured
 		if cli.InsecureSkipVerify || cli.CertFile != "" || cli.KeyFile != "" || cli.CAFile != "" {
 			sslOptions := td.SSLOptions{
@@ -116,7 +116,7 @@ func main() {
 			}
 			clientOptions = append(clientOptions, td.WithSSLOptions(sslOptions))
 		}
-		
+
 		client, err = td.NewClient(cli.APIKey, clientOptions...)
 		if err != nil {
 			log.Fatalf("Failed to create client: %v", err)
