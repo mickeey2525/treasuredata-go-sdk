@@ -17,6 +17,30 @@ var (
 	date    = "unknown"
 )
 
+// isFlagExplicitlySet checks if a flag was explicitly set on the command line
+// This is more robust than string matching as it handles edge cases like
+// flag values containing the flag name
+func isFlagExplicitlySet(flagName string) bool {
+	for _, arg := range os.Args {
+		// Check for --flag format
+		if arg == flagName {
+			return true
+		}
+		// Check for --flag=value format
+		if strings.HasPrefix(arg, flagName+"=") {
+			return true
+		}
+		// Check for short flags (if applicable)
+		// Note: This implementation assumes long flags, extend as needed for short flags
+		if strings.HasPrefix(arg, "-") && !strings.HasPrefix(arg, "--") {
+			// This is a short flag or combined short flags
+			// For now, we only handle long flags to avoid complexity
+			continue
+		}
+	}
+	return false
+}
+
 func main() {
 	var cli CLI
 
@@ -40,12 +64,18 @@ func main() {
 	}
 
 	// Apply config values if not overridden by flags/env
-	// Check if values were explicitly set by looking at the original args
-	argsString := strings.Join(os.Args, " ")
-	regionExplicitlySet := strings.Contains(argsString, "--region") || os.Getenv("TD_REGION") != ""
-	formatExplicitlySet := strings.Contains(argsString, "--format") || os.Getenv("TD_FORMAT") != ""
-	outputExplicitlySet := strings.Contains(argsString, "--output") || os.Getenv("TD_OUTPUT") != ""
-	sslExplicitlySet := strings.Contains(argsString, "--insecure-skip-verify") || strings.Contains(argsString, "--cert-file") || strings.Contains(argsString, "--key-file") || strings.Contains(argsString, "--ca-file") || os.Getenv("TD_INSECURE_SKIP_VERIFY") != "" || os.Getenv("TD_CERT_FILE") != "" || os.Getenv("TD_KEY_FILE") != "" || os.Getenv("TD_CA_FILE") != ""
+	// Check if values were explicitly set via command line flags or environment
+	regionExplicitlySet := isFlagExplicitlySet("--region") || os.Getenv("TD_REGION") != ""
+	formatExplicitlySet := isFlagExplicitlySet("--format") || os.Getenv("TD_FORMAT") != ""
+	outputExplicitlySet := isFlagExplicitlySet("--output") || os.Getenv("TD_OUTPUT") != ""
+	sslExplicitlySet := isFlagExplicitlySet("--insecure-skip-verify") ||
+		isFlagExplicitlySet("--cert-file") ||
+		isFlagExplicitlySet("--key-file") ||
+		isFlagExplicitlySet("--ca-file") ||
+		os.Getenv("TD_INSECURE_SKIP_VERIFY") != "" ||
+		os.Getenv("TD_CERT_FILE") != "" ||
+		os.Getenv("TD_KEY_FILE") != "" ||
+		os.Getenv("TD_CA_FILE") != ""
 
 	// Get command for validation
 	command := ctx.Command()

@@ -243,10 +243,25 @@ func (c *ConfigSetCmd) Run(ctx *CLIContext) error {
 			return fmt.Errorf("invalid boolean value: %s. Use true/false, 1/0, or yes/no", c.Value)
 		}
 	case "cert_file":
+		if c.Value != "" {
+			if _, err := os.Stat(c.Value); os.IsNotExist(err) {
+				return fmt.Errorf("certificate file does not exist: %s", c.Value)
+			}
+		}
 		config.CertFile = c.Value
 	case "key_file":
+		if c.Value != "" {
+			if _, err := os.Stat(c.Value); os.IsNotExist(err) {
+				return fmt.Errorf("key file does not exist: %s", c.Value)
+			}
+		}
 		config.KeyFile = c.Value
 	case "ca_file":
+		if c.Value != "" {
+			if _, err := os.Stat(c.Value); os.IsNotExist(err) {
+				return fmt.Errorf("CA certificate file does not exist: %s", c.Value)
+			}
+		}
 		config.CAFile = c.Value
 	default:
 		return fmt.Errorf("unknown configuration key: %s", c.Key)

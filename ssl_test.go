@@ -3,6 +3,7 @@ package treasuredata
 import (
 	"net/http"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -77,20 +78,18 @@ func TestWithSSLOptions_ClientCertificates(t *testing.T) {
 }
 
 func TestWithSSLOptions_InvalidCertificates(t *testing.T) {
-	// Test with non-existent certificate files
-	client, err := NewClient("test-api-key", WithSSLOptions(SSLOptions{
+	// Test with non-existent certificate files - should return error
+	_, err := NewClient("test-api-key", WithSSLOptions(SSLOptions{
 		CertFile: "non-existent-cert.pem",
 		KeyFile:  "non-existent-key.pem",
 	}))
-	if err != nil {
-		t.Fatalf("Failed to create client: %v", err)
+	if err == nil {
+		t.Fatal("Expected error when creating client with non-existent certificate files")
 	}
 
-	// Check that the HTTP client's transport doesn't have certificates loaded
-	if transport, ok := client.httpClient.Transport.(*http.Transport); ok {
-		if transport.TLSClientConfig != nil && len(transport.TLSClientConfig.Certificates) > 0 {
-			t.Error("Expected no client certificates to be loaded for invalid files")
-		}
+	// Verify the error message contains expected information
+	if !strings.Contains(err.Error(), "failed to load client certificate") {
+		t.Errorf("Expected error about client certificate loading, got: %v", err)
 	}
 }
 
@@ -119,50 +118,35 @@ func TestWithSSLOptions_CustomCA(t *testing.T) {
 }
 
 func TestWithSSLOptions_InvalidCA(t *testing.T) {
-	// Test with non-existent CA file
-	client, err := NewClient("test-api-key", WithSSLOptions(SSLOptions{
+	// Test with non-existent CA file - should return error
+	_, err := NewClient("test-api-key", WithSSLOptions(SSLOptions{
 		CAFile: "non-existent-ca.pem",
 	}))
-	if err != nil {
-		t.Fatalf("Failed to create client: %v", err)
+	if err == nil {
+		t.Fatal("Expected error when creating client with non-existent CA file")
 	}
 
-	// Check that the HTTP client's transport doesn't have custom CA set
-	if transport, ok := client.httpClient.Transport.(*http.Transport); ok {
-		if transport.TLSClientConfig != nil && transport.TLSClientConfig.RootCAs != nil {
-			t.Error("Expected no custom CA to be loaded for invalid file")
-		}
+	// Verify the error message contains expected information
+	if !strings.Contains(err.Error(), "failed to read CA certificate file") {
+		t.Errorf("Expected error about CA certificate file reading, got: %v", err)
 	}
 }
 
 func TestWithSSLOptions_CombinedOptions(t *testing.T) {
-	// Test combining multiple SSL options
-	client, err := NewClient("test-api-key", WithSSLOptions(SSLOptions{
+	// Test combining multiple SSL options - should fail due to invalid certificate files
+	_, err := NewClient("test-api-key", WithSSLOptions(SSLOptions{
 		InsecureSkipVerify: true,
-		CertFile:           "non-existent-cert.pem", // This should be ignored due to non-existence
-		KeyFile:            "non-existent-key.pem",  // This should be ignored due to non-existence
-		CAFile:             "non-existent-ca.pem",   // This should be ignored due to non-existence
+		CertFile:           "non-existent-cert.pem", // This should cause an error
+		KeyFile:            "non-existent-key.pem",  // This should cause an error
+		CAFile:             "non-existent-ca.pem",   // This should cause an error
 	}))
-	if err != nil {
-		t.Fatalf("Failed to create client: %v", err)
+	if err == nil {
+		t.Fatal("Expected error when creating client with non-existent certificate files")
 	}
 
-	// Check that InsecureSkipVerify is set but certificates are not loaded
-	if transport, ok := client.httpClient.Transport.(*http.Transport); ok {
-		if transport.TLSClientConfig == nil {
-			t.Fatal("Expected TLSClientConfig to be set")
-		}
-		if !transport.TLSClientConfig.InsecureSkipVerify {
-			t.Error("Expected InsecureSkipVerify to be true")
-		}
-		if len(transport.TLSClientConfig.Certificates) > 0 {
-			t.Error("Expected no client certificates to be loaded for invalid files")
-		}
-		if transport.TLSClientConfig.RootCAs != nil {
-			t.Error("Expected no custom CA to be loaded for invalid file")
-		}
-	} else {
-		t.Fatal("Expected http.Transport, got different type")
+	// Verify the error message contains expected information about certificate loading
+	if !strings.Contains(err.Error(), "failed to load client certificate") {
+		t.Errorf("Expected error about client certificate loading, got: %v", err)
 	}
 }
 
@@ -229,36 +213,32 @@ func TestWithSSLOptions_MalformedCertificate(t *testing.T) {
 		t.Fatalf("Failed to create testdata/ssl directory: %v", err)
 	}
 
-	// Test with malformed certificate
-	client, err := NewClient("test-api-key", WithSSLOptions(SSLOptions{
+	// Test with malformed certificate - should return error
+	_, err := NewClient("test-api-key", WithSSLOptions(SSLOptions{
 		CertFile: "testdata/ssl/invalid.pem",
 		KeyFile:  "testdata/ssl/client.key", // Valid key but won't match invalid cert
 	}))
-	if err != nil {
-		t.Fatalf("Failed to create client: %v", err)
+	if err == nil {
+		t.Fatal("Expected error when creating client with malformed certificate")
 	}
 
-	// Should not load certificates when cert is malformed
-	if transport, ok := client.httpClient.Transport.(*http.Transport); ok {
-		if transport.TLSClientConfig != nil && len(transport.TLSClientConfig.Certificates) > 0 {
-			t.Error("Expected no certificates loaded for malformed certificate")
-		}
+	// Verify the error message contains expected information about certificate loading
+	if !strings.Contains(err.Error(), "failed to load client certificate") {
+		t.Errorf("Expected error about client certificate loading, got: %v", err)
 	}
 }
 
 func TestWithSSLOptions_MalformedCA(t *testing.T) {
-	// Test with malformed CA certificate
-	client, err := NewClient("test-api-key", WithSSLOptions(SSLOptions{
+	// Test with malformed CA certificate - should return error
+	_, err := NewClient("test-api-key", WithSSLOptions(SSLOptions{
 		CAFile: "testdata/ssl/invalid.pem", // Malformed CA cert
 	}))
-	if err != nil {
-		t.Fatalf("Failed to create client: %v", err)
+	if err == nil {
+		t.Fatal("Expected error when creating client with malformed CA certificate")
 	}
 
-	// Should not set custom CA pool for malformed CA
-	if transport, ok := client.httpClient.Transport.(*http.Transport); ok {
-		if transport.TLSClientConfig != nil && transport.TLSClientConfig.RootCAs != nil {
-			t.Error("Expected no custom CA loaded for malformed CA certificate")
-		}
+	// Verify the error message contains expected information about CA parsing
+	if !strings.Contains(err.Error(), "failed to parse CA certificate") {
+		t.Errorf("Expected error about CA certificate parsing, got: %v", err)
 	}
 }

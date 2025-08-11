@@ -151,48 +151,62 @@ type Client struct {
 }
 
 // ClientOption is a function that configures a Client
-type ClientOption func(*Client)
+type ClientOption func(*Client) error
 
 // WithHTTPClient sets a custom HTTP client
 func WithHTTPClient(httpClient *http.Client) ClientOption {
-	return func(c *Client) {
+	return func(c *Client) error {
 		c.httpClient = httpClient
+		return nil
 	}
 }
 
 // WithEndpoint sets a custom API endpoint
 func WithEndpoint(endpoint string) ClientOption {
-	return func(c *Client) {
+	return func(c *Client) error {
 		u, err := url.Parse(endpoint)
-		if err == nil {
-			c.BaseURL = u
+		if err != nil {
+			return fmt.Errorf("invalid endpoint URL %s: %w", endpoint, err)
 		}
+		c.BaseURL = u
+		return nil
 	}
 }
 
 // WithRegion sets the API endpoint based on region
 func WithRegion(region string) ClientOption {
-	return func(c *Client) {
+	return func(c *Client) error {
 		regionLower := strings.ToLower(region)
 		if endpoint, ok := RegionalEndpoints[regionLower]; ok {
-			u, _ := url.Parse(endpoint)
+			u, err := url.Parse(endpoint)
+			if err != nil {
+				return fmt.Errorf("invalid regional endpoint for %s: %w", region, err)
+			}
 			c.BaseURL = u
 		}
 		if cdpEndpoint, ok := CDPRegionalEndpoints[regionLower]; ok {
-			u, _ := url.Parse(cdpEndpoint)
+			u, err := url.Parse(cdpEndpoint)
+			if err != nil {
+				return fmt.Errorf("invalid CDP regional endpoint for %s: %w", region, err)
+			}
 			c.CDPURL = u
 		}
 		if workflowEndpoint, ok := WorkflowRegionalEndpoints[regionLower]; ok {
-			u, _ := url.Parse(workflowEndpoint)
+			u, err := url.Parse(workflowEndpoint)
+			if err != nil {
+				return fmt.Errorf("invalid workflow regional endpoint for %s: %w", region, err)
+			}
 			c.WorkflowURL = u
 		}
+		return nil
 	}
 }
 
 // WithUserAgent sets a custom user agent
 func WithUserAgent(ua string) ClientOption {
-	return func(c *Client) {
+	return func(c *Client) error {
 		c.UserAgent = ua
+		return nil
 	}
 }
 
@@ -206,7 +220,7 @@ type SSLOptions struct {
 
 // WithSSLOptions configures SSL/TLS settings for the HTTP client
 func WithSSLOptions(options SSLOptions) ClientOption {
-	return func(c *Client) {
+	return func(c *Client) error {
 		if c.httpClient == nil {
 			c.httpClient = &http.Client{Timeout: defaultTimeout}
 		}
@@ -219,36 +233,44 @@ func WithSSLOptions(options SSLOptions) ClientOption {
 		}
 
 		// Type assert to *http.Transport
-		if t, ok := transport.(*http.Transport); ok {
-			// Initialize TLS config if not already set
-			if t.TLSClientConfig == nil {
-				t.TLSClientConfig = &tls.Config{}
-			}
-
-			// Apply SSL options
-			if options.InsecureSkipVerify {
-				t.TLSClientConfig.InsecureSkipVerify = true
-			}
-
-			// Load client certificate if provided
-			if options.CertFile != "" && options.KeyFile != "" {
-				cert, err := tls.LoadX509KeyPair(options.CertFile, options.KeyFile)
-				if err == nil {
-					t.TLSClientConfig.Certificates = []tls.Certificate{cert}
-				}
-			}
-
-			// Load custom CA if provided
-			if options.CAFile != "" {
-				caCert, err := os.ReadFile(options.CAFile)
-				if err == nil {
-					caCertPool := x509.NewCertPool()
-					if caCertPool.AppendCertsFromPEM(caCert) {
-						t.TLSClientConfig.RootCAs = caCertPool
-					}
-				}
-			}
+		t, ok := transport.(*http.Transport)
+		if !ok {
+			return fmt.Errorf("unable to configure SSL: transport is not *http.Transport")
 		}
+
+		// Initialize TLS config if not already set
+		if t.TLSClientConfig == nil {
+			t.TLSClientConfig = &tls.Config{}
+		}
+
+		// Apply SSL options
+		if options.InsecureSkipVerify {
+			t.TLSClientConfig.InsecureSkipVerify = true
+		}
+
+		// Load client certificate if provided
+		if options.CertFile != "" && options.KeyFile != "" {
+			cert, err := tls.LoadX509KeyPair(options.CertFile, options.KeyFile)
+			if err != nil {
+				return fmt.Errorf("failed to load client certificate (cert: %s, key: %s): %w", options.CertFile, options.KeyFile, err)
+			}
+			t.TLSClientConfig.Certificates = []tls.Certificate{cert}
+		}
+
+		// Load custom CA if provided
+		if options.CAFile != "" {
+			caCert, err := os.ReadFile(options.CAFile)
+			if err != nil {
+				return fmt.Errorf("failed to read CA certificate file %s: %w", options.CAFile, err)
+			}
+			caCertPool := x509.NewCertPool()
+			if !caCertPool.AppendCertsFromPEM(caCert) {
+				return fmt.Errorf("failed to parse CA certificate from %s: invalid PEM format", options.CAFile)
+			}
+			t.TLSClientConfig.RootCAs = caCertPool
+		}
+
+		return nil
 	}
 }
 
@@ -275,7 +297,9 @@ func NewClient(apiKey string, opts ...ClientOption) (*Client, error) {
 
 	// Apply options
 	for _, opt := range opts {
-		opt(c)
+		if err := opt(c); err != nil {
+			return nil, fmt.Errorf("failed to apply client option: %w", err)
+		}
 	}
 
 	// Initialize services
