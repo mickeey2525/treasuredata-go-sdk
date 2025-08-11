@@ -11,20 +11,25 @@ import (
 
 // Flags contains command line flags
 type Flags struct {
-	APIKey      string
-	Region      string
-	Format      string
-	Output      string
-	Verbose     bool
-	Database    string
-	Status      string
-	Priority    int
-	Limit       int
-	WithDetails bool
-	Query       string
-	Folder      string
-	Name        string
-	Description string
+	APIKey             string
+	Region             string
+	Format             string
+	Output             string
+	Verbose            bool
+	Database           string
+	Status             string
+	Priority           int
+	Limit              int
+	WithDetails        bool
+	Query              string
+	Folder             string
+	Name               string
+	Description        string
+	Engine             string
+	InsecureSkipVerify bool
+	CertFile           string
+	KeyFile            string
+	CAFile             string
 }
 
 // handleError handles errors with optional verbose output
