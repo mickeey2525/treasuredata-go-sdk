@@ -9,6 +9,11 @@ require (
 )
 
 require (
+	github.com/chzyer/readline v1.5.1 // indirect
+	golang.org/x/sys v0.25.0 // indirect
+)
+
+require (
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
 	github.com/jcmturner/aescts/v2 v2.0.0 // indirect
 	github.com/jcmturner/dnsutils/v2 v2.0.0 // indirect
