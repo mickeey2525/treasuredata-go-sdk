@@ -181,11 +181,18 @@ func TestPrintTrinoHelp(t *testing.T) {
 	w.Close()
 	os.Stdout = oldStdout
 
-	// Read the captured output
+	// Read the captured output with larger buffer
 	var buf strings.Builder
-	content := make([]byte, 2048) // Increased buffer size for new help content
-	n, _ := r.Read(content)
-	buf.Write(content[:n])
+	content := make([]byte, 8192) // Larger buffer for complete help content
+	for {
+		n, err := r.Read(content)
+		if n > 0 {
+			buf.Write(content[:n])
+		}
+		if err != nil {
+			break
+		}
+	}
 	output := buf.String()
 
 	// Verify help content contains expected sections

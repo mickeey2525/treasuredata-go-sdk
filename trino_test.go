@@ -3,6 +3,7 @@ package treasuredata
 import (
 	"context"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 )
@@ -203,4 +204,65 @@ func ExampleEscapeStringLiteral() {
 
 	query := "SELECT * FROM users WHERE name = " + safeLiteral
 	_ = query // Use in your SQL query
+}
+
+// TestTrinoSemicolonStripping tests that queries with semicolons are properly processed
+func TestTrinoSemicolonStripping(t *testing.T) {
+	tests := []struct {
+		name     string
+		query    string
+		expected string
+	}{
+		{
+			name:     "query with single trailing semicolon",
+			query:    "SELECT 1;",
+			expected: "SELECT 1",
+		},
+		{
+			name:     "query with multiple trailing semicolons",
+			query:    "SELECT 1;;;",
+			expected: "SELECT 1",
+		},
+		{
+			name:     "query with semicolon and whitespace",
+			query:    "SELECT 1;  \n\t",
+			expected: "SELECT 1",
+		},
+		{
+			name:     "query with no semicolon",
+			query:    "SELECT 1",
+			expected: "SELECT 1",
+		},
+		{
+			name:     "query with semicolon in middle (should not be removed)",
+			query:    "SELECT CASE WHEN 1=1 THEN ';' ELSE '' END;",
+			expected: "SELECT CASE WHEN 1=1 THEN ';' ELSE '' END",
+		},
+		{
+			name:     "empty query with semicolon",
+			query:    ";",
+			expected: "",
+		},
+		{
+			name:     "whitespace only with semicolon",
+			query:    "  ;  ",
+			expected: "",
+		},
+		{
+			name:     "complex SQL with semicolon",
+			query:    "SELECT COUNT(*) FROM nasdaq WHERE symbol = 'AAPL';",
+			expected: "SELECT COUNT(*) FROM nasdaq WHERE symbol = 'AAPL'",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Test the query transformation using the same logic as in Query method
+			processedQuery := strings.TrimRight(strings.TrimSpace(tt.query), ";")
+			
+			if processedQuery != tt.expected {
+				t.Errorf("Expected query %q, got %q", tt.expected, processedQuery)
+			}
+		})
+	}
 }

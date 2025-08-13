@@ -43,7 +43,7 @@ func handleTrinoQuery(ctx context.Context, _ *td.Client, args []string, flags Fl
 
 	trinoClient, err := td.NewTDTrinoClient(trinoConfig)
 	if err != nil {
-		log.Fatalf("Failed to create Trino client: %v", err)
+		trinoClientError("create Trino client", err, flags)
 	}
 	defer trinoClient.Close()
 
@@ -51,7 +51,7 @@ func handleTrinoQuery(ctx context.Context, _ *td.Client, args []string, flags Fl
 	start := time.Now()
 	rows, err := trinoClient.Query(ctx, query)
 	if err != nil {
-		log.Fatalf("Query failed: %v", err)
+		enhanceTrinoQueryError("execute query", err, query, flags)
 	}
 	defer rows.Close()
 
@@ -425,14 +425,31 @@ func handleTrinoTest(ctx context.Context, _ *td.Client, _ []string, flags Flags)
 
 	trinoClient, err := td.NewTDTrinoClient(trinoConfig)
 	if err != nil {
-		log.Fatalf("Failed to create Trino client: %v", err)
+		// Enhanced error message for client creation failure
+		fmt.Printf("❌ Failed to create Trino client\n")
+		fmt.Printf("Error: %v\n\n", err)
+		fmt.Printf("Troubleshooting tips:\n")
+		fmt.Printf("• Check if your API key is correct (format: account_id/api_key)\n")
+		fmt.Printf("• Verify the region is valid: %s\n", flags.Region)
+		fmt.Printf("• Ensure you have network connectivity\n")
+		fmt.Printf("• Try with --verbose for more details\n")
+		log.Fatal("")
 	}
 	defer trinoClient.Close()
 
 	// Test connection with a simple query
 	start := time.Now()
 	if err := trinoClient.Ping(ctx); err != nil {
-		log.Fatalf("Connection test failed: %v", err)
+		// Enhanced error message for connection failure
+		fmt.Printf("❌ Connection test failed\n")
+		fmt.Printf("Error: %v\n\n", err)
+		fmt.Printf("Troubleshooting tips:\n")
+		fmt.Printf("• Verify your API key has Trino query permissions\n")
+		fmt.Printf("• Check if the database '%s' exists and you have access\n", flags.Database)
+		fmt.Printf("• Confirm the region '%s' is correct for your account\n", flags.Region)
+		fmt.Printf("• Try a different database with --database flag\n")
+		fmt.Printf("• Check firewall/proxy settings if in corporate network\n")
+		log.Fatal("")
 	}
 
 	fmt.Printf("✅ Connection successful (took %v)\n", time.Since(start))
@@ -460,13 +477,24 @@ func handleTrinoInteractive(ctx context.Context, _ *td.Client, _ []string, flags
 
 	trinoClient, err := td.NewTDTrinoClient(trinoConfig)
 	if err != nil {
-		log.Fatalf("Failed to create Trino client: %v", err)
+		fmt.Printf("❌ Failed to create Trino client for interactive session\n")
+		fmt.Printf("Error: %v\n\n", err)
+		fmt.Printf("💡 Please check your connection settings and try again\n")
+		fmt.Printf("  • API key: %s\n", flags.APIKey[:10]+"...")
+		fmt.Printf("  • Region: %s\n", flags.Region)
+		fmt.Printf("  • Database: %s\n", currentDatabase)
+		log.Fatal("")
 	}
 	defer trinoClient.Close()
 
 	// Test connection
 	if err := trinoClient.Ping(ctx); err != nil {
-		log.Fatalf("Connection test failed: %v", err)
+		fmt.Printf("❌ Connection test failed for interactive session\n")
+		fmt.Printf("Error: %v\n\n", err)
+		fmt.Printf("💡 This may indicate network issues or permission problems\n")
+		fmt.Printf("  • Try: tdcli trino test --region %s --database %s\n", flags.Region, currentDatabase)
+		fmt.Printf("  • Check your network connectivity\n")
+		log.Fatal("")
 	}
 
 	// Create context for cancellation
@@ -537,40 +565,21 @@ func handleTrinoInteractive(ctx context.Context, _ *td.Client, _ []string, flags
 		case lowerInput == "show tables":
 			input = "SHOW TABLES"
 		case strings.HasPrefix(lowerInput, "use "):
-			// Handle database switching
+			// Handle database switching with robust error recovery
 			newDB := strings.TrimSpace(input[4:]) // Remove "use "
 			newDB = strings.Trim(newDB, `"'`)     // Remove quotes if present
 
 			if newDB == "" {
-				fmt.Println("Error: Database name required. Usage: USE database_name")
+				fmt.Println("❌ Error: Database name required. Usage: USE database_name")
+				fmt.Println("   Try: USE sample_datasets")
 				continue
 			}
 
-			// Test if database exists by trying to show tables
-			testQuery := fmt.Sprintf("SHOW TABLES FROM %s LIMIT 1", td.EscapeIdentifier(newDB))
-			testRows, testErr := trinoClient.Query(interactiveCtx, testQuery)
-			if testErr != nil {
-				fmt.Printf("Error: Cannot switch to database '%s': %v\n", newDB, testErr)
-				continue
-			}
-			testRows.Close()
-
-			// Create new client with different database
-			trinoClient.Close()
-			trinoConfig.Database = newDB
-			trinoClient, err = td.NewTDTrinoClient(trinoConfig)
-			if err != nil {
-				fmt.Printf("Error: Failed to switch to database '%s': %v\n", newDB, err)
-				// Try to recreate with original database
-				trinoConfig.Database = currentDatabase
-				trinoClient, _ = td.NewTDTrinoClient(trinoConfig)
+			if !switchDatabase(&trinoClient, &trinoConfig, &currentDatabase, newDB, autoCompleter, interactiveCtx) {
 				continue
 			}
 
-			currentDatabase = newDB
-			// Update auto-completer with new database
-			autoCompleter.updateDatabase(&currentDatabase)
-			fmt.Printf("Database changed to '%s'\n", currentDatabase)
+			fmt.Printf("✅ Database changed to '%s'\n", currentDatabase)
 			continue
 		case lowerInput == "show current database" || lowerInput == "select database()":
 			fmt.Printf("Current database: %s\n", currentDatabase)
@@ -903,6 +912,185 @@ func removeDuplicates(slice []string) []string {
 	return result
 }
 
+// TrinoClientError provides detailed error messages for client creation failures
+func trinoClientError(operation string, err error, flags Flags) {
+	fmt.Printf("❌ Failed to %s\n", operation)
+	fmt.Printf("Error: %v\n\n", err)
+
+	// Check for common error patterns
+	errStr := strings.ToLower(err.Error())
+
+	fmt.Printf("💡 Troubleshooting tips:\n")
+
+	switch {
+	case strings.Contains(errStr, "invalid api key") || strings.Contains(errStr, "unauthorized") || strings.Contains(errStr, "401"):
+		fmt.Printf("  • Check if your API key is correct (format: account_id/api_key)\n")
+		fmt.Printf("  • Verify the API key is active and not expired\n")
+		fmt.Printf("  • Ensure the API key has Trino query permissions\n")
+	case strings.Contains(errStr, "connection") || strings.Contains(errStr, "network") || strings.Contains(errStr, "timeout"):
+		fmt.Printf("  • Check your network connectivity\n")
+		fmt.Printf("  • Verify firewall/proxy settings if in corporate network\n")
+		fmt.Printf("  • Try a different region if this one is experiencing issues\n")
+	case strings.Contains(errStr, "database") || strings.Contains(errStr, "schema"):
+		fmt.Printf("  • Verify the database '%s' exists\n", flags.Database)
+		fmt.Printf("  • Check if you have permissions to access this database\n")
+		fmt.Printf("  • Try: --database information_schema (usually accessible to all users)\n")
+	case strings.Contains(errStr, "region") || strings.Contains(errStr, "endpoint"):
+		fmt.Printf("  • Verify the region '%s' is correct for your account\n", flags.Region)
+		fmt.Printf("  • Available regions: us, tokyo, eu, ap02, ap03\n")
+		fmt.Printf("  • Check if your account has access to this region\n")
+	default:
+		fmt.Printf("  • Verify your API key format: account_id/api_key\n")
+		fmt.Printf("  • Check if your account has Trino access enabled\n")
+		fmt.Printf("  • Try with --verbose for more details\n")
+		fmt.Printf("  • Contact support if the issue persists\n")
+	}
+
+	fmt.Printf("\nCurrent settings:\n")
+	fmt.Printf("  Region: %s\n", flags.Region)
+	fmt.Printf("  Database: %s\n", flags.Database)
+
+	log.Fatal("")
+}
+
+// enhanceTrinoQueryError provides detailed error messages for query execution failures
+func enhanceTrinoQueryError(operation string, err error, query string, flags Flags) {
+	fmt.Printf("❌ Failed to %s\n", operation)
+	fmt.Printf("Error: %v\n", err)
+
+	// Show truncated query for context (first 100 chars)
+	truncatedQuery := query
+	if len(query) > 100 {
+		truncatedQuery = query[:100] + "..."
+	}
+	fmt.Printf("Query: %s\n\n", truncatedQuery)
+
+	// Check for common SQL error patterns
+	errStr := strings.ToLower(err.Error())
+
+	fmt.Printf("💡 Troubleshooting tips:\n")
+
+	switch {
+	case strings.Contains(errStr, "table") && (strings.Contains(errStr, "not found") || strings.Contains(errStr, "does not exist")):
+		fmt.Printf("  • Check if the table name is spelled correctly\n")
+		fmt.Printf("  • Verify the table exists in database '%s'\n", flags.Database)
+		fmt.Printf("  • Try: SHOW TABLES to see available tables\n")
+		fmt.Printf("  • Use fully qualified name: database.table if referencing other databases\n")
+	case strings.Contains(errStr, "column") && (strings.Contains(errStr, "not found") || strings.Contains(errStr, "does not exist")):
+		fmt.Printf("  • Check if the column name is spelled correctly\n")
+		fmt.Printf("  • Column names are case-sensitive in Trino\n")
+		fmt.Printf("  • Try: DESCRIBE table_name to see available columns\n")
+	case strings.Contains(errStr, "permission") || strings.Contains(errStr, "access denied") || strings.Contains(errStr, "forbidden"):
+		fmt.Printf("  • Check if you have SELECT permissions on the table\n")
+		fmt.Printf("  • Verify your API key has the necessary access rights\n")
+		fmt.Printf("  • Contact your administrator for table access\n")
+	case strings.Contains(errStr, "syntax") || strings.Contains(errStr, "parsing"):
+		fmt.Printf("  • Check your SQL syntax carefully\n")
+		fmt.Printf("  • Trino uses ANSI SQL standard with some extensions\n")
+		fmt.Printf("  • Ensure proper quoting of identifiers if needed\n")
+		fmt.Printf("  • Try: EXPLAIN your_query to validate syntax\n")
+	case strings.Contains(errStr, "timeout") || strings.Contains(errStr, "cancelled"):
+		fmt.Printf("  • Query may be too complex or dataset too large\n")
+		fmt.Printf("  • Try adding LIMIT clause to reduce result size\n")
+		fmt.Printf("  • Consider breaking complex queries into smaller parts\n")
+		fmt.Printf("  • Use Ctrl+C to cancel long-running queries in interactive mode\n")
+	case strings.Contains(errStr, "memory") || strings.Contains(errStr, "resource"):
+		fmt.Printf("  • Query requires too much memory or compute resources\n")
+		fmt.Printf("  • Try adding LIMIT clause or filtering with WHERE\n")
+		fmt.Printf("  • Consider using approximate functions like approx_distinct()\n")
+	default:
+		fmt.Printf("  • Verify the SQL syntax is correct\n")
+		fmt.Printf("  • Check if all referenced tables and columns exist\n")
+		fmt.Printf("  • Try a simpler query first to test connectivity\n")
+		fmt.Printf("  • Use --verbose flag for more detailed error information\n")
+	}
+
+	log.Fatal("")
+}
+
+// switchDatabase handles robust database switching with comprehensive error recovery
+func switchDatabase(trinoClient **td.TDTrinoClient, config *td.TDTrinoClientConfig,
+	currentDB *string, newDB string, completer *trinoAutoCompleter, ctx context.Context) bool {
+
+	originalDB := *currentDB
+
+	fmt.Printf("🔄 Switching to database '%s'...\\n", newDB)
+
+	// Step 1: Validate database exists by trying to access it
+	testQuery := fmt.Sprintf("SHOW TABLES FROM %s LIMIT 1", td.EscapeIdentifier(newDB))
+	testRows, testErr := (*trinoClient).Query(ctx, testQuery)
+	if testErr != nil {
+		fmt.Printf("❌ Cannot access database '%s'\\n", newDB)
+		fmt.Printf("Error: %v\\n\\n", testErr)
+		fmt.Printf("💡 Troubleshooting tips:\\n")
+		fmt.Printf("  • Check if database name is correct (case-sensitive)\\n")
+		fmt.Printf("  • Verify you have permissions to access this database\\n")
+		fmt.Printf("  • Try: SHOW SCHEMAS to see available databases\\n")
+		fmt.Printf("  • Current database remains: '%s'\\n", *currentDB)
+		return false
+	}
+	testRows.Close()
+
+	// Step 2: Close current connection
+	(*trinoClient).Close()
+
+	// Step 3: Create new client with target database
+	config.Database = newDB
+	newClient, err := td.NewTDTrinoClient(*config)
+	if err != nil {
+		fmt.Printf("❌ Failed to create connection to database '%s'\\n", newDB)
+		fmt.Printf("Error: %v\\n\\n", err)
+
+		// Step 4: Recovery - restore original database connection
+		fmt.Printf("🔄 Recovering connection to original database '%s'...\\n", originalDB)
+		config.Database = originalDB
+		recoveredClient, recoverErr := td.NewTDTrinoClient(*config)
+		if recoverErr != nil {
+			fmt.Printf("❌ Critical: Failed to recover connection to original database '%s'\\n", originalDB)
+			fmt.Printf("Recovery Error: %v\\n", recoverErr)
+			fmt.Printf("\\n💡 Recovery options:\\n")
+			fmt.Printf("  • Restart the interactive session\\n")
+			fmt.Printf("  • Check your network connection\\n")
+			fmt.Printf("  • Verify API key is still valid\\n")
+			log.Fatal("Interactive session corrupted, exiting")
+		}
+
+		*trinoClient = recoveredClient
+		fmt.Printf("✅ Successfully recovered connection to '%s'\\n", originalDB)
+
+		return false
+	}
+
+	// Step 5: Final validation of new connection
+	if pingErr := newClient.Ping(ctx); pingErr != nil {
+		fmt.Printf("❌ Connection to database '%s' created but ping failed\\n", newDB)
+		fmt.Printf("Ping Error: %v\\n\\n", pingErr)
+
+		// Step 6: Recovery - close failed connection and restore original
+		newClient.Close()
+		fmt.Printf("🔄 Recovering connection to original database '%s'...\\n", originalDB)
+		config.Database = originalDB
+		recoveredClient, recoverErr := td.NewTDTrinoClient(*config)
+		if recoverErr != nil {
+			fmt.Printf("❌ Critical: Failed to recover connection to original database '%s'\\n", originalDB)
+			fmt.Printf("Recovery Error: %v\\n", recoverErr)
+			log.Fatal("Interactive session corrupted, exiting")
+		}
+
+		*trinoClient = recoveredClient
+		fmt.Printf("✅ Successfully recovered connection to '%s'\\n", originalDB)
+
+		return false
+	}
+
+	// Step 7: Success - update all references
+	*trinoClient = newClient
+	*currentDB = newDB
+	completer.updateDatabase(currentDB)
+
+	return true
+}
+
 // printTrinoHelp prints help for interactive mode
 func printTrinoHelp() {
 	fmt.Println(`
@@ -931,6 +1119,8 @@ Enhanced Features:
   Command History          - Use Up/Down arrows to navigate command history
   Auto-completion          - Press Tab for SQL keyword and table name completion
   Query Cancellation       - Press Ctrl+C to cancel running queries
+  Error Recovery           - Automatic recovery from database switching failures
+  Smart Error Messages     - Context-aware troubleshooting tips for common issues
   
 Keyboard Shortcuts:
   Tab                      - Auto-complete current word
@@ -1038,7 +1228,7 @@ func handleTrinoQueryWithPagination(ctx context.Context, _ *td.Client, args []st
 
 	trinoClient, err := td.NewTDTrinoClient(trinoConfig)
 	if err != nil {
-		log.Fatalf("Failed to create Trino client: %v", err)
+		trinoClientError("create Trino client for pagination", err, flags)
 	}
 	defer trinoClient.Close()
 
@@ -1046,7 +1236,7 @@ func handleTrinoQueryWithPagination(ctx context.Context, _ *td.Client, args []st
 	start := time.Now()
 	rows, err := trinoClient.Query(ctx, query)
 	if err != nil {
-		log.Fatalf("Query failed: %v", err)
+		enhanceTrinoQueryError("execute query", err, query, flags)
 	}
 	defer rows.Close()
 
