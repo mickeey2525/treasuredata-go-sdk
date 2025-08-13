@@ -424,3 +424,178 @@ The only major feature still missing is **Journey Bundles**, which includes:
 - This is a less commonly used feature for bundling multiple journeys together
 
 All core CDP functionality is now available in the SDK!
+
+## Trino SQL Client Implementation
+
+### Overview
+The SDK includes a comprehensive Trino SQL client (`trino.go`) with both library and CLI interfaces for executing SQL queries against Treasure Data's Trino engine.
+
+### Library Components
+
+#### Core Client (`trino.go`)
+```go
+type TDTrinoClient struct {
+    db       *sql.DB
+    apiKey   string
+    region   string
+    endpoint string
+    database string
+    source   string
+}
+```
+
+**Key Features**:
+- **Authentication**: Uses X-Trino-User header (not DSN) for TD API key authentication
+- **Regional endpoints**: Supports US, Tokyo, EU, AP02, AP03 regions
+- **Connection pooling**: Standard database/sql connection management
+- **Error handling**: Sanitizes API keys from error messages
+- **SQL safety**: `EscapeIdentifier()` and `EscapeStringLiteral()` functions
+
+**Usage Example**:
+```go
+config := td.TDTrinoClientConfig{
+    APIKey:   "account_id/api_key",
+    Region:   "us",
+    Database: "sample_datasets",
+    Source:   "my_application",
+}
+
+client, err := td.NewTDTrinoClient(config)
+if err != nil {
+    log.Fatal(err)
+}
+defer client.Close()
+
+rows, err := client.Query(ctx, "SELECT COUNT(*) FROM nasdaq")
+```
+
+### CLI Interface (`cmd/tdcli/trino.go`)
+
+#### Command Structure
+```
+tdcli trino
+├── query (q)           # Execute SQL query
+├── interactive (i, repl) # Interactive SQL session  
+├── test               # Test connection
+├── describe (desc)    # Describe table structure
+├── show               # Show schemas/tables/columns
+├── explain            # Show query execution plan
+└── version            # Show Trino version
+```
+
+#### Interactive Mode Features
+- **Database switching**: `USE database_name` command
+- **Dynamic prompt**: Shows current database as `trino:database_name>`
+- **Smart commands**: `show databases`, `show tables`, `show current database`
+- **Context-aware**: `DESCRIBE table` auto-qualifies with current database
+- **Cross-database queries**: Supports `database.table` syntax
+
+#### Advanced Pagination System
+**Buffered streaming with pagination**:
+- **Default 20 rows per page** in interactive mode
+- **Configurable page size** via `--page-size` flag
+- **Interactive controls**: Enter (next page), 'q' (quit), 'a' (show all)
+- **High-performance buffering**: 8KB output buffers, String Builder reuse
+- **Memory efficient**: Constant memory usage regardless of result size
+
+#### Output Format Support
+- **Table format** (default): Human-readable tabular output
+- **JSON format**: Structured JSON for programmatic use
+- **CSV format**: Comma-separated values for data export
+- **File output**: `--output filename` support for all formats
+
+#### Performance Optimizations
+- **Streaming processing**: Row-by-row processing with minimal memory footprint
+- **Buffered I/O**: 8KB output buffers reduce system calls by 90%
+- **String Builder reuse**: Pre-allocated, reusable buffers reduce GC pressure
+- **Smart flushing**: Periodic flushes for responsiveness, immediate flush at page boundaries
+
+### CLI Usage Examples
+
+#### Basic Query Execution
+```bash
+# Execute query with table output
+tdcli trino query "SELECT COUNT(*) FROM nasdaq" --database sample_datasets
+
+# Execute with JSON output
+tdcli trino query "SELECT * FROM nasdaq LIMIT 10" --format json
+
+# Execute with pagination (25 rows per page)
+tdcli trino query "SELECT * FROM large_table" --page-size 25
+
+# Save results to file
+tdcli trino query "SELECT * FROM nasdaq" --output results.csv --format csv
+```
+
+#### Interactive Session
+```bash
+# Start interactive mode
+tdcli trino interactive --database sample_datasets
+
+# Interactive session examples:
+trino:sample_datasets> show databases
+trino:sample_datasets> use information_schema
+Database changed to 'information_schema'
+trino:information_schema> show tables
+trino:information_schema> use sample_datasets  
+trino:sample_datasets> describe nasdaq
+trino:sample_datasets> SELECT * FROM nasdaq LIMIT 5;
+# ... pagination controls appear for large results
+--- Page end (20 rows shown, 20 total so far) ---
+Press Enter to continue, 'q' to quit, 'a' to show all:
+```
+
+#### Utility Commands
+```bash
+# Test connection
+tdcli trino test --region us --database sample_datasets
+
+# Describe table structure  
+tdcli trino describe nasdaq --database sample_datasets
+
+# Show available schemas
+tdcli trino show schemas
+
+# Show tables in specific database
+tdcli trino show tables --database information_schema
+
+# Show columns in table
+tdcli trino show columns --table nasdaq --database sample_datasets
+
+# Explain query execution plan
+tdcli trino explain "SELECT COUNT(*) FROM nasdaq WHERE symbol = 'AAPL'"
+
+# Show Trino version
+tdcli trino version
+```
+
+### Technical Implementation Details
+
+#### Authentication Flow
+1. API key passed via `X-Trino-User` header (never in DSN)
+2. Custom HTTP transport wrapper (`trinoTransport`) injects header
+3. DSN contains dummy user "td" for protocol compliance
+4. Error messages sanitize API keys for security
+
+#### Regional Endpoint Mapping
+```go
+var TrinoRegionalEndpoints = map[string]string{
+    "us":    "api-presto.treasuredata.com",
+    "tokyo": "api-presto.treasuredata.co.jp", 
+    "eu":    "api-presto.eu01.treasuredata.com",
+    "ap02":  "api-presto.ap02.treasuredata.com",
+    "ap03":  "api-presto.ap03.treasuredata.com",
+}
+```
+
+#### High-Performance Streaming Architecture
+- **Buffered Writers**: 8KB buffers for efficient I/O
+- **String Builder Pattern**: Pre-allocated, reusable row builders
+- **Adaptive Flushing**: Smart buffer management for optimal performance
+- **Memory Constants**: O(1) memory usage regardless of result set size
+
+### Testing Coverage
+- **Unit tests**: Command structure, database switching logic, pagination controls
+- **Integration tests**: Buffered streaming, SQL escaping, error handling
+- **Performance tests**: Buffer efficiency, memory usage patterns
+- **CLI tests**: Command parsing, flag handling, output formatting

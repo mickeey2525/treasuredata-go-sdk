@@ -141,24 +141,54 @@ func handleTrinoQueryTable(rows *sql.Rows, columns []string, output io.Writer, f
 	}
 }
 
-// handleTrinoQueryTableWithPagination formats query results as a table with pagination support
+// handleTrinoQueryTableWithPagination formats query results as a table with pagination support using buffered streaming
 func handleTrinoQueryTableWithPagination(rows *sql.Rows, columns []string, output io.Writer, pageSize int) int {
+	// Create buffered writer for more efficient output
+	var bufferedOutput *bufio.Writer
+	var isBuffered bool
+
+	// Check if output is already buffered or if it's stdout/stderr
+	if output == os.Stdout || output == os.Stderr {
+		bufferedOutput = bufio.NewWriterSize(output, 8192) // 8KB buffer
+		isBuffered = true
+		defer bufferedOutput.Flush()
+	} else {
+		// For file outputs, create a buffered writer
+		bufferedOutput = bufio.NewWriterSize(output, 8192)
+		isBuffered = true
+		defer bufferedOutput.Flush()
+	}
+
+	actualOutput := io.Writer(bufferedOutput)
+	if !isBuffered {
+		actualOutput = output
+	}
+
 	// Print header
-	fmt.Fprint(output, strings.Join(columns, "\t"))
-	fmt.Fprintln(output)
+	fmt.Fprint(actualOutput, strings.Join(columns, "\t"))
+	fmt.Fprintln(actualOutput)
 
 	// Print separator
 	for i, col := range columns {
 		if i > 0 {
-			fmt.Fprint(output, "\t")
+			fmt.Fprint(actualOutput, "\t")
 		}
-		fmt.Fprint(output, strings.Repeat("-", len(col)))
+		fmt.Fprint(actualOutput, strings.Repeat("-", len(col)))
 	}
-	fmt.Fprintln(output)
+	fmt.Fprintln(actualOutput)
+
+	// Flush header immediately for better UX
+	if isBuffered {
+		bufferedOutput.Flush()
+	}
 
 	totalRows := 0
 	pageRows := 0
 	scanner := bufio.NewScanner(os.Stdin)
+
+	// Pre-allocate buffers for row building
+	var rowBuilder strings.Builder
+	rowBuilder.Grow(1024) // Pre-allocate 1KB for typical row
 
 	for rows.Next() {
 		// Create slice to hold column values
@@ -173,37 +203,53 @@ func handleTrinoQueryTableWithPagination(rows *sql.Rows, columns []string, outpu
 			log.Fatalf("Failed to scan row: %v", err)
 		}
 
-		// Print values
+		// Build row string efficiently using string builder
+		rowBuilder.Reset()
 		for i, val := range values {
 			if i > 0 {
-				fmt.Fprint(output, "\t")
+				rowBuilder.WriteString("\t")
 			}
 			if val == nil {
-				fmt.Fprint(output, "NULL")
+				rowBuilder.WriteString("NULL")
 			} else {
-				fmt.Fprint(output, val)
+				rowBuilder.WriteString(fmt.Sprintf("%v", val))
 			}
 		}
-		fmt.Fprintln(output)
+		rowBuilder.WriteString("\n")
+
+		// Write the complete row in one operation
+		actualOutput.Write([]byte(rowBuilder.String()))
+
 		totalRows++
 		pageRows++
 
 		// Check if we need to paginate (only if pageSize > 0)
 		if pageSize > 0 && pageRows >= pageSize {
+			// Flush current page before showing pagination prompt
+			if isBuffered {
+				bufferedOutput.Flush()
+			}
+
 			fmt.Printf("\n--- Page end (%d rows shown, %d total so far) ---\n", pageRows, totalRows)
 			fmt.Print("Press Enter to continue, 'q' to quit, 'a' to show all: ")
 
 			if scanner.Scan() {
 				input := strings.TrimSpace(strings.ToLower(scanner.Text()))
-				if input == "q" || input == "quit" {
+				switch input {
+				case "q", "quit":
 					fmt.Printf("Query stopped. Showed %d of potentially more rows.\n", totalRows)
 					return totalRows
-				} else if input == "a" || input == "all" {
+				case "a", "all":
 					// Continue without pagination
 					pageSize = 0 // Disable pagination
 				}
 			}
 			pageRows = 0 // Reset page counter
+		}
+
+		// Periodic flush for better responsiveness (every 10 rows when not paginating)
+		if pageSize == 0 && totalRows%10 == 0 && isBuffered {
+			bufferedOutput.Flush()
 		}
 	}
 

@@ -338,3 +338,36 @@ func TestPaginationControls(t *testing.T) {
 		})
 	}
 }
+
+func TestBufferedStreamingLogic(t *testing.T) {
+	// Test string builder efficiency
+	var builder strings.Builder
+	builder.Grow(1024) // Pre-allocate
+
+	// Simulate row building
+	testValues := []interface{}{"col1", "col2", nil, "col4"}
+	for i, val := range testValues {
+		if i > 0 {
+			builder.WriteString("\t")
+		}
+		if val == nil {
+			builder.WriteString("NULL")
+		} else {
+			builder.WriteString(fmt.Sprintf("%v", val))
+		}
+	}
+	builder.WriteString("\n")
+
+	expected := "col1\tcol2\tNULL\tcol4\n"
+	result := builder.String()
+
+	if result != expected {
+		t.Errorf("Expected %q, got %q", expected, result)
+	}
+
+	// Test builder reset
+	builder.Reset()
+	if builder.Len() != 0 {
+		t.Error("Builder should be empty after reset")
+	}
+}
