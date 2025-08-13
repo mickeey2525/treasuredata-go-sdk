@@ -243,7 +243,7 @@ func (c *TDTrinoClient) Ping(ctx context.Context) error {
 func (c *TDTrinoClient) Query(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
 	// Strip trailing semicolons - Trino doesn't expect them
 	query = strings.TrimRight(strings.TrimSpace(query), ";")
-	
+
 	rows, err := c.db.QueryContext(ctx, query, args...)
 	return rows, wrapError(err)
 }
@@ -252,7 +252,7 @@ func (c *TDTrinoClient) Query(ctx context.Context, query string, args ...any) (*
 func (c *TDTrinoClient) QueryRow(ctx context.Context, query string, args ...any) *sql.Row {
 	// Strip trailing semicolons - Trino doesn't expect them
 	query = strings.TrimRight(strings.TrimSpace(query), ";")
-	
+
 	return c.db.QueryRowContext(ctx, query, args...)
 }
 
@@ -260,7 +260,7 @@ func (c *TDTrinoClient) QueryRow(ctx context.Context, query string, args ...any)
 func (c *TDTrinoClient) Exec(ctx context.Context, query string, args ...any) (sql.Result, error) {
 	// Strip trailing semicolons - Trino doesn't expect them
 	query = strings.TrimRight(strings.TrimSpace(query), ";")
-	
+
 	result, err := c.db.ExecContext(ctx, query, args...)
 	return result, wrapError(err)
 }
@@ -275,7 +275,7 @@ func (c *TDTrinoClient) Begin(ctx context.Context) (*sql.Tx, error) {
 func (c *TDTrinoClient) Prepare(ctx context.Context, query string) (*sql.Stmt, error) {
 	// Strip trailing semicolons - Trino doesn't expect them
 	query = strings.TrimRight(strings.TrimSpace(query), ";")
-	
+
 	stmt, err := c.db.PrepareContext(ctx, query)
 	return stmt, wrapError(err)
 }

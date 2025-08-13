@@ -259,7 +259,7 @@ func TestTrinoSemicolonStripping(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Test the query transformation using the same logic as in Query method
 			processedQuery := strings.TrimRight(strings.TrimSpace(tt.query), ";")
-			
+
 			if processedQuery != tt.expected {
 				t.Errorf("Expected query %q, got %q", tt.expected, processedQuery)
 			}
