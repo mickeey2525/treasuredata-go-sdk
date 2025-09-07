@@ -9,7 +9,7 @@ require (
 	github.com/google/go-querystring v1.1.0
 )
 
-require golang.org/x/sys v0.30.0 // indirect
+require golang.org/x/sys v0.31.0 // indirect
 
 require (
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
@@ -23,6 +23,6 @@ require (
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
 	github.com/trinodb/trino-go-client v0.327.0
-	golang.org/x/crypto v0.35.0 // indirect
-	golang.org/x/net v0.24.0 // indirect
+	golang.org/x/crypto v0.36.0 // indirect
+	golang.org/x/net v0.38.0 // indirect
 )
