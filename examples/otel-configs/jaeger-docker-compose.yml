@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  # Jaeger all-in-one with OTLP support
+  jaeger:
+    image: jaegertracing/all-in-one:1.50
+    container_name: jaeger
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "14250:14250"  # Jaeger gRPC
+      - "4317:4317"    # OTLP gRPC receiver
+      - "4318:4318"    # OTLP HTTP receiver
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+      - LOG_LEVEL=debug
+    networks:
+      - otel-network
+
+  # Example application using tdcli
+  tdcli-example:
+    image: alpine:latest
+    container_name: tdcli-example
+    depends_on:
+      - jaeger
+    environment:
+      # OTEL Configuration
+      - OTEL_ENABLED=true
+      - OTEL_SERVICE_NAME=tdcli-example
+      - OTEL_SERVICE_VERSION=1.0.0
+      - OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://jaeger:4318/v1/traces
+      - OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=http://jaeger:4318/v1/metrics
+      - OTEL_SAMPLING_RATE=1.0
+      - OTEL_RESOURCE_ATTRIBUTES=deployment.environment=docker,team=data-engineering
+      
+      # Treasure Data Configuration
+      - TD_API_KEY=your_api_key_here
+      - TD_ENDPOINT=api.treasuredata.com
+    command: |
+      sh -c "
+        echo 'Installing tdcli...'
+        # Add your tdcli installation commands here
+        echo 'Running example commands with OTEL tracing...'
+        # tdcli queries list --database sample_datasets
+        sleep 3600
+      "
+    networks:
+      - otel-network
+
+networks:
+  otel-network:
+    driver: bridge
+
+# Usage:
+# 1. Save this file as docker-compose.yml
+# 2. Run: docker-compose up -d
+# 3. Access Jaeger UI at http://localhost:16686
+# 4. Configure your tdcli with the environment variables shown above
+# 5. Run tdcli commands to see traces in Jaeger

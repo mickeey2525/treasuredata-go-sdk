@@ -6,9 +6,11 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/alecthomas/kong"
 	td "github.com/mickeey2525/treasuredata-go-sdk"
+	"github.com/mickeey2525/treasuredata-go-sdk/otel"
 )
 
 var (
@@ -153,11 +155,51 @@ func main() {
 		}
 	}
 
+	// Initialize OTEL manager
+	otelConfig := cli.ToOTELConfig()
+	otelManager, err := otel.NewOTELManager(otelConfig)
+	if err != nil {
+		if cli.Verbose {
+			log.Printf("Warning: Failed to create OTEL manager: %v", err)
+		}
+		// Continue without OTEL if creation fails
+		otelManager = nil
+	}
+
+	// Initialize OTEL if manager was created successfully
+	if otelManager != nil {
+		initCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		if err := otelManager.Initialize(initCtx); err != nil {
+			if cli.Verbose {
+				log.Printf("Warning: Failed to initialize OTEL: %v", err)
+			}
+			// Continue without OTEL if initialization fails
+			otelManager = nil
+		}
+	}
+
+	// Set up cleanup function for OTEL
+	defer func() {
+		if otelManager != nil {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			if err := otelManager.Shutdown(shutdownCtx); err != nil {
+				if cli.Verbose {
+					log.Printf("Warning: Failed to shutdown OTEL: %v", err)
+				}
+			}
+		}
+	}()
+
 	// Create CLI context
 	cliContext := &CLIContext{
 		Context:     context.Background(),
 		Client:      client,
 		GlobalFlags: cli.ToFlags(),
+		OTELManager: otelManager,
 	}
 
 	// Execute the command

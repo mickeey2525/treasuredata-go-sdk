@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
+	"time"
 
 	td "github.com/mickeey2525/treasuredata-go-sdk"
 	"github.com/mickeey2525/treasuredata-go-sdk/cmd/tdcli/workflow"
+	"github.com/mickeey2525/treasuredata-go-sdk/otel"
 )
 
 // Global CLI structure
@@ -22,6 +24,20 @@ type CLI struct {
 	CertFile           string `kong:"help='Client certificate file path',env='TD_CERT_FILE'"`
 	KeyFile            string `kong:"help='Client private key file path',env='TD_KEY_FILE'"`
 	CAFile             string `kong:"help='Custom CA certificate file path',env='TD_CA_FILE'"`
+
+	// OpenTelemetry Configuration
+	OTELEnabled        bool              `kong:"help='Enable OpenTelemetry tracing and metrics',env='OTEL_ENABLED'"`
+	OTELServiceName    string            `kong:"help='OTEL service name',env='OTEL_SERVICE_NAME',default='tdcli'"`
+	OTELServiceVersion string            `kong:"help='OTEL service version',env='OTEL_SERVICE_VERSION'"`
+	OTELTraceEndpoint  string            `kong:"help='OTEL trace endpoint URL',env='OTEL_EXPORTER_OTLP_TRACES_ENDPOINT'"`
+	OTELMetricEndpoint string            `kong:"help='OTEL metric endpoint URL',env='OTEL_EXPORTER_OTLP_METRICS_ENDPOINT'"`
+	OTELEndpoint       string            `kong:"help='OTEL generic endpoint URL (used if specific endpoints not set)',env='OTEL_EXPORTER_OTLP_ENDPOINT'"`
+	OTELSamplingRate   float64           `kong:"help='OTEL sampling rate (0.0-1.0)',env='OTEL_SAMPLING_RATE',default='1.0'"`
+	OTELHeaders        map[string]string `kong:"help='OTEL exporter headers (key=value,key2=value2)',env='OTEL_EXPORTER_OTLP_HEADERS'"`
+	OTELInsecure       bool              `kong:"help='Use insecure OTEL connection',env='OTEL_EXPORTER_OTLP_INSECURE'"`
+	OTELBatchTimeout   time.Duration     `kong:"help='OTEL batch timeout',env='OTEL_EXPORTER_OTLP_TIMEOUT',default='5s'"`
+	OTELBatchSize      int               `kong:"help='OTEL batch size',env='OTEL_EXPORTER_OTLP_BATCH_SIZE',default='512'"`
+	OTELResourceAttrs  map[string]string `kong:"help='OTEL resource attributes (key=value,key2=value2)',env='OTEL_RESOURCE_ATTRIBUTES'"`
 
 	// Commands
 	Version   VersionCmd   `kong:"cmd,help='Show version'"`
@@ -43,10 +59,12 @@ type CLI struct {
 type VersionCmd struct{}
 
 func (v *VersionCmd) Run(ctx *CLIContext) error {
-	fmt.Printf("tdcli version %s\n", version)
-	fmt.Printf("commit: %s\n", commit)
-	fmt.Printf("built: %s\n", date)
-	return nil
+	return InstrumentedRun(ctx, "version", []string{}, func(ctx *CLIContext) error {
+		fmt.Printf("tdcli version %s\n", version)
+		fmt.Printf("commit: %s\n", commit)
+		fmt.Printf("built: %s\n", date)
+		return nil
+	})
 }
 
 // Database commands
@@ -61,8 +79,10 @@ type DatabasesCmd struct {
 type DatabasesListCmd struct{}
 
 func (d *DatabasesListCmd) Run(ctx *CLIContext) error {
-	handleDatabaseList(ctx.Context, ctx.Client, ctx.GlobalFlags)
-	return nil
+	return InstrumentedRun(ctx, "databases.list", []string{}, func(ctx *CLIContext) error {
+		handleDatabaseList(ctx.Context, ctx.Client, ctx.GlobalFlags)
+		return nil
+	})
 }
 
 type DatabasesGetCmd struct {
@@ -70,8 +90,10 @@ type DatabasesGetCmd struct {
 }
 
 func (d *DatabasesGetCmd) Run(ctx *CLIContext) error {
-	handleDatabaseGet(ctx.Context, ctx.Client, []string{d.Name}, ctx.GlobalFlags)
-	return nil
+	return InstrumentedRun(ctx, "databases.get", []string{d.Name}, func(ctx *CLIContext) error {
+		handleDatabaseGet(ctx.Context, ctx.Client, []string{d.Name}, ctx.GlobalFlags)
+		return nil
+	})
 }
 
 type DatabasesCreateCmd struct {
@@ -116,8 +138,10 @@ type TablesListCmd struct {
 }
 
 func (t *TablesListCmd) Run(ctx *CLIContext) error {
-	handleTableList(ctx.Context, ctx.Client, []string{t.Database}, ctx.GlobalFlags)
-	return nil
+	return InstrumentedRun(ctx, "tables.list", []string{t.Database}, func(ctx *CLIContext) error {
+		handleTableList(ctx.Context, ctx.Client, []string{t.Database}, ctx.GlobalFlags)
+		return nil
+	})
 }
 
 type TablesGetCmd struct {
@@ -191,12 +215,14 @@ type QuerySubmitCmd struct {
 }
 
 func (q *QuerySubmitCmd) Run(ctx *CLIContext) error {
-	// Set database in global flags for compatibility
-	ctx.GlobalFlags.Database = q.Database
-	ctx.GlobalFlags.Priority = q.Priority
-	ctx.GlobalFlags.Engine = q.Engine
-	handleQuerySubmit(ctx.Context, ctx.Client, []string{q.Query}, ctx.GlobalFlags)
-	return nil
+	return InstrumentedRun(ctx, "queries.submit", []string{q.Query}, func(ctx *CLIContext) error {
+		// Set database in global flags for compatibility
+		ctx.GlobalFlags.Database = q.Database
+		ctx.GlobalFlags.Priority = q.Priority
+		ctx.GlobalFlags.Engine = q.Engine
+		handleQuerySubmit(ctx.Context, ctx.Client, []string{q.Query}, ctx.GlobalFlags)
+		return nil
+	})
 }
 
 type QueryStatusCmd struct {
@@ -204,8 +230,10 @@ type QueryStatusCmd struct {
 }
 
 func (q *QueryStatusCmd) Run(ctx *CLIContext) error {
-	handleQueryStatus(ctx.Context, ctx.Client, []string{q.JobID}, ctx.GlobalFlags)
-	return nil
+	return InstrumentedRun(ctx, "queries.status", []string{q.JobID}, func(ctx *CLIContext) error {
+		handleQueryStatus(ctx.Context, ctx.Client, []string{q.JobID}, ctx.GlobalFlags)
+		return nil
+	})
 }
 
 type QueryResultCmd struct {
@@ -250,9 +278,11 @@ type JobsListCmd struct {
 }
 
 func (j *JobsListCmd) Run(ctx *CLIContext) error {
-	ctx.GlobalFlags.Status = j.Status
-	handleJobList(ctx.Context, ctx.Client, ctx.GlobalFlags)
-	return nil
+	return InstrumentedRun(ctx, "jobs.list", []string{}, func(ctx *CLIContext) error {
+		ctx.GlobalFlags.Status = j.Status
+		handleJobList(ctx.Context, ctx.Client, ctx.GlobalFlags)
+		return nil
+	})
 }
 
 type JobsGetCmd struct {
@@ -559,6 +589,7 @@ type CLIContext struct {
 	Context     context.Context
 	Client      *td.Client
 	GlobalFlags Flags
+	OTELManager *otel.OTELManager
 }
 
 // CDP commands
@@ -2050,4 +2081,33 @@ func (cli *CLI) ToFlags() Flags {
 		KeyFile:            cli.KeyFile,
 		CAFile:             cli.CAFile,
 	}
+}
+
+// ToOTELConfig converts CLI OTEL flags to OTELConfig
+func (cli *CLI) ToOTELConfig() *otel.OTELConfig {
+	config := otel.DefaultOTELConfig()
+
+	config.Enabled = cli.OTELEnabled
+	config.ServiceName = cli.OTELServiceName
+	config.ServiceVersion = cli.OTELServiceVersion
+	config.TraceEndpoint = cli.OTELTraceEndpoint
+	config.MetricEndpoint = cli.OTELMetricEndpoint
+	config.SamplingRate = cli.OTELSamplingRate
+	config.Headers = cli.OTELHeaders
+	config.Insecure = cli.OTELInsecure
+	config.BatchTimeout = cli.OTELBatchTimeout
+	config.BatchSize = cli.OTELBatchSize
+	config.ResourceAttrs = cli.OTELResourceAttrs
+
+	// Handle generic endpoint if specific endpoints not set
+	if cli.OTELEndpoint != "" {
+		if config.TraceEndpoint == "" {
+			config.TraceEndpoint = cli.OTELEndpoint + "/v1/traces"
+		}
+		if config.MetricEndpoint == "" {
+			config.MetricEndpoint = cli.OTELEndpoint + "/v1/metrics"
+		}
+	}
+
+	return config
 }

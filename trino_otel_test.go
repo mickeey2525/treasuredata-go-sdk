@@ -8,7 +8,7 @@ import (
 func TestTDTrinoClientOpenTelemetryIntegration(t *testing.T) {
 	// Test that OpenTelemetry tracing can be enabled
 	config := TDTrinoClientConfig{
-		APIKey:        "test_account/test_key", 
+		APIKey:        "test_account/test_key",
 		Region:        "us",
 		Database:      "test_db",
 		Source:        "test",
@@ -29,7 +29,7 @@ func TestTDTrinoClientOpenTelemetryIntegration(t *testing.T) {
 	// Test that tracing can be disabled
 	configNoTrace := TDTrinoClientConfig{
 		APIKey:        "test_account/test_key",
-		Region:        "us", 
+		Region:        "us",
 		Database:      "test_db",
 		Source:        "test",
 		EnableTracing: false,
@@ -52,7 +52,7 @@ func TestTDTrinoClientTracingSpanCreation(t *testing.T) {
 	config := TDTrinoClientConfig{
 		APIKey:        "test_account/test_key",
 		Region:        "us",
-		Database:      "test_db", 
+		Database:      "test_db",
 		Source:        "test",
 		EnableTracing: true,
 	}

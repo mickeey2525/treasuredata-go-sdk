@@ -20,13 +20,14 @@ import (
 
 // OTELManager manages OpenTelemetry providers and configuration
 type OTELManager struct {
-	config         *OTELConfig
-	tracer         oteltrace.Tracer
-	meter          metric.Meter
-	tracerProvider *sdktrace.TracerProvider
-	meterProvider  *sdkmetric.MeterProvider
-	shutdown       func(context.Context) error
-	initialized    bool
+	config          *OTELConfig
+	tracer          oteltrace.Tracer
+	meter           metric.Meter
+	tracerProvider  *sdktrace.TracerProvider
+	meterProvider   *sdkmetric.MeterProvider
+	exporterManager *ExporterManager
+	shutdown        func(context.Context) error
+	initialized     bool
 }
 
 // NewOTELManager creates a new OTEL manager with the given configuration
@@ -40,8 +41,9 @@ func NewOTELManager(config *OTELConfig) (*OTELManager, error) {
 	}
 
 	manager := &OTELManager{
-		config:      config,
-		initialized: false,
+		config:          config,
+		exporterManager: NewExporterManager(),
+		initialized:     false,
 	}
 
 	return manager, nil
@@ -89,19 +91,19 @@ func (m *OTELManager) Initialize(ctx context.Context) error {
 	// Set up shutdown function
 	m.shutdown = func(shutdownCtx context.Context) error {
 		var errs []error
-		
+
 		if m.tracerProvider != nil {
 			if err := m.tracerProvider.Shutdown(shutdownCtx); err != nil {
 				errs = append(errs, fmt.Errorf("tracer provider shutdown: %w", err))
 			}
 		}
-		
+
 		if m.meterProvider != nil {
 			if err := m.meterProvider.Shutdown(shutdownCtx); err != nil {
 				errs = append(errs, fmt.Errorf("meter provider shutdown: %w", err))
 			}
 		}
-		
+
 		if len(errs) > 0 {
 			return fmt.Errorf("shutdown errors: %v", errs)
 		}
@@ -161,6 +163,41 @@ func (m *OTELManager) Shutdown(ctx context.Context) error {
 	m.initialized = false
 	log.Printf("OTEL Manager shutdown completed")
 	return nil
+}
+
+// GetExportStats returns statistics about export operations
+func (m *OTELManager) GetExportStats() map[string]interface{} {
+	if !m.initialized || m.exporterManager == nil {
+		return map[string]interface{}{
+			"initialized": false,
+		}
+	}
+
+	stats := m.exporterManager.GetAllStats()
+	stats["initialized"] = true
+	stats["enabled"] = m.config.Enabled
+	return stats
+}
+
+// LogExportStats logs export statistics
+func (m *OTELManager) LogExportStats() {
+	if !m.initialized || m.exporterManager == nil {
+		log.Printf("OTEL Manager not initialized, no export stats available")
+		return
+	}
+
+	m.exporterManager.LogStats()
+}
+
+// ResetExportFailures resets export failure counters and circuit breakers
+func (m *OTELManager) ResetExportFailures() {
+	if !m.initialized || m.exporterManager == nil {
+		log.Printf("OTEL Manager not initialized, cannot reset export failures")
+		return
+	}
+
+	m.exporterManager.Reset()
+	log.Printf("OTEL export failures reset")
 }
 
 // createResource creates an OpenTelemetry resource with service information
@@ -262,11 +299,11 @@ func (m *OTELManager) initializeMeterProvider(ctx context.Context, res *resource
 	return nil
 }
 
-// createTraceExporter creates an OTLP trace exporter
+// createTraceExporter creates an OTLP trace exporter with retry and circuit breaker logic
 func (m *OTELManager) createTraceExporter(ctx context.Context) (sdktrace.SpanExporter, error) {
 	// Prepare exporter options
 	var opts []otlptracehttp.Option
-	
+
 	// Set endpoint
 	opts = append(opts, otlptracehttp.WithEndpoint(m.config.TraceEndpoint))
 
@@ -294,23 +331,27 @@ func (m *OTELManager) createTraceExporter(ctx context.Context) (sdktrace.SpanExp
 		opts = append(opts, otlptracehttp.WithCompression(otlptracehttp.GzipCompression))
 	}
 
-	// Create exporter with retry configuration
-	exporter, err := otlptracehttp.New(ctx, opts...)
+	// Create base exporter
+	baseExporter, err := otlptracehttp.New(ctx, opts...)
 	if err != nil {
-		return nil, NewError("trace exporter creation", 
-			fmt.Errorf("failed to create OTLP trace exporter with endpoint %s: %w", 
+		return nil, NewError("trace exporter creation",
+			fmt.Errorf("failed to create OTLP trace exporter with endpoint %s: %w",
 				m.config.TraceEndpoint, err))
 	}
 
+	// Wrap with instrumented exporter for retry and circuit breaker logic
+	instrumentedExporter := NewInstrumentedTraceExporterWithConfig(baseExporter, m.config.ServiceName, m.config)
+	m.exporterManager.SetTraceExporter(instrumentedExporter)
+
 	log.Printf("OTLP trace exporter created for endpoint: %s", m.config.TraceEndpoint)
-	return exporter, nil
+	return instrumentedExporter, nil
 }
 
-// createMetricExporter creates an OTLP metric exporter
+// createMetricExporter creates an OTLP metric exporter with retry and circuit breaker logic
 func (m *OTELManager) createMetricExporter(ctx context.Context) (sdkmetric.Exporter, error) {
 	// Prepare exporter options
 	var opts []otlpmetrichttp.Option
-	
+
 	// Set endpoint
 	opts = append(opts, otlpmetrichttp.WithEndpoint(m.config.MetricEndpoint))
 
@@ -338,14 +379,18 @@ func (m *OTELManager) createMetricExporter(ctx context.Context) (sdkmetric.Expor
 		opts = append(opts, otlpmetrichttp.WithCompression(otlpmetrichttp.GzipCompression))
 	}
 
-	// Create exporter with retry configuration
-	exporter, err := otlpmetrichttp.New(ctx, opts...)
+	// Create base exporter
+	baseExporter, err := otlpmetrichttp.New(ctx, opts...)
 	if err != nil {
-		return nil, NewError("metric exporter creation", 
-			fmt.Errorf("failed to create OTLP metric exporter with endpoint %s: %w", 
+		return nil, NewError("metric exporter creation",
+			fmt.Errorf("failed to create OTLP metric exporter with endpoint %s: %w",
 				m.config.MetricEndpoint, err))
 	}
 
+	// Wrap with instrumented exporter for retry and circuit breaker logic
+	instrumentedExporter := NewInstrumentedMetricExporterWithConfig(baseExporter, m.config.ServiceName, m.config)
+	m.exporterManager.SetMetricExporter(instrumentedExporter)
+
 	log.Printf("OTLP metric exporter created for endpoint: %s", m.config.MetricEndpoint)
-	return exporter, nil
+	return instrumentedExporter, nil
 }

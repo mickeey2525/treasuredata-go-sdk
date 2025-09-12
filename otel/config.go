@@ -11,24 +11,33 @@ import (
 
 // OTELConfig holds all OpenTelemetry configuration options
 type OTELConfig struct {
-	Enabled           bool
-	ServiceName       string
-	ServiceVersion    string
-	TraceEndpoint     string
-	MetricEndpoint    string
-	SamplingRate      float64
-	Headers           map[string]string
-	Insecure          bool
-	BatchTimeout      time.Duration
-	BatchSize         int
-	ResourceAttrs     map[string]string
-	
+	Enabled        bool
+	ServiceName    string
+	ServiceVersion string
+	TraceEndpoint  string
+	MetricEndpoint string
+	SamplingRate   float64
+	Headers        map[string]string
+	Insecure       bool
+	BatchTimeout   time.Duration
+	BatchSize      int
+	ResourceAttrs  map[string]string
+
 	// Advanced exporter settings
-	ExportTimeout     time.Duration
-	RetryEnabled      bool
-	MaxRetryAttempts  int
-	RetryDelay        time.Duration
-	Compression       string
+	ExportTimeout    time.Duration
+	RetryEnabled     bool
+	MaxRetryAttempts int
+	RetryDelay       time.Duration
+	Compression      string
+
+	// Retry and circuit breaker settings
+	RetryMaxDelay           time.Duration
+	RetryBackoffFactor      float64
+	RetryJitter             bool
+	CircuitBreakerEnabled   bool
+	CircuitFailureThreshold int
+	CircuitRecoveryTimeout  time.Duration
+	CircuitHalfOpenMaxCalls int
 }
 
 // DefaultOTELConfig returns a configuration with sensible defaults
@@ -48,6 +57,15 @@ func DefaultOTELConfig() *OTELConfig {
 		MaxRetryAttempts: 3,
 		RetryDelay:       time.Second,
 		Compression:      "gzip",
+
+		// Retry and circuit breaker defaults
+		RetryMaxDelay:           30 * time.Second,
+		RetryBackoffFactor:      2.0,
+		RetryJitter:             true,
+		CircuitBreakerEnabled:   true,
+		CircuitFailureThreshold: 5,
+		CircuitRecoveryTimeout:  60 * time.Second,
+		CircuitHalfOpenMaxCalls: 3,
 	}
 }
 
@@ -69,12 +87,22 @@ func (c *OTELConfig) Validate() error {
 		if err := validateEndpoint(c.TraceEndpoint); err != nil {
 			return fmt.Errorf("invalid trace endpoint: %w", err)
 		}
+		if err := validateSecureTransport(c.TraceEndpoint, c.Insecure); err != nil {
+			return fmt.Errorf("trace endpoint security validation failed: %w", err)
+		}
 	}
 
 	if c.MetricEndpoint != "" {
 		if err := validateEndpoint(c.MetricEndpoint); err != nil {
 			return fmt.Errorf("invalid metric endpoint: %w", err)
 		}
+		if err := validateSecureTransport(c.MetricEndpoint, c.Insecure); err != nil {
+			return fmt.Errorf("metric endpoint security validation failed: %w", err)
+		}
+	}
+
+	if err := validateHeaders(c.Headers); err != nil {
+		return fmt.Errorf("header validation failed: %w", err)
 	}
 
 	if c.BatchTimeout <= 0 {
@@ -99,6 +127,26 @@ func (c *OTELConfig) Validate() error {
 
 	if c.Compression != "" && c.Compression != "gzip" && c.Compression != "none" {
 		return fmt.Errorf("compression must be 'gzip' or 'none', got %s", c.Compression)
+	}
+
+	if c.RetryMaxDelay <= 0 {
+		return fmt.Errorf("retry max delay must be positive, got %v", c.RetryMaxDelay)
+	}
+
+	if c.RetryBackoffFactor <= 1.0 {
+		return fmt.Errorf("retry backoff factor must be greater than 1.0, got %f", c.RetryBackoffFactor)
+	}
+
+	if c.CircuitFailureThreshold <= 0 {
+		return fmt.Errorf("circuit failure threshold must be positive, got %d", c.CircuitFailureThreshold)
+	}
+
+	if c.CircuitRecoveryTimeout <= 0 {
+		return fmt.Errorf("circuit recovery timeout must be positive, got %v", c.CircuitRecoveryTimeout)
+	}
+
+	if c.CircuitHalfOpenMaxCalls <= 0 {
+		return fmt.Errorf("circuit half-open max calls must be positive, got %d", c.CircuitHalfOpenMaxCalls)
 	}
 
 	return nil
@@ -188,6 +236,45 @@ func (c *OTELConfig) LoadFromEnvironment() {
 	if compression := os.Getenv("OTEL_EXPORTER_OTLP_COMPRESSION"); compression != "" {
 		c.Compression = compression
 	}
+
+	// Load retry and circuit breaker settings
+	if retryMaxDelay := os.Getenv("OTEL_EXPORTER_RETRY_MAX_DELAY"); retryMaxDelay != "" {
+		if duration, err := time.ParseDuration(retryMaxDelay); err == nil {
+			c.RetryMaxDelay = duration
+		}
+	}
+
+	if retryBackoffFactor := os.Getenv("OTEL_EXPORTER_RETRY_BACKOFF_FACTOR"); retryBackoffFactor != "" {
+		if factor, err := strconv.ParseFloat(retryBackoffFactor, 64); err == nil {
+			c.RetryBackoffFactor = factor
+		}
+	}
+
+	if retryJitter := os.Getenv("OTEL_EXPORTER_RETRY_JITTER"); retryJitter != "" {
+		c.RetryJitter = strings.ToLower(retryJitter) == "true"
+	}
+
+	if circuitBreakerEnabled := os.Getenv("OTEL_EXPORTER_CIRCUIT_BREAKER_ENABLED"); circuitBreakerEnabled != "" {
+		c.CircuitBreakerEnabled = strings.ToLower(circuitBreakerEnabled) == "true"
+	}
+
+	if circuitFailureThreshold := os.Getenv("OTEL_EXPORTER_CIRCUIT_FAILURE_THRESHOLD"); circuitFailureThreshold != "" {
+		if threshold, err := strconv.Atoi(circuitFailureThreshold); err == nil {
+			c.CircuitFailureThreshold = threshold
+		}
+	}
+
+	if circuitRecoveryTimeout := os.Getenv("OTEL_EXPORTER_CIRCUIT_RECOVERY_TIMEOUT"); circuitRecoveryTimeout != "" {
+		if duration, err := time.ParseDuration(circuitRecoveryTimeout); err == nil {
+			c.CircuitRecoveryTimeout = duration
+		}
+	}
+
+	if circuitHalfOpenMaxCalls := os.Getenv("OTEL_EXPORTER_CIRCUIT_HALF_OPEN_MAX_CALLS"); circuitHalfOpenMaxCalls != "" {
+		if calls, err := strconv.Atoi(circuitHalfOpenMaxCalls); err == nil {
+			c.CircuitHalfOpenMaxCalls = calls
+		}
+	}
 }
 
 // NewConfigFromEnvironment creates a new configuration loaded from environment variables
@@ -248,6 +335,73 @@ func validateEndpoint(endpoint string) error {
 
 	if u.Host == "" {
 		return fmt.Errorf("endpoint must have a host")
+	}
+
+	return nil
+}
+
+// validateSecureTransport validates secure transport configuration
+func validateSecureTransport(endpoint string, insecure bool) error {
+	if endpoint == "" {
+		return nil
+	}
+
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		return nil // Already validated in validateEndpoint
+	}
+
+	// Warn about insecure configurations
+	if u.Scheme == "http" && !insecure {
+		return fmt.Errorf("HTTP endpoint %s requires insecure=true flag for security acknowledgment", endpoint)
+	}
+
+	// Recommend HTTPS for production
+	if u.Scheme == "http" && insecure {
+		// This is just a warning, not an error - log it but don't fail validation
+		// The actual logging will be done by the caller
+	}
+
+	// Check for localhost/development endpoints
+	if u.Hostname() == "localhost" || u.Hostname() == "127.0.0.1" || u.Hostname() == "::1" {
+		// Allow insecure connections to localhost for development
+		return nil
+	}
+
+	return nil
+}
+
+// validateHeaders checks headers for potential security issues
+func validateHeaders(headers map[string]string) error {
+	if len(headers) == 0 {
+		return nil
+	}
+
+	for key, value := range headers {
+		// Check for empty header values
+		if strings.TrimSpace(value) == "" {
+			return fmt.Errorf("header %q has empty value", key)
+		}
+
+		// Warn about potentially sensitive headers in plain text
+		lowerKey := strings.ToLower(key)
+		if strings.Contains(lowerKey, "password") ||
+			strings.Contains(lowerKey, "secret") ||
+			(strings.Contains(lowerKey, "key") && !strings.Contains(lowerKey, "api")) {
+			// This is a warning - we don't fail validation but the caller should log it
+		}
+
+		// Check for reasonable header value length
+		if len(value) > 8192 {
+			return fmt.Errorf("header %q value is too long (%d bytes, max 8192)", key, len(value))
+		}
+
+		// Check for control characters in header values
+		for _, char := range value {
+			if char < 32 && char != 9 { // Allow tab (9) but not other control chars
+				return fmt.Errorf("header %q contains invalid control character", key)
+			}
+		}
 	}
 
 	return nil
