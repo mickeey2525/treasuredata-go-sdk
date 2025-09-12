@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/url"
 	"strings"
 
 	"go.opentelemetry.io/otel"
@@ -310,8 +311,9 @@ func (m *OTELManager) createTraceExporter(ctx context.Context) (sdktrace.SpanExp
 	// Prepare exporter options
 	var opts []otlptracehttp.Option
 
-	// Set endpoint
-	opts = append(opts, otlptracehttp.WithEndpoint(m.config.TraceEndpoint))
+	// Set endpoint - extract host:port from full URL if needed
+	endpoint := extractHostPort(m.config.TraceEndpoint)
+	opts = append(opts, otlptracehttp.WithEndpoint(endpoint))
 
 	// Add headers if configured
 	if len(m.config.Headers) > 0 {
@@ -358,8 +360,9 @@ func (m *OTELManager) createMetricExporter(ctx context.Context) (sdkmetric.Expor
 	// Prepare exporter options
 	var opts []otlpmetrichttp.Option
 
-	// Set endpoint
-	opts = append(opts, otlpmetrichttp.WithEndpoint(m.config.MetricEndpoint))
+	// Set endpoint - extract host:port from full URL if needed
+	endpoint := extractHostPort(m.config.MetricEndpoint)
+	opts = append(opts, otlpmetrichttp.WithEndpoint(endpoint))
 
 	// Add headers if configured
 	if len(m.config.Headers) > 0 {
@@ -399,4 +402,27 @@ func (m *OTELManager) createMetricExporter(ctx context.Context) (sdkmetric.Expor
 
 	log.Printf("OTLP metric exporter created for endpoint: %s", m.config.MetricEndpoint)
 	return instrumentedExporter, nil
+}
+
+// extractHostPort extracts host:port from a full URL for OTLP HTTP client
+// The OTLP HTTP client expects just host:port, not the full URL
+func extractHostPort(fullURL string) string {
+	if fullURL == "" {
+		return ""
+	}
+
+	// If it doesn't contain ://, assume it's already in host:port format
+	if !strings.Contains(fullURL, "://") {
+		return fullURL
+	}
+
+	// Parse the URL to extract host and port
+	u, err := url.Parse(fullURL)
+	if err != nil {
+		// If parsing fails, return as-is and let the OTLP client handle the error
+		return fullURL
+	}
+
+	// Return just the host:port part
+	return u.Host
 }
