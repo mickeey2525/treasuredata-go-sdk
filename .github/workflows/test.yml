@@ -16,7 +16,10 @@ jobs:
     
     steps:
     - uses: actions/checkout@v4
-    
+    - name: Start OTLP Collector
+      run: |
+        docker run -d --name otel-collector -p 4318:4318 otel/opentelemetry-collector:latest
+
     - name: Set up Go
       uses: actions/setup-go@v4
       with:
