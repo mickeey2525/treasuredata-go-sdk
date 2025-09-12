@@ -18,19 +18,19 @@ func setupWorkflowTest() (client *td.Client, mux *http.ServeMux, teardown func()
 	client.WorkflowURL = u
 
 	// In-memory transport routing to mux
-    clientHTTP := &http.Client{Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
-        // Convert to server-style request so handlers see path-only URLs
-        r2 := req.Clone(req.Context())
-        r2.URL = &url.URL{Path: req.URL.Path, RawQuery: req.URL.RawQuery}
-        r2.RequestURI = r2.URL.RequestURI()
-        r2.Host = ""
+	clientHTTP := &http.Client{Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+		// Convert to server-style request so handlers see path-only URLs
+		r2 := req.Clone(req.Context())
+		r2.URL = &url.URL{Path: req.URL.Path, RawQuery: req.URL.RawQuery}
+		r2.RequestURI = r2.URL.RequestURI()
+		r2.Host = ""
 
-        rr := httptest.NewRecorder()
-        mux.ServeHTTP(rr, r2)
-        resp := rr.Result()
-        resp.Request = req
-        return resp, nil
-    })}
+		rr := httptest.NewRecorder()
+		mux.ServeHTTP(rr, r2)
+		resp := rr.Result()
+		resp.Request = req
+		return resp, nil
+	})}
 	// Use client option to set the http client if available; otherwise assign directly
 	// but since we are in tests, assigning directly is fine.
 	clientHTTP.Timeout = 0

@@ -306,8 +306,8 @@ func (h *ExportFailureHandler) HandleExport(ctx context.Context, operation strin
 		return nil
 	})
 
-    // Return the error (including when circuit breaker is open) so callers can react accordingly
-    return err
+	// Return the error (including when circuit breaker is open) so callers can react accordingly
+	return err
 }
 
 // recordSuccess records a successful export

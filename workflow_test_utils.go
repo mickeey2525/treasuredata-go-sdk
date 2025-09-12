@@ -23,19 +23,19 @@ func setup() (client *Client, mux *http.ServeMux, teardown func()) {
 	client.WorkflowURL = u
 
 	// Install an in-memory transport that routes requests to mux without listening on a port.
-    client.httpClient = &http.Client{Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
-        // Convert client request to a server-style request so handlers see path-only URLs
-        r2 := req.Clone(req.Context())
-        r2.URL = &url.URL{Path: req.URL.Path, RawQuery: req.URL.RawQuery}
-        r2.RequestURI = r2.URL.RequestURI()
-        r2.Host = ""
+	client.httpClient = &http.Client{Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+		// Convert client request to a server-style request so handlers see path-only URLs
+		r2 := req.Clone(req.Context())
+		r2.URL = &url.URL{Path: req.URL.Path, RawQuery: req.URL.RawQuery}
+		r2.RequestURI = r2.URL.RequestURI()
+		r2.Host = ""
 
-        rr := httptest.NewRecorder()
-        mux.ServeHTTP(rr, r2)
-        resp := rr.Result()
-        resp.Request = req
-        return resp, nil
-    })}
+		rr := httptest.NewRecorder()
+		mux.ServeHTTP(rr, r2)
+		resp := rr.Result()
+		resp.Request = req
+		return resp, nil
+	})}
 
 	return client, mux, func() {}
 }
@@ -71,19 +71,19 @@ func setupCDP() (client *Client, mux *http.ServeMux, teardown func()) {
 	client.CDPURL = u
 
 	// Install an in-memory transport that routes requests to mux without listening on a port.
-    client.httpClient = &http.Client{Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
-        // Convert to server-style request
-        r2 := req.Clone(req.Context())
-        r2.URL = &url.URL{Path: req.URL.Path, RawQuery: req.URL.RawQuery}
-        r2.RequestURI = r2.URL.RequestURI()
-        r2.Host = ""
+	client.httpClient = &http.Client{Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+		// Convert to server-style request
+		r2 := req.Clone(req.Context())
+		r2.URL = &url.URL{Path: req.URL.Path, RawQuery: req.URL.RawQuery}
+		r2.RequestURI = r2.URL.RequestURI()
+		r2.Host = ""
 
-        rr := httptest.NewRecorder()
-        mux.ServeHTTP(rr, r2)
-        resp := rr.Result()
-        resp.Request = req
-        return resp, nil
-    })}
+		rr := httptest.NewRecorder()
+		mux.ServeHTTP(rr, r2)
+		resp := rr.Result()
+		resp.Request = req
+		return resp, nil
+	})}
 
 	return client, mux, func() {}
 }

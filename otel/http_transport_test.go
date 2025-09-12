@@ -69,13 +69,13 @@ func TestHTTPTransportRoundTrip(t *testing.T) {
 	meter := mp.Meter("test")
 
 	// Base transport that routes to the in-memory handler
-    base := roundTripperFunc(func(req *http.Request) (*http.Response, error) {
-        rr := httptest.NewRecorder()
-        handler.ServeHTTP(rr, req)
-        resp := rr.Result()
-        resp.Request = req
-        return resp, nil
-    })
+	base := roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, req)
+		resp := rr.Result()
+		resp.Request = req
+		return resp, nil
+	})
 
 	// Create instrumented transport wrapping the in-memory base
 	transport, err := NewOTELHTTPTransport(base, tracer, meter)

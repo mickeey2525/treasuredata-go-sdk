@@ -102,13 +102,13 @@ func TestEndToEndOTELIntegration(t *testing.T) {
 	defer manager.Shutdown(ctx)
 
 	// Create TD client with OTEL instrumentation and in-memory transport
-    rt := roundTripperFunc(func(req *http.Request) (*http.Response, error) {
-        rr := httptest.NewRecorder()
-        handler.ServeHTTP(rr, req)
-        resp := rr.Result()
-        resp.Request = req
-        return resp, nil
-    })
+	rt := roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, req)
+		resp := rr.Result()
+		resp.Request = req
+		return resp, nil
+	})
 	client, err := treasuredata.NewClient("test_account/test_key",
 		treasuredata.WithEndpoint("http://example"),
 		treasuredata.WithHTTPClient(&http.Client{Transport: rt}),

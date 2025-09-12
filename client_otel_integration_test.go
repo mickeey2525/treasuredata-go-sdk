@@ -73,13 +73,13 @@ func TestHTTPClientOTELIntegration(t *testing.T) {
 	meter := mp.Meter("http-test")
 
 	// Create client with OTEL instrumentation using in-memory transport
-    rt := roundTripperFunc(func(req *http.Request) (*http.Response, error) {
-        rr := httptest.NewRecorder()
-        handler.ServeHTTP(rr, req)
-        resp := rr.Result()
-        resp.Request = req
-        return resp, nil
-    })
+	rt := roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, req)
+		resp := rr.Result()
+		resp.Request = req
+		return resp, nil
+	})
 	client, err := NewClient("test-api-key",
 		WithEndpoint("http://example"),
 		WithHTTPClient(&http.Client{Transport: rt}),
@@ -335,13 +335,13 @@ func TestHTTPClientOTELURLSanitization(t *testing.T) {
 	meter := mp.Meter("http-test")
 
 	// Create client with OTEL instrumentation using in-memory transport
-    rt := roundTripperFunc(func(req *http.Request) (*http.Response, error) {
-        rr := httptest.NewRecorder()
-        handler.ServeHTTP(rr, req)
-        resp := rr.Result()
-        resp.Request = req
-        return resp, nil
-    })
+	rt := roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, req)
+		resp := rr.Result()
+		resp.Request = req
+		return resp, nil
+	})
 	client, err := NewClient("test-api-key",
 		WithEndpoint("http://example"),
 		WithHTTPClient(&http.Client{Transport: rt}),
@@ -465,13 +465,13 @@ func TestHTTPClientOTELWithOTELManager(t *testing.T) {
 	defer manager.Shutdown(ctx)
 
 	// Create HTTP client using manager's tracer and meter, with in-memory transport
-    rt := roundTripperFunc(func(req *http.Request) (*http.Response, error) {
-        rr := httptest.NewRecorder()
-        handler.ServeHTTP(rr, req)
-        resp := rr.Result()
-        resp.Request = req
-        return resp, nil
-    })
+	rt := roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, req)
+		resp := rr.Result()
+		resp.Request = req
+		return resp, nil
+	})
 	client, err := NewClient("test-api-key",
 		WithEndpoint("http://example"),
 		WithHTTPClient(&http.Client{Transport: rt}),
@@ -527,13 +527,13 @@ func TestHTTPClientOTELMultipleRequests(t *testing.T) {
 	meter := mp.Meter("http-test")
 
 	// Create client with OTEL instrumentation using in-memory transport
-            rt := roundTripperFunc(func(req *http.Request) (*http.Response, error) {
-                rr := httptest.NewRecorder()
-                handler.ServeHTTP(rr, req)
-                resp := rr.Result()
-                resp.Request = req
-                return resp, nil
-            })
+	rt := roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, req)
+		resp := rr.Result()
+		resp.Request = req
+		return resp, nil
+	})
 	client, err := NewClient("test-api-key",
 		WithEndpoint("http://example"),
 		WithHTTPClient(&http.Client{Transport: rt}),
