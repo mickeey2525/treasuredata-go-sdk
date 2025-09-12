@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/mickeey2525/treasuredata-go-sdk/otel"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
@@ -146,22 +147,26 @@ func TestCLICommandOTELIntegration(t *testing.T) {
 
 // TestCLICommandOTELError tests error handling in CLI instrumentation
 func TestCLICommandOTELError(t *testing.T) {
-	// Set up OTEL providers
+	// Set up OTEL providers with global registration
 	exporter := tracetest.NewInMemoryExporter()
-	_ = trace.NewTracerProvider(
+	tracerProvider := trace.NewTracerProvider(
 		trace.WithSyncer(exporter),
 		trace.WithResource(resource.NewWithAttributes(
 			semconv.SchemaURL,
 			semconv.ServiceName("cli-error-test"),
 		)),
 	)
+	otel.SetTracerProvider(tracerProvider)
+	defer otel.SetTracerProvider(trace.NewNoopTracerProvider())
 
 	reader := metric.NewManualReader()
-	_ = metric.NewMeterProvider(metric.WithReader(reader))
+	meterProvider := metric.NewMeterProvider(metric.WithReader(reader))
+	otel.SetMeterProvider(meterProvider)
+	defer otel.SetMeterProvider(metric.NewNoopMeterProvider())
 
-	// Create OTEL manager
+	// Create OTEL manager with disabled endpoints (use global providers)
 	config := &otel.OTELConfig{
-		Enabled:                 true,
+		Enabled:                 false, // Use global providers instead
 		ServiceName:             "cli-error-test",
 		SamplingRate:            1.0,
 		BatchTimeout:            time.Second,
@@ -305,22 +310,26 @@ func TestCLICommandOTELWithDisabledConfig(t *testing.T) {
 
 // TestCLICommandOTELArgumentSanitization tests argument sanitization
 func TestCLICommandOTELArgumentSanitization(t *testing.T) {
-	// Set up OTEL providers
+	// Set up OTEL providers with global registration
 	exporter := tracetest.NewInMemoryExporter()
-	_ = trace.NewTracerProvider(
+	tracerProvider := trace.NewTracerProvider(
 		trace.WithSyncer(exporter),
 		trace.WithResource(resource.NewWithAttributes(
 			semconv.SchemaURL,
 			semconv.ServiceName("cli-sanitization-test"),
 		)),
 	)
+	otel.SetTracerProvider(tracerProvider)
+	defer otel.SetTracerProvider(trace.NewNoopTracerProvider())
 
 	reader := metric.NewManualReader()
-	_ = metric.NewMeterProvider(metric.WithReader(reader))
+	meterProvider := metric.NewMeterProvider(metric.WithReader(reader))
+	otel.SetMeterProvider(meterProvider)
+	defer otel.SetMeterProvider(metric.NewNoopMeterProvider())
 
-	// Create OTEL manager
+	// Create OTEL manager with disabled endpoints (use global providers)
 	config := &otel.OTELConfig{
-		Enabled:                 true,
+		Enabled:                 false, // Use global providers instead
 		ServiceName:             "cli-sanitization-test",
 		SamplingRate:            1.0,
 		BatchTimeout:            time.Second,
@@ -474,22 +483,26 @@ func TestCLICommandOTELInstrumentationFailure(t *testing.T) {
 
 // TestCLICommandOTELContextPropagation tests that context is properly propagated
 func TestCLICommandOTELContextPropagation(t *testing.T) {
-	// Set up OTEL providers
+	// Set up OTEL providers with global registration
 	exporter := tracetest.NewInMemoryExporter()
-	_ = trace.NewTracerProvider(
+	tracerProvider := trace.NewTracerProvider(
 		trace.WithSyncer(exporter),
 		trace.WithResource(resource.NewWithAttributes(
 			semconv.SchemaURL,
 			semconv.ServiceName("cli-context-test"),
 		)),
 	)
+	otel.SetTracerProvider(tracerProvider)
+	defer otel.SetTracerProvider(trace.NewNoopTracerProvider())
 
 	reader := metric.NewManualReader()
-	_ = metric.NewMeterProvider(metric.WithReader(reader))
+	meterProvider := metric.NewMeterProvider(metric.WithReader(reader))
+	otel.SetMeterProvider(meterProvider)
+	defer otel.SetMeterProvider(metric.NewNoopMeterProvider())
 
-	// Create OTEL manager
+	// Create OTEL manager with disabled endpoints (use global providers)
 	config := &otel.OTELConfig{
-		Enabled:                 true,
+		Enabled:                 false, // Use global providers instead
 		ServiceName:             "cli-context-test",
 		SamplingRate:            1.0,
 		BatchTimeout:            time.Second,
