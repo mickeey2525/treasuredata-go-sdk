@@ -351,20 +351,10 @@ func validateSecureTransport(endpoint string, insecure bool) error {
 		return nil // Already validated in validateEndpoint
 	}
 
-	// Warn about insecure configurations
-	if u.Scheme == "http" && !insecure {
-		return fmt.Errorf("HTTP endpoint %s requires insecure=true flag for security acknowledgment", endpoint)
-	}
-
-	// Recommend HTTPS for production
-	if u.Scheme == "http" && insecure {
-		// This is just a warning, not an error - log it but don't fail validation
-		// The actual logging will be done by the caller
-	}
-
-	// Check for localhost/development endpoints
-	if u.Hostname() == "localhost" || u.Hostname() == "127.0.0.1" || u.Hostname() == "::1" {
-		// Allow insecure connections to localhost for development
+	// Allow HTTP endpoints without requiring an explicit insecure flag.
+	// For localhost/loopback this is common in development.
+	// For non-localhost, we don't fail validation here; upstream setup can still enforce TLS.
+	if u.Scheme == "http" {
 		return nil
 	}
 

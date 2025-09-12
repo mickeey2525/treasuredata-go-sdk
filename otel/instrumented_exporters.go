@@ -38,6 +38,10 @@ func NewInstrumentedTraceExporterWithConfig(exporter trace.SpanExporter, service
 			BackoffFactor: config.RetryBackoffFactor,
 			Jitter:        config.RetryJitter,
 		}
+		if !config.RetryEnabled {
+			// Honor RetryEnabled=false by forcing single-attempt behavior
+			retryConfig.MaxAttempts = 1
+		}
 
 		if config.CircuitBreakerEnabled {
 			cbConfig = &CircuitBreakerConfig{
@@ -114,6 +118,9 @@ func NewInstrumentedMetricExporterWithConfig(exporter metric.Exporter, serviceNa
 			MaxDelay:      config.RetryMaxDelay,
 			BackoffFactor: config.RetryBackoffFactor,
 			Jitter:        config.RetryJitter,
+		}
+		if !config.RetryEnabled {
+			retryConfig.MaxAttempts = 1
 		}
 
 		if config.CircuitBreakerEnabled {

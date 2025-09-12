@@ -13,11 +13,13 @@ import (
 	"time"
 
 	"github.com/trinodb/trino-go-client/trino"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
+	"sync"
 )
 
 const (
@@ -99,6 +101,21 @@ func (t *trinoTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 
 	return transport.RoundTrip(reqCopy)
+}
+
+// otelTrinoProgressUpdater captures Trino query progress to enrich spans
+type otelTrinoProgressUpdater struct {
+	span trace.Span
+	once sync.Once
+}
+
+func (u *otelTrinoProgressUpdater) Update(info trino.QueryProgressInfo) {
+	// Set query ID only once when available
+	u.once.Do(func() {
+		if u.span != nil && info.QueryId != "" {
+			u.span.SetAttributes(attribute.String("trino.query_id", info.QueryId))
+		}
+	})
 }
 
 // wrapError removes sensitive information from errors
@@ -205,11 +222,18 @@ func NewTDTrinoClient(config TDTrinoClientConfig) (*TDTrinoClient, error) {
 		httpClient = &http.Client{Timeout: 30 * time.Second}
 	}
 
-	// Wrap the HTTP client to add the X-Trino-User header
+	// Build base transport and wrap with otelhttp for HTTP instrumentation
+	baseTransport := httpClient.Transport
+	if baseTransport == nil {
+		baseTransport = http.DefaultTransport
+	}
+	instrumentedBase := otelhttp.NewTransport(baseTransport)
+
+	// Wrap the HTTP client to add the X-Trino-User header and keep instrumentation
 	wrappedClient := &http.Client{
 		Timeout: httpClient.Timeout,
 		Transport: &trinoTransport{
-			base:   httpClient.Transport,
+			base:   instrumentedBase,
 			apiKey: config.APIKey,
 		},
 	}
@@ -405,7 +429,14 @@ func (c *TDTrinoClient) Query(ctx context.Context, query string, args ...any) (*
 		attribute.String("region", c.region),
 	)
 
-	rows, err := c.db.QueryContext(ctx, query, args...)
+	// Add progress callback named args to capture query ID
+	updater := &otelTrinoProgressUpdater{span: span}
+	period := 500 * time.Millisecond
+	argsWithProgress := append(args,
+		sql.Named("X-Trino-Progress-Callback", updater),
+		sql.Named("X-Trino-Progress-Callback-Period", period),
+	)
+	rows, err := c.db.QueryContext(ctx, query, argsWithProgress...)
 
 	// Record query duration
 	duration := time.Since(startTime).Seconds()
@@ -469,7 +500,14 @@ func (c *TDTrinoClient) QueryRow(ctx context.Context, query string, args ...any)
 		attribute.String("region", c.region),
 	)
 
-	row := c.db.QueryRowContext(ctx, query, args...)
+	// Add progress callback named args to capture query ID
+	updater := &otelTrinoProgressUpdater{span: span}
+	period := 500 * time.Millisecond
+	argsWithProgress := append(args,
+		sql.Named("X-Trino-Progress-Callback", updater),
+		sql.Named("X-Trino-Progress-Callback-Period", period),
+	)
+	row := c.db.QueryRowContext(ctx, query, argsWithProgress...)
 
 	// Record query duration
 	duration := time.Since(startTime).Seconds()
@@ -525,7 +563,14 @@ func (c *TDTrinoClient) Exec(ctx context.Context, query string, args ...any) (sq
 		attribute.String("region", c.region),
 	)
 
-	result, err := c.db.ExecContext(ctx, query, args...)
+	// Add progress callback named args to capture query ID
+	updater := &otelTrinoProgressUpdater{span: span}
+	period := 500 * time.Millisecond
+	argsWithProgress := append(args,
+		sql.Named("X-Trino-Progress-Callback", updater),
+		sql.Named("X-Trino-Progress-Callback-Period", period),
+	)
+	result, err := c.db.ExecContext(ctx, query, argsWithProgress...)
 
 	// Record query duration
 	duration := time.Since(startTime).Seconds()

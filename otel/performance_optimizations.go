@@ -218,6 +218,16 @@ type OperationStats struct {
 	mutex     sync.RWMutex
 }
 
+// OperationStatsSnapshot is a copy of OperationStats fields without the lock
+// to allow safe value-copying (e.g., returning from maps) without triggering
+type OperationStatsSnapshot struct {
+	Count     int64
+	TotalTime time.Duration
+	MinTime   time.Duration
+	MaxTime   time.Duration
+	LastTime  time.Duration
+}
+
 // newOperationStats creates a new OperationStats with proper initialization
 func newOperationStats(initialDuration time.Duration) *OperationStats {
 	return &OperationStats{
@@ -282,14 +292,20 @@ func (pm *PerformanceMonitor) recordStats(name string, duration time.Duration) {
 }
 
 // GetStats returns statistics for all operations
-func (pm *PerformanceMonitor) GetStats() map[string]OperationStats {
-	result := make(map[string]OperationStats)
+func (pm *PerformanceMonitor) GetStats() map[string]OperationStatsSnapshot {
+	result := make(map[string]OperationStatsSnapshot)
 	pm.stats.Range(func(key, value interface{}) bool {
 		name := key.(string)
 		stats := value.(*OperationStats)
 
 		stats.mutex.RLock()
-		result[name] = *stats
+		result[name] = OperationStatsSnapshot{
+			Count:     stats.Count,
+			TotalTime: stats.TotalTime,
+			MinTime:   stats.MinTime,
+			MaxTime:   stats.MaxTime,
+			LastTime:  stats.LastTime,
+		}
 		stats.mutex.RUnlock()
 
 		return true

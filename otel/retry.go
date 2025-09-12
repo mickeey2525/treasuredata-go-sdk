@@ -2,9 +2,11 @@ package otel
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"math/rand"
+	"regexp"
 	"sync"
 	"time"
 )
@@ -217,6 +219,12 @@ func RetryWithBackoff(ctx context.Context, config *RetryConfig, operation string
 
 		lastErr = err
 
+		// Do not retry on non-retriable errors (e.g., HTTP 4xx)
+		if isPermanentError(err) {
+			log.Printf("Operation %s failed with non-retriable error: %v. Not retrying.", operation, err)
+			break
+		}
+
 		// Don't retry on the last attempt
 		if attempt == config.MaxAttempts-1 {
 			break
@@ -252,6 +260,19 @@ func RetryWithBackoff(ctx context.Context, config *RetryConfig, operation string
 	return NewError(operation, fmt.Errorf("operation failed after %d attempts: %w", config.MaxAttempts, lastErr))
 }
 
+// isPermanentError attempts to classify an error as non-retriable.
+// Currently treats HTTP 4xx responses as permanent (client/config errors).
+func isPermanentError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	// Simple regex to detect HTTP 4xx status codes present in error messages
+	// e.g., "404 Not Found", "400 Bad Request", etc.
+	re := regexp.MustCompile(`\b4\d\d\b`)
+	return re.FindStringIndex(msg) != nil
+}
+
 // ExportFailureHandler handles export failures with retry and circuit breaker logic
 type ExportFailureHandler struct {
 	retryConfig         *RetryConfig
@@ -276,7 +297,7 @@ func NewExportFailureHandler(retryConfig *RetryConfig, cbConfig *CircuitBreakerC
 
 // HandleExport executes an export operation with retry and circuit breaker protection
 func (h *ExportFailureHandler) HandleExport(ctx context.Context, operation string, exportFn func() error) error {
-	return h.circuitBreaker.Execute(ctx, operation, func() error {
+	err := h.circuitBreaker.Execute(ctx, operation, func() error {
 		err := RetryWithBackoff(ctx, h.retryConfig, operation, exportFn)
 		if err != nil {
 			h.recordFailure(operation, err)
@@ -285,6 +306,18 @@ func (h *ExportFailureHandler) HandleExport(ctx context.Context, operation strin
 		h.recordSuccess(operation)
 		return nil
 	})
+
+	// Suppress noisy errors when circuit breaker is open; drop this export silently
+	if err != nil {
+		var oe *OTELError
+		if errors.As(err, &oe) {
+			if oe.Operation == operation && oe.Cause != nil && oe.Cause.Error() == "circuit breaker is open" {
+				// Suppress repeated errors while the circuit is open.
+				return nil
+			}
+		}
+	}
+	return err
 }
 
 // recordSuccess records a successful export

@@ -315,13 +315,26 @@ func (m *OTELManager) createTraceExporter(ctx context.Context) (sdktrace.SpanExp
 	endpoint := extractHostPort(m.config.TraceEndpoint)
 	opts = append(opts, otlptracehttp.WithEndpoint(endpoint))
 
+	// Determine transport security from the configured URL scheme.
+	// If the scheme is explicitly http, force insecure transport without requiring a flag.
+	// If the scheme is https, prefer secure transport.
+	// If no scheme is provided, fall back to the explicit Insecure config.
+	var enableInsecure bool
+	if strings.HasPrefix(strings.ToLower(m.config.TraceEndpoint), "http://") {
+		enableInsecure = true
+	} else if strings.HasPrefix(strings.ToLower(m.config.TraceEndpoint), "https://") {
+		enableInsecure = false
+	} else {
+		enableInsecure = m.config.Insecure
+	}
+
 	// Add headers if configured
 	if len(m.config.Headers) > 0 {
 		opts = append(opts, otlptracehttp.WithHeaders(m.config.Headers))
 	}
 
 	// Configure TLS settings
-	if m.config.Insecure {
+	if enableInsecure {
 		opts = append(opts, otlptracehttp.WithInsecure())
 	}
 
@@ -364,13 +377,23 @@ func (m *OTELManager) createMetricExporter(ctx context.Context) (sdkmetric.Expor
 	endpoint := extractHostPort(m.config.MetricEndpoint)
 	opts = append(opts, otlpmetrichttp.WithEndpoint(endpoint))
 
+	// Determine transport security from the configured URL scheme.
+	var enableInsecure bool
+	if strings.HasPrefix(strings.ToLower(m.config.MetricEndpoint), "http://") {
+		enableInsecure = true
+	} else if strings.HasPrefix(strings.ToLower(m.config.MetricEndpoint), "https://") {
+		enableInsecure = false
+	} else {
+		enableInsecure = m.config.Insecure
+	}
+
 	// Add headers if configured
 	if len(m.config.Headers) > 0 {
 		opts = append(opts, otlpmetrichttp.WithHeaders(m.config.Headers))
 	}
 
 	// Configure TLS settings
-	if m.config.Insecure {
+	if enableInsecure {
 		opts = append(opts, otlpmetrichttp.WithInsecure())
 	}
 

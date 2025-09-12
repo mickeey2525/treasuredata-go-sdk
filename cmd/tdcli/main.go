@@ -128,34 +128,7 @@ func main() {
 		}
 	}
 
-	// Create client if API key is provided
-	var client *td.Client
-	if cli.APIKey != "" {
-		var err error
-		// Create client with region configuration
-		clientOptions := []td.ClientOption{}
-		if cli.Region != "" {
-			clientOptions = append(clientOptions, td.WithRegion(cli.Region))
-		}
-
-		// Apply SSL options if any are configured
-		if cli.InsecureSkipVerify || cli.CertFile != "" || cli.KeyFile != "" || cli.CAFile != "" {
-			sslOptions := td.SSLOptions{
-				InsecureSkipVerify: cli.InsecureSkipVerify,
-				CertFile:           cli.CertFile,
-				KeyFile:            cli.KeyFile,
-				CAFile:             cli.CAFile,
-			}
-			clientOptions = append(clientOptions, td.WithSSLOptions(sslOptions))
-		}
-
-		client, err = td.NewClient(cli.APIKey, clientOptions...)
-		if err != nil {
-			log.Fatalf("Failed to create client: %v", err)
-		}
-	}
-
-	// Initialize OTEL manager
+	// Initialize OTEL manager before creating the client so we can wire HTTP instrumentation
 	otelConfig := cli.ToOTELConfig()
 	otelManager, err := otel.NewOTELManager(otelConfig)
 	if err != nil {
@@ -177,6 +150,38 @@ func main() {
 			}
 			// Continue without OTEL if initialization fails
 			otelManager = nil
+		}
+	}
+
+	// Create client if API key is provided
+	var client *td.Client
+	if cli.APIKey != "" {
+		var err error
+		// Create client with region configuration
+		clientOptions := []td.ClientOption{}
+		if cli.Region != "" {
+			clientOptions = append(clientOptions, td.WithRegion(cli.Region))
+		}
+
+		// Apply SSL options if any are configured
+		if cli.InsecureSkipVerify || cli.CertFile != "" || cli.KeyFile != "" || cli.CAFile != "" {
+			sslOptions := td.SSLOptions{
+				InsecureSkipVerify: cli.InsecureSkipVerify,
+				CertFile:           cli.CertFile,
+				KeyFile:            cli.KeyFile,
+				CAFile:             cli.CAFile,
+			}
+			clientOptions = append(clientOptions, td.WithSSLOptions(sslOptions))
+		}
+
+		// Wire OTEL into the HTTP transport when enabled
+		if otelManager != nil && otelManager.IsEnabled() {
+			clientOptions = append(clientOptions, td.WithOTEL(otelManager.GetTracer(), otelManager.GetMeter()))
+		}
+
+		client, err = td.NewClient(cli.APIKey, clientOptions...)
+		if err != nil {
+			log.Fatalf("Failed to create client: %v", err)
 		}
 	}
 
