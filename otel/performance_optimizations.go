@@ -196,6 +196,18 @@ type OperationStats struct {
 	mutex     sync.RWMutex
 }
 
+// newOperationStats creates a new OperationStats with proper initialization
+func newOperationStats(initialDuration time.Duration) *OperationStats {
+	return &OperationStats{
+		Count:     0,
+		TotalTime: 0,
+		MinTime:   0, // Will be set on first record
+		MaxTime:   0, // Will be set on first record
+		LastTime:  0,
+		mutex:     sync.RWMutex{},
+	}
+}
+
 // NewPerformanceMonitor creates a new performance monitor
 func NewPerformanceMonitor(enabled bool) *PerformanceMonitor {
 	return &PerformanceMonitor{
@@ -219,24 +231,31 @@ func (pm *PerformanceMonitor) MeasureOperation(name string, fn func()) {
 
 // recordStats records statistics for an operation
 func (pm *PerformanceMonitor) recordStats(name string, duration time.Duration) {
-	statsInterface, _ := pm.stats.LoadOrStore(name, &OperationStats{
-		MinTime: duration,
-		MaxTime: duration,
-	})
+	// Use LoadOrStore with proper constructor to avoid race conditions
+	statsInterface, _ := pm.stats.LoadOrStore(name, newOperationStats(duration))
 	stats := statsInterface.(*OperationStats)
 
 	stats.mutex.Lock()
 	defer stats.mutex.Unlock()
 
+	// Always increment and update - the logic is the same whether it's new or existing
 	stats.Count++
 	stats.TotalTime += duration
 	stats.LastTime = duration
 
-	if duration < stats.MinTime {
+	// Update min/max times
+	if stats.Count == 1 {
+		// First record - initialize min/max
 		stats.MinTime = duration
-	}
-	if duration > stats.MaxTime {
 		stats.MaxTime = duration
+	} else {
+		// Subsequent records - update min/max
+		if duration < stats.MinTime {
+			stats.MinTime = duration
+		}
+		if duration > stats.MaxTime {
+			stats.MaxTime = duration
+		}
 	}
 }
 
