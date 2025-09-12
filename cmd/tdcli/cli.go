@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
+	"time"
 
 	td "github.com/mickeey2525/treasuredata-go-sdk"
 	"github.com/mickeey2525/treasuredata-go-sdk/cmd/tdcli/workflow"
+	"github.com/mickeey2525/treasuredata-go-sdk/otel"
 )
 
 // Global CLI structure
@@ -23,6 +25,20 @@ type CLI struct {
 	KeyFile            string `kong:"help='Client private key file path',env='TD_KEY_FILE'"`
 	CAFile             string `kong:"help='Custom CA certificate file path',env='TD_CA_FILE'"`
 
+	// OpenTelemetry Configuration
+	OTELEnabled        bool              `kong:"help='Enable OpenTelemetry tracing and metrics',env='OTEL_ENABLED'"`
+	OTELServiceName    string            `kong:"help='OTEL service name',env='OTEL_SERVICE_NAME',default='tdcli'"`
+	OTELServiceVersion string            `kong:"help='OTEL service version',env='OTEL_SERVICE_VERSION'"`
+	OTELTraceEndpoint  string            `kong:"help='OTEL trace endpoint URL',env='OTEL_EXPORTER_OTLP_TRACES_ENDPOINT'"`
+	OTELMetricEndpoint string            `kong:"help='OTEL metric endpoint URL',env='OTEL_EXPORTER_OTLP_METRICS_ENDPOINT'"`
+	OTELEndpoint       string            `kong:"help='OTEL generic endpoint URL (used if specific endpoints not set)',env='OTEL_EXPORTER_OTLP_ENDPOINT'"`
+	OTELSamplingRate   float64           `kong:"help='OTEL sampling rate (0.0-1.0)',env='OTEL_SAMPLING_RATE',default='1.0'"`
+	OTELHeaders        map[string]string `kong:"help='OTEL exporter headers (key=value,key2=value2)',env='OTEL_EXPORTER_OTLP_HEADERS'"`
+	OTELInsecure       bool              `kong:"help='Use insecure OTEL connection',env='OTEL_EXPORTER_OTLP_INSECURE'"`
+	OTELBatchTimeout   time.Duration     `kong:"help='OTEL batch timeout',env='OTEL_EXPORTER_OTLP_TIMEOUT',default='5s'"`
+	OTELBatchSize      int               `kong:"help='OTEL batch size',env='OTEL_EXPORTER_OTLP_BATCH_SIZE',default='512'"`
+	OTELResourceAttrs  map[string]string `kong:"help='OTEL resource attributes (key=value,key2=value2)',env='OTEL_RESOURCE_ATTRIBUTES'"`
+
 	// Commands
 	Version   VersionCmd   `kong:"cmd,help='Show version'"`
 	Config    ConfigCmd    `kong:"cmd,help='Configuration management'"`
@@ -39,14 +55,52 @@ type CLI struct {
 	Trino     TrinoCmd     `kong:"cmd,help='Trino SQL client'"`
 }
 
+// Global variable to signal handlers to return errors instead of calling os.Exit
+var captureHandlerErrors = false
+
+// runHandlerWithErrorCapture wraps handler functions to capture their errors
+func runHandlerWithErrorCapture(handlerFunc func()) (err error) {
+	// Set capture mode
+	originalCaptureMode := captureHandlerErrors
+	captureHandlerErrors = true
+
+	// Use defer to restore original mode and capture panics
+	defer func() {
+		captureHandlerErrors = originalCaptureMode
+		if r := recover(); r != nil {
+			// Convert panic to error
+			if e, ok := r.(error); ok {
+				err = e
+			} else {
+				err = fmt.Errorf("command failed: %v", r)
+			}
+		}
+	}()
+
+	// Run the handler function - it should now panic with errors instead of calling os.Exit
+	handlerFunc()
+	return nil
+}
+
+// runInstrumented wraps a handler with OTEL CLI instrumentation + error capture.
+// Use this for commands that currently call handlers directly so we emit
+// a high-level CLI span in addition to HTTP-level spans.
+func runInstrumented(ctx *CLIContext, commandName string, args []string, handlerFunc func()) error {
+	return InstrumentedRun(ctx, commandName, args, func(ctx *CLIContext) error {
+		return runHandlerWithErrorCapture(handlerFunc)
+	})
+}
+
 // Version command
 type VersionCmd struct{}
 
 func (v *VersionCmd) Run(ctx *CLIContext) error {
-	fmt.Printf("tdcli version %s\n", version)
-	fmt.Printf("commit: %s\n", commit)
-	fmt.Printf("built: %s\n", date)
-	return nil
+	return InstrumentedRun(ctx, "version", []string{}, func(ctx *CLIContext) error {
+		fmt.Printf("tdcli version %s\n", version)
+		fmt.Printf("commit: %s\n", commit)
+		fmt.Printf("built: %s\n", date)
+		return nil
+	})
 }
 
 // Database commands
@@ -61,8 +115,11 @@ type DatabasesCmd struct {
 type DatabasesListCmd struct{}
 
 func (d *DatabasesListCmd) Run(ctx *CLIContext) error {
-	handleDatabaseList(ctx.Context, ctx.Client, ctx.GlobalFlags)
-	return nil
+	return InstrumentedRun(ctx, "databases.list", []string{}, func(ctx *CLIContext) error {
+		return runHandlerWithErrorCapture(func() {
+			handleDatabaseList(ctx.Context, ctx.Client, ctx.GlobalFlags)
+		})
+	})
 }
 
 type DatabasesGetCmd struct {
@@ -70,8 +127,11 @@ type DatabasesGetCmd struct {
 }
 
 func (d *DatabasesGetCmd) Run(ctx *CLIContext) error {
-	handleDatabaseGet(ctx.Context, ctx.Client, []string{d.Name}, ctx.GlobalFlags)
-	return nil
+	return InstrumentedRun(ctx, "databases.get", []string{d.Name}, func(ctx *CLIContext) error {
+		return runHandlerWithErrorCapture(func() {
+			handleDatabaseGet(ctx.Context, ctx.Client, []string{d.Name}, ctx.GlobalFlags)
+		})
+	})
 }
 
 type DatabasesCreateCmd struct {
@@ -79,8 +139,9 @@ type DatabasesCreateCmd struct {
 }
 
 func (d *DatabasesCreateCmd) Run(ctx *CLIContext) error {
-	handleDatabaseCreate(ctx.Context, ctx.Client, []string{d.Name}, ctx.GlobalFlags)
-	return nil
+	return runHandlerWithErrorCapture(func() {
+		handleDatabaseCreate(ctx.Context, ctx.Client, []string{d.Name}, ctx.GlobalFlags)
+	})
 }
 
 type DatabasesDeleteCmd struct {
@@ -88,8 +149,9 @@ type DatabasesDeleteCmd struct {
 }
 
 func (d *DatabasesDeleteCmd) Run(ctx *CLIContext) error {
-	handleDatabaseDelete(ctx.Context, ctx.Client, []string{d.Name}, ctx.GlobalFlags)
-	return nil
+	return runHandlerWithErrorCapture(func() {
+		handleDatabaseDelete(ctx.Context, ctx.Client, []string{d.Name}, ctx.GlobalFlags)
+	})
 }
 
 type DatabasesUpdateCmd struct {
@@ -97,8 +159,9 @@ type DatabasesUpdateCmd struct {
 }
 
 func (d *DatabasesUpdateCmd) Run(ctx *CLIContext) error {
-	handleDatabaseUpdate(ctx.Context, ctx.Client, []string{d.Name}, ctx.GlobalFlags)
-	return nil
+	return runHandlerWithErrorCapture(func() {
+		handleDatabaseUpdate(ctx.Context, ctx.Client, []string{d.Name}, ctx.GlobalFlags)
+	})
 }
 
 // Table commands
@@ -116,8 +179,11 @@ type TablesListCmd struct {
 }
 
 func (t *TablesListCmd) Run(ctx *CLIContext) error {
-	handleTableList(ctx.Context, ctx.Client, []string{t.Database}, ctx.GlobalFlags)
-	return nil
+	return InstrumentedRun(ctx, "tables.list", []string{t.Database}, func(ctx *CLIContext) error {
+		return runHandlerWithErrorCapture(func() {
+			handleTableList(ctx.Context, ctx.Client, []string{t.Database}, ctx.GlobalFlags)
+		})
+	})
 }
 
 type TablesGetCmd struct {
@@ -126,8 +192,9 @@ type TablesGetCmd struct {
 }
 
 func (t *TablesGetCmd) Run(ctx *CLIContext) error {
-	handleTableGet(ctx.Context, ctx.Client, []string{t.Database, t.Table}, ctx.GlobalFlags)
-	return nil
+	return runHandlerWithErrorCapture(func() {
+		handleTableGet(ctx.Context, ctx.Client, []string{t.Database, t.Table}, ctx.GlobalFlags)
+	})
 }
 
 type TablesCreateCmd struct {
@@ -136,8 +203,9 @@ type TablesCreateCmd struct {
 }
 
 func (t *TablesCreateCmd) Run(ctx *CLIContext) error {
-	handleTableCreate(ctx.Context, ctx.Client, []string{t.Database, t.Table}, ctx.GlobalFlags)
-	return nil
+	return runHandlerWithErrorCapture(func() {
+		handleTableCreate(ctx.Context, ctx.Client, []string{t.Database, t.Table}, ctx.GlobalFlags)
+	})
 }
 
 type TablesDeleteCmd struct {
@@ -146,8 +214,9 @@ type TablesDeleteCmd struct {
 }
 
 func (t *TablesDeleteCmd) Run(ctx *CLIContext) error {
-	handleTableDelete(ctx.Context, ctx.Client, []string{t.Database, t.Table}, ctx.GlobalFlags)
-	return nil
+	return runHandlerWithErrorCapture(func() {
+		handleTableDelete(ctx.Context, ctx.Client, []string{t.Database, t.Table}, ctx.GlobalFlags)
+	})
 }
 
 type TablesSwapCmd struct {
@@ -157,8 +226,9 @@ type TablesSwapCmd struct {
 }
 
 func (t *TablesSwapCmd) Run(ctx *CLIContext) error {
-	handleTableSwap(ctx.Context, ctx.Client, []string{t.Database, t.Table1, t.Table2}, ctx.GlobalFlags)
-	return nil
+	return runHandlerWithErrorCapture(func() {
+		handleTableSwap(ctx.Context, ctx.Client, []string{t.Database, t.Table1, t.Table2}, ctx.GlobalFlags)
+	})
 }
 
 type TablesRenameCmd struct {
@@ -168,8 +238,9 @@ type TablesRenameCmd struct {
 }
 
 func (t *TablesRenameCmd) Run(ctx *CLIContext) error {
-	handleTableRename(ctx.Context, ctx.Client, []string{t.Database, t.OldName, t.NewName}, ctx.GlobalFlags)
-	return nil
+	return runHandlerWithErrorCapture(func() {
+		handleTableRename(ctx.Context, ctx.Client, []string{t.Database, t.OldName, t.NewName}, ctx.GlobalFlags)
+	})
 }
 
 // Query commands
@@ -191,12 +262,15 @@ type QuerySubmitCmd struct {
 }
 
 func (q *QuerySubmitCmd) Run(ctx *CLIContext) error {
-	// Set database in global flags for compatibility
-	ctx.GlobalFlags.Database = q.Database
-	ctx.GlobalFlags.Priority = q.Priority
-	ctx.GlobalFlags.Engine = q.Engine
-	handleQuerySubmit(ctx.Context, ctx.Client, []string{q.Query}, ctx.GlobalFlags)
-	return nil
+	return InstrumentedRun(ctx, "queries.submit", []string{q.Query}, func(ctx *CLIContext) error {
+		return runHandlerWithErrorCapture(func() {
+			// Set database in global flags for compatibility
+			ctx.GlobalFlags.Database = q.Database
+			ctx.GlobalFlags.Priority = q.Priority
+			ctx.GlobalFlags.Engine = q.Engine
+			handleQuerySubmit(ctx.Context, ctx.Client, []string{q.Query}, ctx.GlobalFlags)
+		})
+	})
 }
 
 type QueryStatusCmd struct {
@@ -204,8 +278,11 @@ type QueryStatusCmd struct {
 }
 
 func (q *QueryStatusCmd) Run(ctx *CLIContext) error {
-	handleQueryStatus(ctx.Context, ctx.Client, []string{q.JobID}, ctx.GlobalFlags)
-	return nil
+	return InstrumentedRun(ctx, "queries.status", []string{q.JobID}, func(ctx *CLIContext) error {
+		return runHandlerWithErrorCapture(func() {
+			handleQueryStatus(ctx.Context, ctx.Client, []string{q.JobID}, ctx.GlobalFlags)
+		})
+	})
 }
 
 type QueryResultCmd struct {
@@ -214,9 +291,10 @@ type QueryResultCmd struct {
 }
 
 func (q *QueryResultCmd) Run(ctx *CLIContext) error {
-	ctx.GlobalFlags.Limit = q.Limit
-	handleQueryResult(ctx.Context, ctx.Client, []string{q.JobID}, ctx.GlobalFlags)
-	return nil
+	return runHandlerWithErrorCapture(func() {
+		ctx.GlobalFlags.Limit = q.Limit
+		handleQueryResult(ctx.Context, ctx.Client, []string{q.JobID}, ctx.GlobalFlags)
+	})
 }
 
 type QueryListCmd struct {
@@ -224,9 +302,10 @@ type QueryListCmd struct {
 }
 
 func (q *QueryListCmd) Run(ctx *CLIContext) error {
-	ctx.GlobalFlags.Status = q.Status
-	handleQueryList(ctx.Context, ctx.Client, ctx.GlobalFlags)
-	return nil
+	return runHandlerWithErrorCapture(func() {
+		ctx.GlobalFlags.Status = q.Status
+		handleQueryList(ctx.Context, ctx.Client, ctx.GlobalFlags)
+	})
 }
 
 type QueryCancelCmd struct {
@@ -234,8 +313,9 @@ type QueryCancelCmd struct {
 }
 
 func (q *QueryCancelCmd) Run(ctx *CLIContext) error {
-	handleQueryCancel(ctx.Context, ctx.Client, []string{q.JobID}, ctx.GlobalFlags)
-	return nil
+	return runHandlerWithErrorCapture(func() {
+		handleQueryCancel(ctx.Context, ctx.Client, []string{q.JobID}, ctx.GlobalFlags)
+	})
 }
 
 // Job commands
@@ -250,9 +330,12 @@ type JobsListCmd struct {
 }
 
 func (j *JobsListCmd) Run(ctx *CLIContext) error {
-	ctx.GlobalFlags.Status = j.Status
-	handleJobList(ctx.Context, ctx.Client, ctx.GlobalFlags)
-	return nil
+	return InstrumentedRun(ctx, "jobs.list", []string{}, func(ctx *CLIContext) error {
+		return runHandlerWithErrorCapture(func() {
+			ctx.GlobalFlags.Status = j.Status
+			handleJobList(ctx.Context, ctx.Client, ctx.GlobalFlags)
+		})
+	})
 }
 
 type JobsGetCmd struct {
@@ -260,8 +343,9 @@ type JobsGetCmd struct {
 }
 
 func (j *JobsGetCmd) Run(ctx *CLIContext) error {
-	handleJobGet(ctx.Context, ctx.Client, []string{j.JobID}, ctx.GlobalFlags)
-	return nil
+	return runHandlerWithErrorCapture(func() {
+		handleJobGet(ctx.Context, ctx.Client, []string{j.JobID}, ctx.GlobalFlags)
+	})
 }
 
 type JobsCancelCmd struct {
@@ -269,8 +353,9 @@ type JobsCancelCmd struct {
 }
 
 func (j *JobsCancelCmd) Run(ctx *CLIContext) error {
-	handleJobCancel(ctx.Context, ctx.Client, []string{j.JobID}, ctx.GlobalFlags)
-	return nil
+	return runHandlerWithErrorCapture(func() {
+		handleJobCancel(ctx.Context, ctx.Client, []string{j.JobID}, ctx.GlobalFlags)
+	})
 }
 
 // User commands
@@ -282,8 +367,9 @@ type UsersCmd struct {
 type UsersListCmd struct{}
 
 func (u *UsersListCmd) Run(ctx *CLIContext) error {
-	handleUserList(ctx.Context, ctx.Client, ctx.GlobalFlags)
-	return nil
+	return runHandlerWithErrorCapture(func() {
+		handleUserList(ctx.Context, ctx.Client, ctx.GlobalFlags)
+	})
 }
 
 type UsersGetCmd struct {
@@ -291,8 +377,9 @@ type UsersGetCmd struct {
 }
 
 func (u *UsersGetCmd) Run(ctx *CLIContext) error {
-	handleUserGet(ctx.Context, ctx.Client, []string{u.UserID}, ctx.GlobalFlags)
-	return nil
+	return runHandlerWithErrorCapture(func() {
+		handleUserGet(ctx.Context, ctx.Client, []string{u.UserID}, ctx.GlobalFlags)
+	})
 }
 
 // Permissions commands
@@ -312,8 +399,9 @@ type PermsPoliciesCmd struct {
 type PermsPoliciesListCmd struct{}
 
 func (p *PermsPoliciesListCmd) Run(ctx *CLIContext) error {
-	handlePolicyList(ctx.Context, ctx.Client, ctx.GlobalFlags)
-	return nil
+	return runHandlerWithErrorCapture(func() {
+		handlePolicyList(ctx.Context, ctx.Client, ctx.GlobalFlags)
+	})
 }
 
 type PermsPoliciesGetCmd struct {
@@ -321,8 +409,9 @@ type PermsPoliciesGetCmd struct {
 }
 
 func (p *PermsPoliciesGetCmd) Run(ctx *CLIContext) error {
-	handlePolicyGet(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", p.PolicyID)}, ctx.GlobalFlags)
-	return nil
+	return runHandlerWithErrorCapture(func() {
+		handlePolicyGet(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", p.PolicyID)}, ctx.GlobalFlags)
+	})
 }
 
 type PermsPoliciesCreateCmd struct {
@@ -331,12 +420,13 @@ type PermsPoliciesCreateCmd struct {
 }
 
 func (p *PermsPoliciesCreateCmd) Run(ctx *CLIContext) error {
-	args := []string{p.Name}
-	if p.Description != "" {
-		args = append(args, p.Description)
-	}
-	handlePolicyCreate(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
-	return nil
+	return runHandlerWithErrorCapture(func() {
+		args := []string{p.Name}
+		if p.Description != "" {
+			args = append(args, p.Description)
+		}
+		handlePolicyCreate(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
+	})
 }
 
 type PermsPoliciesDeleteCmd struct {
@@ -344,8 +434,9 @@ type PermsPoliciesDeleteCmd struct {
 }
 
 func (p *PermsPoliciesDeleteCmd) Run(ctx *CLIContext) error {
-	handlePolicyDelete(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", p.PolicyID)}, ctx.GlobalFlags)
-	return nil
+	return runHandlerWithErrorCapture(func() {
+		handlePolicyDelete(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", p.PolicyID)}, ctx.GlobalFlags)
+	})
 }
 
 type PermsGroupsCmd struct {
@@ -358,8 +449,9 @@ type PermsGroupsCmd struct {
 type PermsGroupsListCmd struct{}
 
 func (p *PermsGroupsListCmd) Run(ctx *CLIContext) error {
-	handlePolicyGroupList(ctx.Context, ctx.Client, ctx.GlobalFlags)
-	return nil
+	return runHandlerWithErrorCapture(func() {
+		handlePolicyGroupList(ctx.Context, ctx.Client, ctx.GlobalFlags)
+	})
 }
 
 type PermsGroupsGetCmd struct {
@@ -367,8 +459,9 @@ type PermsGroupsGetCmd struct {
 }
 
 func (p *PermsGroupsGetCmd) Run(ctx *CLIContext) error {
-	handlePolicyGroupGet(ctx.Context, ctx.Client, []string{p.GroupID}, ctx.GlobalFlags)
-	return nil
+	return runHandlerWithErrorCapture(func() {
+		handlePolicyGroupGet(ctx.Context, ctx.Client, []string{p.GroupID}, ctx.GlobalFlags)
+	})
 }
 
 type PermsGroupsCreateCmd struct {
@@ -376,8 +469,9 @@ type PermsGroupsCreateCmd struct {
 }
 
 func (p *PermsGroupsCreateCmd) Run(ctx *CLIContext) error {
-	handlePolicyGroupCreate(ctx.Context, ctx.Client, []string{p.Name}, ctx.GlobalFlags)
-	return nil
+	return runHandlerWithErrorCapture(func() {
+		handlePolicyGroupCreate(ctx.Context, ctx.Client, []string{p.Name}, ctx.GlobalFlags)
+	})
 }
 
 type PermsGroupsDeleteCmd struct {
@@ -385,8 +479,9 @@ type PermsGroupsDeleteCmd struct {
 }
 
 func (p *PermsGroupsDeleteCmd) Run(ctx *CLIContext) error {
-	handlePolicyGroupDelete(ctx.Context, ctx.Client, []string{p.GroupID}, ctx.GlobalFlags)
-	return nil
+	return runHandlerWithErrorCapture(func() {
+		handlePolicyGroupDelete(ctx.Context, ctx.Client, []string{p.GroupID}, ctx.GlobalFlags)
+	})
 }
 
 type PermsUsersCmd struct {
@@ -399,9 +494,10 @@ type PermsUsersListCmd struct {
 }
 
 func (p *PermsUsersListCmd) Run(ctx *CLIContext) error {
-	ctx.GlobalFlags.WithDetails = p.WithDetails
-	handleAccessControlUserList(ctx.Context, ctx.Client, ctx.GlobalFlags)
-	return nil
+	return runHandlerWithErrorCapture(func() {
+		ctx.GlobalFlags.WithDetails = p.WithDetails
+		handleAccessControlUserList(ctx.Context, ctx.Client, ctx.GlobalFlags)
+	})
 }
 
 type PermsUsersGetCmd struct {
@@ -409,8 +505,9 @@ type PermsUsersGetCmd struct {
 }
 
 func (p *PermsUsersGetCmd) Run(ctx *CLIContext) error {
-	handleAccessControlUserGet(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", p.UserID)}, ctx.GlobalFlags)
-	return nil
+	return runHandlerWithErrorCapture(func() {
+		handleAccessControlUserGet(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", p.UserID)}, ctx.GlobalFlags)
+	})
 }
 
 // Results commands
@@ -424,9 +521,10 @@ type ResultsGetCmd struct {
 }
 
 func (r *ResultsGetCmd) Run(ctx *CLIContext) error {
-	ctx.GlobalFlags.Limit = r.Limit
-	handleResultGet(ctx.Context, ctx.Client, []string{r.JobID}, ctx.GlobalFlags)
-	return nil
+	return runHandlerWithErrorCapture(func() {
+		ctx.GlobalFlags.Limit = r.Limit
+		handleResultGet(ctx.Context, ctx.Client, []string{r.JobID}, ctx.GlobalFlags)
+	})
 }
 
 // Import (Bulk Import) commands
@@ -446,8 +544,9 @@ type ImportCmd struct {
 type ImportListCmd struct{}
 
 func (i *ImportListCmd) Run(ctx *CLIContext) error {
-	handleBulkImportList(ctx.Context, ctx.Client, ctx.GlobalFlags)
-	return nil
+	return runHandlerWithErrorCapture(func() {
+		handleBulkImportList(ctx.Context, ctx.Client, ctx.GlobalFlags)
+	})
 }
 
 type ImportGetCmd struct {
@@ -455,8 +554,9 @@ type ImportGetCmd struct {
 }
 
 func (i *ImportGetCmd) Run(ctx *CLIContext) error {
-	handleBulkImportGet(ctx.Context, ctx.Client, []string{i.Session}, ctx.GlobalFlags)
-	return nil
+	return runHandlerWithErrorCapture(func() {
+		handleBulkImportGet(ctx.Context, ctx.Client, []string{i.Session}, ctx.GlobalFlags)
+	})
 }
 
 type ImportCreateCmd struct {
@@ -466,8 +566,9 @@ type ImportCreateCmd struct {
 }
 
 func (i *ImportCreateCmd) Run(ctx *CLIContext) error {
-	handleBulkImportCreate(ctx.Context, ctx.Client, []string{i.Session, i.Database, i.Table}, ctx.GlobalFlags)
-	return nil
+	return runHandlerWithErrorCapture(func() {
+		handleBulkImportCreate(ctx.Context, ctx.Client, []string{i.Session, i.Database, i.Table}, ctx.GlobalFlags)
+	})
 }
 
 type ImportDeleteCmd struct {
@@ -475,8 +576,9 @@ type ImportDeleteCmd struct {
 }
 
 func (i *ImportDeleteCmd) Run(ctx *CLIContext) error {
-	handleBulkImportDelete(ctx.Context, ctx.Client, []string{i.Session}, ctx.GlobalFlags)
-	return nil
+	return runHandlerWithErrorCapture(func() {
+		handleBulkImportDelete(ctx.Context, ctx.Client, []string{i.Session}, ctx.GlobalFlags)
+	})
 }
 
 type ImportUploadCmd struct {
@@ -486,8 +588,9 @@ type ImportUploadCmd struct {
 }
 
 func (i *ImportUploadCmd) Run(ctx *CLIContext) error {
-	handleBulkImportUpload(ctx.Context, ctx.Client, []string{i.Session, i.PartName, i.FilePath}, ctx.GlobalFlags)
-	return nil
+	return runHandlerWithErrorCapture(func() {
+		handleBulkImportUpload(ctx.Context, ctx.Client, []string{i.Session, i.PartName, i.FilePath}, ctx.GlobalFlags)
+	})
 }
 
 type ImportCommitCmd struct {
@@ -495,8 +598,9 @@ type ImportCommitCmd struct {
 }
 
 func (i *ImportCommitCmd) Run(ctx *CLIContext) error {
-	handleBulkImportCommit(ctx.Context, ctx.Client, []string{i.Session}, ctx.GlobalFlags)
-	return nil
+	return runHandlerWithErrorCapture(func() {
+		handleBulkImportCommit(ctx.Context, ctx.Client, []string{i.Session}, ctx.GlobalFlags)
+	})
 }
 
 type ImportPerformCmd struct {
@@ -504,8 +608,9 @@ type ImportPerformCmd struct {
 }
 
 func (i *ImportPerformCmd) Run(ctx *CLIContext) error {
-	handleBulkImportPerform(ctx.Context, ctx.Client, []string{i.Session}, ctx.GlobalFlags)
-	return nil
+	return runHandlerWithErrorCapture(func() {
+		handleBulkImportPerform(ctx.Context, ctx.Client, []string{i.Session}, ctx.GlobalFlags)
+	})
 }
 
 type ImportFreezeCmd struct {
@@ -513,8 +618,9 @@ type ImportFreezeCmd struct {
 }
 
 func (i *ImportFreezeCmd) Run(ctx *CLIContext) error {
-	handleBulkImportFreeze(ctx.Context, ctx.Client, []string{i.Session}, ctx.GlobalFlags)
-	return nil
+	return runHandlerWithErrorCapture(func() {
+		handleBulkImportFreeze(ctx.Context, ctx.Client, []string{i.Session}, ctx.GlobalFlags)
+	})
 }
 
 type ImportUnfreezeCmd struct {
@@ -522,8 +628,9 @@ type ImportUnfreezeCmd struct {
 }
 
 func (i *ImportUnfreezeCmd) Run(ctx *CLIContext) error {
-	handleBulkImportUnfreeze(ctx.Context, ctx.Client, []string{i.Session}, ctx.GlobalFlags)
-	return nil
+	return runHandlerWithErrorCapture(func() {
+		handleBulkImportUnfreeze(ctx.Context, ctx.Client, []string{i.Session}, ctx.GlobalFlags)
+	})
 }
 
 type ImportPartsCmd struct {
@@ -531,8 +638,9 @@ type ImportPartsCmd struct {
 }
 
 func (i *ImportPartsCmd) Run(ctx *CLIContext) error {
-	handleBulkImportParts(ctx.Context, ctx.Client, []string{i.Session}, ctx.GlobalFlags)
-	return nil
+	return runHandlerWithErrorCapture(func() {
+		handleBulkImportParts(ctx.Context, ctx.Client, []string{i.Session}, ctx.GlobalFlags)
+	})
 }
 
 // Flags struct for compatibility with existing handlers
@@ -559,6 +667,7 @@ type CLIContext struct {
 	Context     context.Context
 	Client      *td.Client
 	GlobalFlags Flags
+	OTELManager *otel.OTELManager
 }
 
 // CDP commands
@@ -595,8 +704,10 @@ type CDPSegmentsCreateCmd struct {
 }
 
 func (c *CDPSegmentsCreateCmd) Run(ctx *CLIContext) error {
-	handleCDPSegmentCreate(ctx.Context, ctx.Client, []string{c.AudienceID, c.Name, c.Description, c.Query}, ctx.GlobalFlags)
-	return nil
+	args := []string{c.AudienceID, c.Name}
+	return runInstrumented(ctx, "cdp.segments.create", args, func() {
+		handleCDPSegmentCreate(ctx.Context, ctx.Client, []string{c.AudienceID, c.Name, c.Description, c.Query}, ctx.GlobalFlags)
+	})
 }
 
 type CDPSegmentsListCmd struct {
@@ -604,8 +715,9 @@ type CDPSegmentsListCmd struct {
 }
 
 func (c *CDPSegmentsListCmd) Run(ctx *CLIContext) error {
-	handleCDPSegmentList(ctx.Context, ctx.Client, []string{c.AudienceID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.segments.list", []string{c.AudienceID}, func() {
+		handleCDPSegmentList(ctx.Context, ctx.Client, []string{c.AudienceID}, ctx.GlobalFlags)
+	})
 }
 
 type CDPSegmentsGetCmd struct {
@@ -614,8 +726,9 @@ type CDPSegmentsGetCmd struct {
 }
 
 func (c *CDPSegmentsGetCmd) Run(ctx *CLIContext) error {
-	handleCDPSegmentGet(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.segments.get", []string{c.AudienceID, c.SegmentID}, func() {
+		handleCDPSegmentGet(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentID}, ctx.GlobalFlags)
+	})
 }
 
 type CDPSegmentsUpdateCmd struct {
@@ -626,8 +739,9 @@ type CDPSegmentsUpdateCmd struct {
 
 func (c *CDPSegmentsUpdateCmd) Run(ctx *CLIContext) error {
 	args := append([]string{c.AudienceID, c.SegmentID}, c.Updates...)
-	handleCDPSegmentUpdate(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.segments.update", args, func() {
+		handleCDPSegmentUpdate(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
+	})
 }
 
 type CDPSegmentsDeleteCmd struct {
@@ -636,8 +750,9 @@ type CDPSegmentsDeleteCmd struct {
 }
 
 func (c *CDPSegmentsDeleteCmd) Run(ctx *CLIContext) error {
-	handleCDPSegmentDelete(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.segments.delete", []string{c.AudienceID, c.SegmentID}, func() {
+		handleCDPSegmentDelete(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentID}, ctx.GlobalFlags)
+	})
 }
 
 type CDPSegmentsFoldersCmd struct {
@@ -646,8 +761,9 @@ type CDPSegmentsFoldersCmd struct {
 }
 
 func (c *CDPSegmentsFoldersCmd) Run(ctx *CLIContext) error {
-	handleCDPSegmentFolders(ctx.Context, ctx.Client, []string{c.AudienceID, c.FolderID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.segments.folders", []string{c.AudienceID, c.FolderID}, func() {
+		handleCDPSegmentFolders(ctx.Context, ctx.Client, []string{c.AudienceID, c.FolderID}, ctx.GlobalFlags)
+	})
 }
 
 type CDPSegmentsQueryCmd struct {
@@ -656,8 +772,9 @@ type CDPSegmentsQueryCmd struct {
 }
 
 func (c *CDPSegmentsQueryCmd) Run(ctx *CLIContext) error {
-	handleCDPSegmentQuery(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentRules}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.segments.query", []string{c.AudienceID}, func() {
+		handleCDPSegmentQuery(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentRules}, ctx.GlobalFlags)
+	})
 }
 
 type CDPSegmentsNewQueryCmd struct {
@@ -667,8 +784,9 @@ type CDPSegmentsNewQueryCmd struct {
 }
 
 func (c *CDPSegmentsNewQueryCmd) Run(ctx *CLIContext) error {
-	handleCDPSegmentNewQuery(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentID, c.Query}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.segments.new_query", []string{c.AudienceID, c.SegmentID}, func() {
+		handleCDPSegmentNewQuery(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentID, c.Query}, ctx.GlobalFlags)
+	})
 }
 
 type CDPSegmentsQueryStatusCmd struct {
@@ -678,8 +796,9 @@ type CDPSegmentsQueryStatusCmd struct {
 }
 
 func (c *CDPSegmentsQueryStatusCmd) Run(ctx *CLIContext) error {
-	handleCDPSegmentQueryStatus(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentID, c.QueryID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.segments.query_status", []string{c.AudienceID, c.SegmentID, c.QueryID}, func() {
+		handleCDPSegmentQueryStatus(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentID, c.QueryID}, ctx.GlobalFlags)
+	})
 }
 
 type CDPSegmentsKillQueryCmd struct {
@@ -689,8 +808,9 @@ type CDPSegmentsKillQueryCmd struct {
 }
 
 func (c *CDPSegmentsKillQueryCmd) Run(ctx *CLIContext) error {
-	handleCDPSegmentKillQuery(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentID, c.QueryID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.segments.kill_query", []string{c.AudienceID, c.SegmentID, c.QueryID}, func() {
+		handleCDPSegmentKillQuery(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentID, c.QueryID}, ctx.GlobalFlags)
+	})
 }
 
 type CDPSegmentsCustomersCmd struct {
@@ -702,8 +822,9 @@ type CDPSegmentsCustomersCmd struct {
 }
 
 func (c *CDPSegmentsCustomersCmd) Run(ctx *CLIContext) error {
-	handleCDPSegmentCustomers(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.segments.customers", []string{c.AudienceID, c.SegmentID}, func() {
+		handleCDPSegmentCustomers(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentID}, ctx.GlobalFlags)
+	})
 }
 
 type CDPSegmentsStatisticsCmd struct {
@@ -712,8 +833,9 @@ type CDPSegmentsStatisticsCmd struct {
 }
 
 func (c *CDPSegmentsStatisticsCmd) Run(ctx *CLIContext) error {
-	handleCDPSegmentStatistics(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.segments.statistics", []string{c.AudienceID, c.SegmentID}, func() {
+		handleCDPSegmentStatistics(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentID}, ctx.GlobalFlags)
+	})
 }
 
 type CDPAudiencesCmd struct {
@@ -736,15 +858,17 @@ type CDPAudiencesCreateCmd struct {
 }
 
 func (c *CDPAudiencesCreateCmd) Run(ctx *CLIContext) error {
-	handleCDPAudienceCreate(ctx.Context, ctx.Client, []string{c.Name, c.Description, c.SegmentIDs}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.audiences.create", []string{c.Name}, func() {
+		handleCDPAudienceCreate(ctx.Context, ctx.Client, []string{c.Name, c.Description, c.SegmentIDs}, ctx.GlobalFlags)
+	})
 }
 
 type CDPAudiencesListCmd struct{}
 
 func (c *CDPAudiencesListCmd) Run(ctx *CLIContext) error {
-	handleCDPAudienceList(ctx.Context, ctx.Client, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.audiences.list", []string{}, func() {
+		handleCDPAudienceList(ctx.Context, ctx.Client, ctx.GlobalFlags)
+	})
 }
 
 type CDPAudiencesGetCmd struct {
@@ -752,8 +876,9 @@ type CDPAudiencesGetCmd struct {
 }
 
 func (c *CDPAudiencesGetCmd) Run(ctx *CLIContext) error {
-	handleCDPAudienceGet(ctx.Context, ctx.Client, []string{c.AudienceID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.audiences.get", []string{c.AudienceID}, func() {
+		handleCDPAudienceGet(ctx.Context, ctx.Client, []string{c.AudienceID}, ctx.GlobalFlags)
+	})
 }
 
 type CDPAudiencesDeleteCmd struct {
@@ -761,8 +886,9 @@ type CDPAudiencesDeleteCmd struct {
 }
 
 func (c *CDPAudiencesDeleteCmd) Run(ctx *CLIContext) error {
-	handleCDPAudienceDelete(ctx.Context, ctx.Client, []string{c.AudienceID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.audiences.delete", []string{c.AudienceID}, func() {
+		handleCDPAudienceDelete(ctx.Context, ctx.Client, []string{c.AudienceID}, ctx.GlobalFlags)
+	})
 }
 
 type CDPAudiencesBehaviorsCmd struct {
@@ -770,8 +896,9 @@ type CDPAudiencesBehaviorsCmd struct {
 }
 
 func (c *CDPAudiencesBehaviorsCmd) Run(ctx *CLIContext) error {
-	handleCDPAudienceBehaviors(ctx.Context, ctx.Client, []string{c.AudienceID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.audiences.behaviors", []string{c.AudienceID}, func() {
+		handleCDPAudienceBehaviors(ctx.Context, ctx.Client, []string{c.AudienceID}, ctx.GlobalFlags)
+	})
 }
 
 type CDPAudiencesRunCmd struct {
@@ -779,8 +906,9 @@ type CDPAudiencesRunCmd struct {
 }
 
 func (c *CDPAudiencesRunCmd) Run(ctx *CLIContext) error {
-	handleCDPAudienceRun(ctx.Context, ctx.Client, []string{c.AudienceID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.audiences.run", []string{c.AudienceID}, func() {
+		handleCDPAudienceRun(ctx.Context, ctx.Client, []string{c.AudienceID}, ctx.GlobalFlags)
+	})
 }
 
 type CDPAudiencesExecutionsCmd struct {
@@ -788,8 +916,9 @@ type CDPAudiencesExecutionsCmd struct {
 }
 
 func (c *CDPAudiencesExecutionsCmd) Run(ctx *CLIContext) error {
-	handleCDPAudienceExecutions(ctx.Context, ctx.Client, []string{c.AudienceID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.audiences.executions", []string{c.AudienceID}, func() {
+		handleCDPAudienceExecutions(ctx.Context, ctx.Client, []string{c.AudienceID}, ctx.GlobalFlags)
+	})
 }
 
 type CDPAudiencesStatisticsCmd struct {
@@ -797,8 +926,9 @@ type CDPAudiencesStatisticsCmd struct {
 }
 
 func (c *CDPAudiencesStatisticsCmd) Run(ctx *CLIContext) error {
-	handleCDPAudienceStatistics(ctx.Context, ctx.Client, []string{c.AudienceID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.audiences.statistics", []string{c.AudienceID}, func() {
+		handleCDPAudienceStatistics(ctx.Context, ctx.Client, []string{c.AudienceID}, ctx.GlobalFlags)
+	})
 }
 
 type CDPAudiencesSampleValuesCmd struct {
@@ -807,8 +937,9 @@ type CDPAudiencesSampleValuesCmd struct {
 }
 
 func (c *CDPAudiencesSampleValuesCmd) Run(ctx *CLIContext) error {
-	handleCDPAudienceSampleValues(ctx.Context, ctx.Client, []string{c.AudienceID, c.Column}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.audiences.sample_values", []string{c.AudienceID}, func() {
+		handleCDPAudienceSampleValues(ctx.Context, ctx.Client, []string{c.AudienceID, c.Column}, ctx.GlobalFlags)
+	})
 }
 
 type CDPAudiencesBehaviorSamplesCmd struct {
@@ -818,8 +949,9 @@ type CDPAudiencesBehaviorSamplesCmd struct {
 }
 
 func (c *CDPAudiencesBehaviorSamplesCmd) Run(ctx *CLIContext) error {
-	handleCDPAudienceBehaviorSamples(ctx.Context, ctx.Client, []string{c.AudienceID, c.BehaviorID, c.Column}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.audiences.behavior_samples", []string{c.AudienceID, c.BehaviorID}, func() {
+		handleCDPAudienceBehaviorSamples(ctx.Context, ctx.Client, []string{c.AudienceID, c.BehaviorID, c.Column}, ctx.GlobalFlags)
+	})
 }
 
 type CDPActivationsCmd struct {
@@ -849,8 +981,9 @@ type CDPActivationsCreateCmd struct {
 }
 
 func (c *CDPActivationsCreateCmd) Run(ctx *CLIContext) error {
-	handleCDPActivationCreate(ctx.Context, ctx.Client, []string{c.SegmentID, c.Name, c.Description, c.Configuration}, ctx.GlobalFlags)
-	return nil
+	return runHandlerWithErrorCapture(func() {
+		handleCDPActivationCreate(ctx.Context, ctx.Client, []string{c.SegmentID, c.Name, c.Description, c.Configuration}, ctx.GlobalFlags)
+	})
 }
 
 type CDPActivationsCreateWithStructCmd struct {
@@ -862,12 +995,13 @@ type CDPActivationsCreateWithStructCmd struct {
 }
 
 func (c *CDPActivationsCreateWithStructCmd) Run(ctx *CLIContext) error {
-	args := []string{c.Name, c.Type, c.SegmentID, c.Configuration}
-	if c.Description != "" {
-		args = append(args, c.Description)
-	}
-	handleCDPActivationCreateWithStruct(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
-	return nil
+	return runHandlerWithErrorCapture(func() {
+		args := []string{c.Name, c.Type, c.SegmentID, c.Configuration}
+		if c.Description != "" {
+			args = append(args, c.Description)
+		}
+		handleCDPActivationCreateWithStruct(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
+	})
 }
 
 type CDPActivationsListCmd struct {
@@ -875,8 +1009,9 @@ type CDPActivationsListCmd struct {
 }
 
 func (c *CDPActivationsListCmd) Run(ctx *CLIContext) error {
-	handleCDPActivationListWithForce(ctx.Context, ctx.Client, ctx.GlobalFlags, c.Force)
-	return nil
+	return runHandlerWithErrorCapture(func() {
+		handleCDPActivationListWithForce(ctx.Context, ctx.Client, ctx.GlobalFlags, c.Force)
+	})
 }
 
 type CDPActivationsGetCmd struct {
@@ -886,8 +1021,9 @@ type CDPActivationsGetCmd struct {
 }
 
 func (c *CDPActivationsGetCmd) Run(ctx *CLIContext) error {
-	handleCDPActivationGet(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentID, c.ActivationID}, ctx.GlobalFlags)
-	return nil
+	return runHandlerWithErrorCapture(func() {
+		handleCDPActivationGet(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentID, c.ActivationID}, ctx.GlobalFlags)
+	})
 }
 
 type CDPActivationsUpdateCmd struct {
@@ -897,8 +1033,9 @@ type CDPActivationsUpdateCmd struct {
 
 func (c *CDPActivationsUpdateCmd) Run(ctx *CLIContext) error {
 	args := append([]string{c.ActivationID}, c.Updates...)
-	handleCDPActivationUpdate(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.activations.update", args, func() {
+		handleCDPActivationUpdate(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
+	})
 }
 
 type CDPActivationsUpdateStatusCmd struct {
@@ -907,8 +1044,9 @@ type CDPActivationsUpdateStatusCmd struct {
 }
 
 func (c *CDPActivationsUpdateStatusCmd) Run(ctx *CLIContext) error {
-	handleCDPActivationUpdateStatus(ctx.Context, ctx.Client, []string{c.ActivationID, c.Status}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.activations.update_status", []string{c.ActivationID, c.Status}, func() {
+		handleCDPActivationUpdateStatus(ctx.Context, ctx.Client, []string{c.ActivationID, c.Status}, ctx.GlobalFlags)
+	})
 }
 
 type CDPActivationsDeleteCmd struct {
@@ -916,8 +1054,9 @@ type CDPActivationsDeleteCmd struct {
 }
 
 func (c *CDPActivationsDeleteCmd) Run(ctx *CLIContext) error {
-	handleCDPActivationDelete(ctx.Context, ctx.Client, []string{c.ActivationID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.activations.delete", []string{c.ActivationID}, func() {
+		handleCDPActivationDelete(ctx.Context, ctx.Client, []string{c.ActivationID}, ctx.GlobalFlags)
+	})
 }
 
 type CDPActivationsExecuteCmd struct {
@@ -925,8 +1064,9 @@ type CDPActivationsExecuteCmd struct {
 }
 
 func (c *CDPActivationsExecuteCmd) Run(ctx *CLIContext) error {
-	handleCDPExecuteActivation(ctx.Context, ctx.Client, []string{c.ActivationID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.activations.execute", []string{c.ActivationID}, func() {
+		handleCDPExecuteActivation(ctx.Context, ctx.Client, []string{c.ActivationID}, ctx.GlobalFlags)
+	})
 }
 
 type CDPActivationsExecutionsCmd struct {
@@ -936,8 +1076,9 @@ type CDPActivationsExecutionsCmd struct {
 }
 
 func (c *CDPActivationsExecutionsCmd) Run(ctx *CLIContext) error {
-	handleCDPGetActivationExecutions(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentID, c.ActivationID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.activations.executions", []string{c.AudienceID, c.SegmentID, c.ActivationID}, func() {
+		handleCDPGetActivationExecutions(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentID, c.ActivationID}, ctx.GlobalFlags)
+	})
 }
 
 type CDPActivationsListByAudienceCmd struct {
@@ -945,8 +1086,9 @@ type CDPActivationsListByAudienceCmd struct {
 }
 
 func (c *CDPActivationsListByAudienceCmd) Run(ctx *CLIContext) error {
-	handleCDPListActivationsByAudience(ctx.Context, ctx.Client, []string{c.AudienceID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.activations.list_by_audience", []string{c.AudienceID}, func() {
+		handleCDPListActivationsByAudience(ctx.Context, ctx.Client, []string{c.AudienceID}, ctx.GlobalFlags)
+	})
 }
 
 type CDPActivationsListBySegmentFolderCmd struct {
@@ -954,8 +1096,9 @@ type CDPActivationsListBySegmentFolderCmd struct {
 }
 
 func (c *CDPActivationsListBySegmentFolderCmd) Run(ctx *CLIContext) error {
-	handleCDPListActivationsBySegmentFolder(ctx.Context, ctx.Client, []string{c.FolderID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.activations.list_by_segment_folder", []string{c.FolderID}, func() {
+		handleCDPListActivationsBySegmentFolder(ctx.Context, ctx.Client, []string{c.FolderID}, ctx.GlobalFlags)
+	})
 }
 
 type CDPActivationsRunSegmentCmd struct {
@@ -964,8 +1107,9 @@ type CDPActivationsRunSegmentCmd struct {
 }
 
 func (c *CDPActivationsRunSegmentCmd) Run(ctx *CLIContext) error {
-	handleCDPRunActivationForSegment(ctx.Context, ctx.Client, []string{c.ActivationID, c.SegmentID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.activations.run_segment", []string{c.ActivationID, c.SegmentID}, func() {
+		handleCDPRunActivationForSegment(ctx.Context, ctx.Client, []string{c.ActivationID, c.SegmentID}, ctx.GlobalFlags)
+	})
 }
 
 type CDPActivationsListByParentSegmentCmd struct {
@@ -973,8 +1117,9 @@ type CDPActivationsListByParentSegmentCmd struct {
 }
 
 func (c *CDPActivationsListByParentSegmentCmd) Run(ctx *CLIContext) error {
-	handleCDPListActivationsByParentSegment(ctx.Context, ctx.Client, []string{c.SegmentID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.activations.list_by_parent_segment", []string{c.SegmentID}, func() {
+		handleCDPListActivationsByParentSegment(ctx.Context, ctx.Client, []string{c.SegmentID}, ctx.GlobalFlags)
+	})
 }
 
 type CDPActivationsWorkflowProjectsCmd struct {
@@ -982,8 +1127,9 @@ type CDPActivationsWorkflowProjectsCmd struct {
 }
 
 func (c *CDPActivationsWorkflowProjectsCmd) Run(ctx *CLIContext) error {
-	handleCDPGetWorkflowProjectsForParentSegment(ctx.Context, ctx.Client, []string{c.SegmentID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.activations.workflow_projects", []string{c.SegmentID}, func() {
+		handleCDPGetWorkflowProjectsForParentSegment(ctx.Context, ctx.Client, []string{c.SegmentID}, ctx.GlobalFlags)
+	})
 }
 
 type CDPActivationsWorkflowsCmd struct {
@@ -992,8 +1138,9 @@ type CDPActivationsWorkflowsCmd struct {
 }
 
 func (c *CDPActivationsWorkflowsCmd) Run(ctx *CLIContext) error {
-	handleCDPGetWorkflowsForParentSegment(ctx.Context, ctx.Client, []string{c.SegmentID, c.WorkflowProjectName}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.activations.workflows", []string{c.SegmentID, c.WorkflowProjectName}, func() {
+		handleCDPGetWorkflowsForParentSegment(ctx.Context, ctx.Client, []string{c.SegmentID, c.WorkflowProjectName}, ctx.GlobalFlags)
+	})
 }
 
 type CDPActivationsMatchedActivationsCmd struct {
@@ -1001,8 +1148,9 @@ type CDPActivationsMatchedActivationsCmd struct {
 }
 
 func (c *CDPActivationsMatchedActivationsCmd) Run(ctx *CLIContext) error {
-	handleCDPGetMatchedActivationsForParentSegment(ctx.Context, ctx.Client, []string{c.SegmentID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.activations.matched_activations", []string{c.SegmentID}, func() {
+		handleCDPGetMatchedActivationsForParentSegment(ctx.Context, ctx.Client, []string{c.SegmentID}, ctx.GlobalFlags)
+	})
 }
 
 // CDP Folders commands
@@ -1022,8 +1170,9 @@ type CDPFoldersListCmd struct {
 }
 
 func (c *CDPFoldersListCmd) Run(ctx *CLIContext) error {
-	handleCDPListFolders(ctx.Context, ctx.Client, []string{c.AudienceID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.folders.list", []string{c.AudienceID}, func() {
+		handleCDPListFolders(ctx.Context, ctx.Client, []string{c.AudienceID}, ctx.GlobalFlags)
+	})
 }
 
 type CDPFoldersCreateCmd struct {
@@ -1035,14 +1184,16 @@ type CDPFoldersCreateCmd struct {
 
 func (c *CDPFoldersCreateCmd) Run(ctx *CLIContext) error {
 	args := []string{c.AudienceID, c.Name}
-	if c.Description != "" {
-		args = append(args, c.Description)
-	}
-	if c.ParentID != "" {
-		args = append(args, c.ParentID)
-	}
-	handleCDPCreateAudienceFolder(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.folders.create_audience", args, func() {
+		realArgs := []string{c.AudienceID, c.Name}
+		if c.Description != "" {
+			realArgs = append(realArgs, c.Description)
+		}
+		if c.ParentID != "" {
+			realArgs = append(realArgs, c.ParentID)
+		}
+		handleCDPCreateAudienceFolder(ctx.Context, ctx.Client, realArgs, ctx.GlobalFlags)
+	})
 }
 
 type CDPFoldersGetCmd struct {
@@ -1051,8 +1202,9 @@ type CDPFoldersGetCmd struct {
 }
 
 func (c *CDPFoldersGetCmd) Run(ctx *CLIContext) error {
-	handleCDPGetAudienceFolder(ctx.Context, ctx.Client, []string{c.AudienceID, c.FolderID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.folders.get_audience", []string{c.AudienceID, c.FolderID}, func() {
+		handleCDPGetAudienceFolder(ctx.Context, ctx.Client, []string{c.AudienceID, c.FolderID}, ctx.GlobalFlags)
+	})
 }
 
 type CDPFoldersCreateEntityCmd struct {
@@ -1063,14 +1215,16 @@ type CDPFoldersCreateEntityCmd struct {
 
 func (c *CDPFoldersCreateEntityCmd) Run(ctx *CLIContext) error {
 	args := []string{c.Name}
-	if c.Description != "" {
-		args = append(args, c.Description)
-	}
-	if c.ParentID != "" {
-		args = append(args, c.ParentID)
-	}
-	handleCDPCreateEntityFolder(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.folders.create_entity", args, func() {
+		realArgs := []string{c.Name}
+		if c.Description != "" {
+			realArgs = append(realArgs, c.Description)
+		}
+		if c.ParentID != "" {
+			realArgs = append(realArgs, c.ParentID)
+		}
+		handleCDPCreateEntityFolder(ctx.Context, ctx.Client, realArgs, ctx.GlobalFlags)
+	})
 }
 
 type CDPFoldersGetEntityCmd struct {
@@ -1078,8 +1232,9 @@ type CDPFoldersGetEntityCmd struct {
 }
 
 func (c *CDPFoldersGetEntityCmd) Run(ctx *CLIContext) error {
-	handleCDPGetEntityFolder(ctx.Context, ctx.Client, []string{c.FolderID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.folders.get_entity", []string{c.FolderID}, func() {
+		handleCDPGetEntityFolder(ctx.Context, ctx.Client, []string{c.FolderID}, ctx.GlobalFlags)
+	})
 }
 
 type CDPFoldersUpdateEntityCmd struct {
@@ -1091,17 +1246,19 @@ type CDPFoldersUpdateEntityCmd struct {
 
 func (c *CDPFoldersUpdateEntityCmd) Run(ctx *CLIContext) error {
 	args := []string{c.FolderID}
-	if c.Name != "" {
-		args = append(args, "name="+c.Name)
-	}
-	if c.Description != "" {
-		args = append(args, "description="+c.Description)
-	}
-	if c.ParentID != "" {
-		args = append(args, "parent_id="+c.ParentID)
-	}
-	handleCDPUpdateEntityFolder(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.folders.update_entity", args, func() {
+		realArgs := []string{c.FolderID}
+		if c.Name != "" {
+			realArgs = append(realArgs, "name="+c.Name)
+		}
+		if c.Description != "" {
+			realArgs = append(realArgs, "description="+c.Description)
+		}
+		if c.ParentID != "" {
+			realArgs = append(realArgs, "parent_id="+c.ParentID)
+		}
+		handleCDPUpdateEntityFolder(ctx.Context, ctx.Client, realArgs, ctx.GlobalFlags)
+	})
 }
 
 type CDPFoldersDeleteEntityCmd struct {
@@ -1109,8 +1266,9 @@ type CDPFoldersDeleteEntityCmd struct {
 }
 
 func (c *CDPFoldersDeleteEntityCmd) Run(ctx *CLIContext) error {
-	handleCDPDeleteEntityFolder(ctx.Context, ctx.Client, []string{c.FolderID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.folders.delete_entity", []string{c.FolderID}, func() {
+		handleCDPDeleteEntityFolder(ctx.Context, ctx.Client, []string{c.FolderID}, ctx.GlobalFlags)
+	})
 }
 
 type CDPFoldersGetEntitiesCmd struct {
@@ -1118,8 +1276,9 @@ type CDPFoldersGetEntitiesCmd struct {
 }
 
 func (c *CDPFoldersGetEntitiesCmd) Run(ctx *CLIContext) error {
-	handleCDPGetEntitiesByFolder(ctx.Context, ctx.Client, []string{c.FolderID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.folders.entities_by_folder", []string{c.FolderID}, func() {
+		handleCDPGetEntitiesByFolder(ctx.Context, ctx.Client, []string{c.FolderID}, ctx.GlobalFlags)
+	})
 }
 
 // CDP Tokens commands
@@ -1139,8 +1298,9 @@ type CDPTokensListCmd struct {
 }
 
 func (c *CDPTokensListCmd) Run(ctx *CLIContext) error {
-	handleCDPListTokens(ctx.Context, ctx.Client, c, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.tokens.list", []string{c.AudienceID}, func() {
+		handleCDPListTokens(ctx.Context, ctx.Client, c, ctx.GlobalFlags)
+	})
 }
 
 type CDPTokensGetEntityCmd struct {
@@ -1148,8 +1308,9 @@ type CDPTokensGetEntityCmd struct {
 }
 
 func (c *CDPTokensGetEntityCmd) Run(ctx *CLIContext) error {
-	handleCDPGetEntityToken(ctx.Context, ctx.Client, []string{c.TokenID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.tokens.get_entity", []string{c.TokenID}, func() {
+		handleCDPGetEntityToken(ctx.Context, ctx.Client, []string{c.TokenID}, ctx.GlobalFlags)
+	})
 }
 
 type CDPTokensUpdateEntityCmd struct {
@@ -1159,8 +1320,9 @@ type CDPTokensUpdateEntityCmd struct {
 
 func (c *CDPTokensUpdateEntityCmd) Run(ctx *CLIContext) error {
 	args := append([]string{c.TokenID}, c.Updates...)
-	handleCDPUpdateEntityToken(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.tokens.update_entity", args, func() {
+		handleCDPUpdateEntityToken(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
+	})
 }
 
 type CDPTokensDeleteEntityCmd struct {
@@ -1168,8 +1330,9 @@ type CDPTokensDeleteEntityCmd struct {
 }
 
 func (c *CDPTokensDeleteEntityCmd) Run(ctx *CLIContext) error {
-	handleCDPDeleteEntityToken(ctx.Context, ctx.Client, []string{c.TokenID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.tokens.delete_entity", []string{c.TokenID}, func() {
+		handleCDPDeleteEntityToken(ctx.Context, ctx.Client, []string{c.TokenID}, ctx.GlobalFlags)
+	})
 }
 
 // CDP Journey commands
@@ -1199,8 +1362,9 @@ type CDPJourneysListCmd struct {
 }
 
 func (c *CDPJourneysListCmd) Run(ctx *CLIContext) error {
-	handleCDPJourneyList(ctx.Context, ctx.Client, []string{c.FolderID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.journeys.list", []string{c.FolderID}, func() {
+		handleCDPJourneyList(ctx.Context, ctx.Client, []string{c.FolderID}, ctx.GlobalFlags)
+	})
 }
 
 type CDPJourneysCreateCmd struct {
@@ -1208,8 +1372,9 @@ type CDPJourneysCreateCmd struct {
 }
 
 func (c *CDPJourneysCreateCmd) Run(ctx *CLIContext) error {
-	handleCDPJourneyCreate(ctx.Context, ctx.Client, []string{c.RequestFile}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.journeys.create", []string{}, func() {
+		handleCDPJourneyCreate(ctx.Context, ctx.Client, []string{c.RequestFile}, ctx.GlobalFlags)
+	})
 }
 
 type CDPJourneysGetCmd struct {
@@ -1217,8 +1382,9 @@ type CDPJourneysGetCmd struct {
 }
 
 func (c *CDPJourneysGetCmd) Run(ctx *CLIContext) error {
-	handleCDPJourneyGet(ctx.Context, ctx.Client, []string{c.JourneyID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.journeys.get", []string{c.JourneyID}, func() {
+		handleCDPJourneyGet(ctx.Context, ctx.Client, []string{c.JourneyID}, ctx.GlobalFlags)
+	})
 }
 
 type CDPJourneysUpdateCmd struct {
@@ -1227,8 +1393,9 @@ type CDPJourneysUpdateCmd struct {
 }
 
 func (c *CDPJourneysUpdateCmd) Run(ctx *CLIContext) error {
-	handleCDPJourneyUpdate(ctx.Context, ctx.Client, []string{c.JourneyID, c.RequestFile}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.journeys.update", []string{c.JourneyID}, func() {
+		handleCDPJourneyUpdate(ctx.Context, ctx.Client, []string{c.JourneyID, c.RequestFile}, ctx.GlobalFlags)
+	})
 }
 
 type CDPJourneysDeleteCmd struct {
@@ -1236,8 +1403,9 @@ type CDPJourneysDeleteCmd struct {
 }
 
 func (c *CDPJourneysDeleteCmd) Run(ctx *CLIContext) error {
-	handleCDPJourneyDelete(ctx.Context, ctx.Client, []string{c.JourneyID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.journeys.delete", []string{c.JourneyID}, func() {
+		handleCDPJourneyDelete(ctx.Context, ctx.Client, []string{c.JourneyID}, ctx.GlobalFlags)
+	})
 }
 
 type CDPJourneysDetailCmd struct {
@@ -1245,8 +1413,9 @@ type CDPJourneysDetailCmd struct {
 }
 
 func (c *CDPJourneysDetailCmd) Run(ctx *CLIContext) error {
-	handleCDPJourneyDetail(ctx.Context, ctx.Client, []string{c.JourneyID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.journeys.detail", []string{c.JourneyID}, func() {
+		handleCDPJourneyDetail(ctx.Context, ctx.Client, []string{c.JourneyID}, ctx.GlobalFlags)
+	})
 }
 
 type CDPJourneysDuplicateCmd struct {
@@ -1333,8 +1502,9 @@ func (c *CDPJourneysConversionSankeyCmd) Run(ctx *CLIContext) error {
 	if c.To != "" {
 		args = append(args, "--to", c.To)
 	}
-	handleCDPJourneyConversionSankey(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.journeys.conversion_sankey", []string{c.JourneyID}, func() {
+		handleCDPJourneyConversionSankey(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
+	})
 }
 
 type CDPJourneysActivationSankeyCmd struct {
@@ -1351,8 +1521,9 @@ func (c *CDPJourneysActivationSankeyCmd) Run(ctx *CLIContext) error {
 	if c.To != "" {
 		args = append(args, "--to", c.To)
 	}
-	handleCDPJourneyActivationSankey(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.journeys.activation_sankey", []string{c.JourneyID}, func() {
+		handleCDPJourneyActivationSankey(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
+	})
 }
 
 type CDPJourneysSegmentRulesCmd struct {
@@ -1360,8 +1531,9 @@ type CDPJourneysSegmentRulesCmd struct {
 }
 
 func (c *CDPJourneysSegmentRulesCmd) Run(ctx *CLIContext) error {
-	handleCDPJourneySegmentRules(ctx.Context, ctx.Client, []string{c.AudienceID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.journeys.segment_rules", []string{c.AudienceID}, func() {
+		handleCDPJourneySegmentRules(ctx.Context, ctx.Client, []string{c.AudienceID}, ctx.GlobalFlags)
+	})
 }
 
 type CDPJourneysBehaviorsCmd struct {
@@ -1374,8 +1546,9 @@ func (c *CDPJourneysBehaviorsCmd) Run(ctx *CLIContext) error {
 	if c.StepID != nil {
 		args = append(args, "--step-id", *c.StepID)
 	}
-	handleCDPJourneyBehaviors(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.journeys.behaviors", []string{c.JourneyID}, func() {
+		handleCDPJourneyBehaviors(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
+	})
 }
 
 type CDPJourneysTemplatesCmd struct {
@@ -1388,8 +1561,9 @@ func (c *CDPJourneysTemplatesCmd) Run(ctx *CLIContext) error {
 	if c.StepID != nil {
 		args = append(args, "--step-id", *c.StepID)
 	}
-	handleCDPJourneyTemplates(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.journeys.templates", []string{c.JourneyID}, func() {
+		handleCDPJourneyTemplates(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
+	})
 }
 
 type CDPJourneyActivationsCmd struct {
@@ -1404,8 +1578,9 @@ type CDPJourneyActivationsListCmd struct {
 }
 
 func (c *CDPJourneyActivationsListCmd) Run(ctx *CLIContext) error {
-	handleCDPJourneyActivationList(ctx.Context, ctx.Client, []string{c.JourneyID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.journeys.activations.list", []string{c.JourneyID}, func() {
+		handleCDPJourneyActivationList(ctx.Context, ctx.Client, []string{c.JourneyID}, ctx.GlobalFlags)
+	})
 }
 
 type CDPJourneyActivationsCreateCmd struct {
@@ -1453,8 +1628,9 @@ type CDPActivationTemplatesListCmd struct {
 }
 
 func (c *CDPActivationTemplatesListCmd) Run(ctx *CLIContext) error {
-	handleCDPActivationTemplateList(ctx.Context, ctx.Client, []string{c.ParentSegmentID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.activation_templates.list", []string{c.ParentSegmentID}, func() {
+		handleCDPActivationTemplateList(ctx.Context, ctx.Client, []string{c.ParentSegmentID}, ctx.GlobalFlags)
+	})
 }
 
 type CDPActivationTemplatesCreateCmd struct {
@@ -1462,8 +1638,9 @@ type CDPActivationTemplatesCreateCmd struct {
 }
 
 func (c *CDPActivationTemplatesCreateCmd) Run(ctx *CLIContext) error {
-	handleCDPActivationTemplateCreate(ctx.Context, ctx.Client, []string{c.RequestFile}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.activation_templates.create", []string{}, func() {
+		handleCDPActivationTemplateCreate(ctx.Context, ctx.Client, []string{c.RequestFile}, ctx.GlobalFlags)
+	})
 }
 
 type CDPActivationTemplatesGetCmd struct {
@@ -1471,8 +1648,9 @@ type CDPActivationTemplatesGetCmd struct {
 }
 
 func (c *CDPActivationTemplatesGetCmd) Run(ctx *CLIContext) error {
-	handleCDPActivationTemplateGet(ctx.Context, ctx.Client, []string{c.TemplateID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.activation_templates.get", []string{c.TemplateID}, func() {
+		handleCDPActivationTemplateGet(ctx.Context, ctx.Client, []string{c.TemplateID}, ctx.GlobalFlags)
+	})
 }
 
 type CDPActivationTemplatesUpdateCmd struct {
@@ -1481,8 +1659,9 @@ type CDPActivationTemplatesUpdateCmd struct {
 }
 
 func (c *CDPActivationTemplatesUpdateCmd) Run(ctx *CLIContext) error {
-	handleCDPActivationTemplateUpdate(ctx.Context, ctx.Client, []string{c.TemplateID, c.RequestFile}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.activation_templates.update", []string{c.TemplateID}, func() {
+		handleCDPActivationTemplateUpdate(ctx.Context, ctx.Client, []string{c.TemplateID, c.RequestFile}, ctx.GlobalFlags)
+	})
 }
 
 type CDPActivationTemplatesDeleteCmd struct {
@@ -1490,8 +1669,9 @@ type CDPActivationTemplatesDeleteCmd struct {
 }
 
 func (c *CDPActivationTemplatesDeleteCmd) Run(ctx *CLIContext) error {
-	handleCDPActivationTemplateDelete(ctx.Context, ctx.Client, []string{c.TemplateID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.activation_templates.delete", []string{c.TemplateID}, func() {
+		handleCDPActivationTemplateDelete(ctx.Context, ctx.Client, []string{c.TemplateID}, ctx.GlobalFlags)
+	})
 }
 
 // Workflow commands
@@ -1514,8 +1694,9 @@ type WorkflowListCmd struct{}
 
 func (w *WorkflowListCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	workflow.HandleWorkflowList(ctx.Context, ctx.Client, flags)
-	return nil
+	return runInstrumented(ctx, "workflow.list", []string{}, func() {
+		workflow.HandleWorkflowList(ctx.Context, ctx.Client, flags)
+	})
 }
 
 type WorkflowGetCmd struct {
@@ -1524,8 +1705,9 @@ type WorkflowGetCmd struct {
 
 func (w *WorkflowGetCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	workflow.HandleWorkflowGet(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID)}, flags)
-	return nil
+	return runInstrumented(ctx, "workflow.get", []string{fmt.Sprintf("%d", w.WorkflowID)}, func() {
+		workflow.HandleWorkflowGet(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID)}, flags)
+	})
 }
 
 type WorkflowCreateCmd struct {
@@ -1536,8 +1718,9 @@ type WorkflowCreateCmd struct {
 
 func (w *WorkflowCreateCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	workflow.HandleWorkflowCreate(ctx.Context, ctx.Client, []string{w.Name, w.Project, w.Config}, flags)
-	return nil
+	return runInstrumented(ctx, "workflow.create", []string{w.Name, w.Project}, func() {
+		workflow.HandleWorkflowCreate(ctx.Context, ctx.Client, []string{w.Name, w.Project, w.Config}, flags)
+	})
 }
 
 type WorkflowUpdateCmd struct {
@@ -1548,8 +1731,9 @@ type WorkflowUpdateCmd struct {
 func (w *WorkflowUpdateCmd) Run(ctx *CLIContext) error {
 	args := append([]string{fmt.Sprintf("%d", w.WorkflowID)}, w.Updates...)
 	flags := workflow.Flags(ctx.GlobalFlags)
-	workflow.HandleWorkflowUpdate(ctx.Context, ctx.Client, args, flags)
-	return nil
+	return runInstrumented(ctx, "workflow.update", args, func() {
+		workflow.HandleWorkflowUpdate(ctx.Context, ctx.Client, args, flags)
+	})
 }
 
 type WorkflowDeleteCmd struct {
@@ -1558,8 +1742,9 @@ type WorkflowDeleteCmd struct {
 
 func (w *WorkflowDeleteCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	workflow.HandleWorkflowDelete(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID)}, flags)
-	return nil
+	return runInstrumented(ctx, "workflow.delete", []string{fmt.Sprintf("%d", w.WorkflowID)}, func() {
+		workflow.HandleWorkflowDelete(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID)}, flags)
+	})
 }
 
 type WorkflowStartCmd struct {
@@ -1573,8 +1758,9 @@ func (w *WorkflowStartCmd) Run(ctx *CLIContext) error {
 		args = append(args, w.Params)
 	}
 	flags := workflow.Flags(ctx.GlobalFlags)
-	workflow.HandleWorkflowStart(ctx.Context, ctx.Client, args, flags)
-	return nil
+	return runInstrumented(ctx, "workflow.start", []string{fmt.Sprintf("%d", w.WorkflowID)}, func() {
+		workflow.HandleWorkflowStart(ctx.Context, ctx.Client, args, flags)
+	})
 }
 
 type WorkflowAttemptsCmd struct {
@@ -1590,8 +1776,9 @@ type WorkflowAttemptsListCmd struct {
 
 func (w *WorkflowAttemptsListCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	workflow.HandleWorkflowAttemptList(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID)}, flags)
-	return nil
+	return runInstrumented(ctx, "workflow.attempts.list", []string{fmt.Sprintf("%d", w.WorkflowID)}, func() {
+		workflow.HandleWorkflowAttemptList(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID)}, flags)
+	})
 }
 
 type WorkflowAttemptsGetCmd struct {
@@ -1601,8 +1788,9 @@ type WorkflowAttemptsGetCmd struct {
 
 func (w *WorkflowAttemptsGetCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	workflow.HandleWorkflowAttemptGet(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID)}, flags)
-	return nil
+	return runInstrumented(ctx, "workflow.attempts.get", []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID)}, func() {
+		workflow.HandleWorkflowAttemptGet(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID)}, flags)
+	})
 }
 
 type WorkflowAttemptsKillCmd struct {
@@ -1612,8 +1800,9 @@ type WorkflowAttemptsKillCmd struct {
 
 func (w *WorkflowAttemptsKillCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	workflow.HandleWorkflowAttemptKill(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID)}, flags)
-	return nil
+	return runInstrumented(ctx, "workflow.attempts.kill", []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID)}, func() {
+		workflow.HandleWorkflowAttemptKill(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID)}, flags)
+	})
 }
 
 type WorkflowAttemptsRetryCmd struct {
@@ -1628,8 +1817,9 @@ func (w *WorkflowAttemptsRetryCmd) Run(ctx *CLIContext) error {
 		args = append(args, w.Params)
 	}
 	flags := workflow.Flags(ctx.GlobalFlags)
-	workflow.HandleWorkflowAttemptRetry(ctx.Context, ctx.Client, args, flags)
-	return nil
+	return runInstrumented(ctx, "workflow.attempts.retry", []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID)}, func() {
+		workflow.HandleWorkflowAttemptRetry(ctx.Context, ctx.Client, args, flags)
+	})
 }
 
 type WorkflowScheduleCmd struct {
@@ -1765,8 +1955,9 @@ type WorkflowProjectsListCmd struct{}
 
 func (w *WorkflowProjectsListCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	workflow.HandleWorkflowProjectList(ctx.Context, ctx.Client, flags)
-	return nil
+	return runInstrumented(ctx, "workflow.projects.list", []string{}, func() {
+		workflow.HandleWorkflowProjectList(ctx.Context, ctx.Client, flags)
+	})
 }
 
 type WorkflowProjectsGetCmd struct {
@@ -1775,8 +1966,9 @@ type WorkflowProjectsGetCmd struct {
 
 func (w *WorkflowProjectsGetCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	workflow.HandleWorkflowProjectGet(ctx.Context, ctx.Client, []string{w.ProjectID}, flags)
-	return nil
+	return runInstrumented(ctx, "workflow.projects.get", []string{w.ProjectID}, func() {
+		workflow.HandleWorkflowProjectGet(ctx.Context, ctx.Client, []string{w.ProjectID}, flags)
+	})
 }
 
 type WorkflowProjectsCreateCmd struct {
@@ -1786,8 +1978,9 @@ type WorkflowProjectsCreateCmd struct {
 
 func (w *WorkflowProjectsCreateCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	workflow.HandleWorkflowProjectCreate(ctx.Context, ctx.Client, []string{w.Name, w.Path}, flags)
-	return nil
+	return runInstrumented(ctx, "workflow.projects.create", []string{w.Name}, func() {
+		workflow.HandleWorkflowProjectCreate(ctx.Context, ctx.Client, []string{w.Name, w.Path}, flags)
+	})
 }
 
 type WorkflowProjectsPushCmd struct {
@@ -1797,8 +1990,9 @@ type WorkflowProjectsPushCmd struct {
 
 func (w *WorkflowProjectsPushCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	workflow.HandleWorkflowProjectCreate(ctx.Context, ctx.Client, []string{w.Name, w.Path}, flags)
-	return nil
+	return runInstrumented(ctx, "workflow.projects.push", []string{w.Name}, func() {
+		workflow.HandleWorkflowProjectCreate(ctx.Context, ctx.Client, []string{w.Name, w.Path}, flags)
+	})
 }
 
 type WorkflowProjectsDownloadCmd struct {
@@ -1812,11 +2006,10 @@ func (w *WorkflowProjectsDownloadCmd) Run(ctx *CLIContext) error {
 	if w.OutputDir != "" {
 		args = append(args, w.OutputDir)
 	}
-	// For now, we'll handle revision in the handler function
-	// We can extend this later to pass revision through args or flags
 	flags := workflow.Flags(ctx.GlobalFlags)
-	workflow.HandleWorkflowProjectDownload(ctx.Context, ctx.Client, args, flags)
-	return nil
+	return runInstrumented(ctx, "workflow.projects.download", []string{w.ProjectIdentifier}, func() {
+		workflow.HandleWorkflowProjectDownload(ctx.Context, ctx.Client, args, flags)
+	})
 }
 
 type WorkflowProjectsWorkflowsCmd struct {
@@ -1825,8 +2018,9 @@ type WorkflowProjectsWorkflowsCmd struct {
 
 func (w *WorkflowProjectsWorkflowsCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	workflow.HandleWorkflowProjectWorkflows(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.ProjectID)}, flags)
-	return nil
+	return runInstrumented(ctx, "workflow.projects.workflows", []string{fmt.Sprintf("%d", w.ProjectID)}, func() {
+		workflow.HandleWorkflowProjectWorkflows(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.ProjectID)}, flags)
+	})
 }
 
 type WorkflowProjectsSecretsCmd struct {
@@ -1841,8 +2035,9 @@ type WorkflowProjectsSecretsListCmd struct {
 
 func (w *WorkflowProjectsSecretsListCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	workflow.HandleWorkflowProjectSecretsList(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.ProjectID)}, flags)
-	return nil
+	return runInstrumented(ctx, "workflow.projects.secrets.list", []string{fmt.Sprintf("%d", w.ProjectID)}, func() {
+		workflow.HandleWorkflowProjectSecretsList(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.ProjectID)}, flags)
+	})
 }
 
 type WorkflowProjectsSecretsSetCmd struct {
@@ -1853,8 +2048,9 @@ type WorkflowProjectsSecretsSetCmd struct {
 
 func (w *WorkflowProjectsSecretsSetCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	workflow.HandleWorkflowProjectSecretsSet(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.ProjectID), w.Key, w.Value}, flags)
-	return nil
+	return runInstrumented(ctx, "workflow.projects.secrets.set", []string{fmt.Sprintf("%d", w.ProjectID), w.Key}, func() {
+		workflow.HandleWorkflowProjectSecretsSet(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.ProjectID), w.Key, w.Value}, flags)
+	})
 }
 
 type WorkflowProjectsSecretsDeleteCmd struct {
@@ -1864,8 +2060,9 @@ type WorkflowProjectsSecretsDeleteCmd struct {
 
 func (w *WorkflowProjectsSecretsDeleteCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	workflow.HandleWorkflowProjectSecretsDelete(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.ProjectID), w.Key}, flags)
-	return nil
+	return runInstrumented(ctx, "workflow.projects.secrets.delete", []string{fmt.Sprintf("%d", w.ProjectID), w.Key}, func() {
+		workflow.HandleWorkflowProjectSecretsDelete(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.ProjectID), w.Key}, flags)
+	})
 }
 
 type WorkflowProjectsHooksCmd struct {
@@ -1882,8 +2079,9 @@ type WorkflowProjectsHooksShowCmd struct {
 
 func (w *WorkflowProjectsHooksShowCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	workflow.HandleWorkflowHooksShow(ctx.Context, ctx.Client, []string{w.Path}, flags)
-	return nil
+	return runInstrumented(ctx, "workflow.projects.hooks.show", []string{w.Path}, func() {
+		workflow.HandleWorkflowHooksShow(ctx.Context, ctx.Client, []string{w.Path}, flags)
+	})
 }
 
 type WorkflowProjectsHooksInitCmd struct {
@@ -1892,8 +2090,9 @@ type WorkflowProjectsHooksInitCmd struct {
 
 func (w *WorkflowProjectsHooksInitCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	workflow.HandleWorkflowHooksInit(ctx.Context, ctx.Client, []string{w.Path}, flags)
-	return nil
+	return runInstrumented(ctx, "workflow.projects.hooks.init", []string{w.Path}, func() {
+		workflow.HandleWorkflowHooksInit(ctx.Context, ctx.Client, []string{w.Path}, flags)
+	})
 }
 
 type WorkflowProjectsHooksAddCmd struct {
@@ -1909,8 +2108,9 @@ func (w *WorkflowProjectsHooksAddCmd) Run(ctx *CLIContext) error {
 	args := []string{w.Path, w.Name, fmt.Sprintf("%d", w.Timeout), fmt.Sprintf("%t", w.FailOnError), w.WorkingDir}
 	args = append(args, w.Command...)
 	flags := workflow.Flags(ctx.GlobalFlags)
-	workflow.HandleWorkflowHooksAdd(ctx.Context, ctx.Client, args, flags)
-	return nil
+	return runInstrumented(ctx, "workflow.projects.hooks.add", []string{w.Path, w.Name}, func() {
+		workflow.HandleWorkflowHooksAdd(ctx.Context, ctx.Client, args, flags)
+	})
 }
 
 type WorkflowProjectsHooksRemoveCmd struct {
@@ -1920,8 +2120,9 @@ type WorkflowProjectsHooksRemoveCmd struct {
 
 func (w *WorkflowProjectsHooksRemoveCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	workflow.HandleWorkflowHooksRemove(ctx.Context, ctx.Client, []string{w.Path, w.Name}, flags)
-	return nil
+	return runInstrumented(ctx, "workflow.projects.hooks.remove", []string{w.Path, w.Name}, func() {
+		workflow.HandleWorkflowHooksRemove(ctx.Context, ctx.Client, []string{w.Path, w.Name}, flags)
+	})
 }
 
 type WorkflowProjectsHooksTestCmd struct {
@@ -1930,8 +2131,9 @@ type WorkflowProjectsHooksTestCmd struct {
 
 func (w *WorkflowProjectsHooksTestCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	workflow.HandleWorkflowHooksValidate(ctx.Context, ctx.Client, []string{w.Path}, flags)
-	return nil
+	return runInstrumented(ctx, "workflow.projects.hooks.test", []string{w.Path}, func() {
+		workflow.HandleWorkflowHooksValidate(ctx.Context, ctx.Client, []string{w.Path}, flags)
+	})
 }
 
 // Trino commands
@@ -2050,4 +2252,38 @@ func (cli *CLI) ToFlags() Flags {
 		KeyFile:            cli.KeyFile,
 		CAFile:             cli.CAFile,
 	}
+}
+
+// ToOTELConfig converts CLI OTEL flags to OTELConfig
+func (cli *CLI) ToOTELConfig() *otel.OTELConfig {
+	config := otel.DefaultOTELConfig()
+
+	config.Enabled = cli.OTELEnabled
+	config.ServiceName = cli.OTELServiceName
+	config.ServiceVersion = cli.OTELServiceVersion
+	config.TraceEndpoint = cli.OTELTraceEndpoint
+	config.MetricEndpoint = cli.OTELMetricEndpoint
+	config.SamplingRate = cli.OTELSamplingRate
+	config.Headers = cli.OTELHeaders
+	config.Insecure = cli.OTELInsecure
+	config.BatchTimeout = cli.OTELBatchTimeout
+	config.BatchSize = cli.OTELBatchSize
+	config.ResourceAttrs = cli.OTELResourceAttrs
+
+	// Handle generic endpoint if specific endpoints not set
+	if cli.OTELEndpoint != "" {
+		if config.TraceEndpoint == "" {
+			config.TraceEndpoint = cli.OTELEndpoint + "/v1/traces"
+		}
+		if config.MetricEndpoint == "" {
+			config.MetricEndpoint = cli.OTELEndpoint + "/v1/metrics"
+		}
+	}
+
+	// Apply sensible default for traces only (avoid defaulting metrics to prevent 404s with Jaeger)
+	if config.TraceEndpoint == "" {
+		config.TraceEndpoint = "http://localhost:4318/v1/traces"
+	}
+
+	return config
 }

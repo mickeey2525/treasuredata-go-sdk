@@ -8,10 +8,17 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/trinodb/trino-go-client/trino"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/trace"
+	"sync"
 )
 
 const (
@@ -36,16 +43,28 @@ type TDTrinoClient struct {
 	endpoint string
 	database string
 	source   string
+	tracer   trace.Tracer
+	meter    metric.Meter
+
+	// Metrics instruments
+	queryDuration   metric.Float64Histogram
+	queryCounter    metric.Int64Counter
+	connectionGauge metric.Int64UpDownCounter
+	rowsProcessed   metric.Int64Counter
+	bytesProcessed  metric.Int64Counter
 }
 
 // TDTrinoClientConfig holds configuration for the Trino client
 type TDTrinoClientConfig struct {
-	APIKey     string
-	Region     string
-	Endpoint   string
-	Database   string
-	Source     string
-	HTTPClient *http.Client
+	APIKey        string
+	Region        string
+	Endpoint      string
+	Database      string
+	Source        string
+	HTTPClient    *http.Client
+	EnableTracing bool
+	Tracer        trace.Tracer
+	Meter         metric.Meter
 }
 
 // TDTrinoError wraps errors to remove sensitive information
@@ -83,6 +102,21 @@ func (t *trinoTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return transport.RoundTrip(reqCopy)
 }
 
+// otelTrinoProgressUpdater captures Trino query progress to enrich spans
+type otelTrinoProgressUpdater struct {
+	span trace.Span
+	once sync.Once
+}
+
+func (u *otelTrinoProgressUpdater) Update(info trino.QueryProgressInfo) {
+	// Set query ID only once when available
+	u.once.Do(func() {
+		if u.span != nil && info.QueryId != "" {
+			u.span.SetAttributes(attribute.String("trino.query_id", info.QueryId))
+		}
+	})
+}
+
 // wrapError removes sensitive information from errors
 func wrapError(err error) error {
 	if err == nil {
@@ -116,6 +150,34 @@ func EscapeIdentifier(identifier string) string {
 // EscapeStringLiteral escapes a SQL string literal
 func EscapeStringLiteral(literal string) string {
 	return `'` + strings.ReplaceAll(literal, `'`, `''`) + `'`
+}
+
+// sanitizeSQL removes sensitive literals from SQL queries for tracing
+func sanitizeSQL(query string) string {
+	// Remove string literals
+	re := regexp.MustCompile(`'[^']*'`)
+	sanitized := re.ReplaceAllString(query, "'?'")
+
+	// Remove numeric literals (but keep simple numbers like column references)
+	re = regexp.MustCompile(`\b\d{4,}\b`) // Numbers with 4+ digits are likely sensitive
+	sanitized = re.ReplaceAllString(sanitized, "?")
+
+	// Limit length to prevent huge spans
+	if len(sanitized) > 1000 {
+		sanitized = sanitized[:1000] + "..."
+	}
+
+	return sanitized
+}
+
+// extractSQLOperation extracts the SQL operation type from a query
+func extractSQLOperation(query string) string {
+	query = strings.TrimSpace(strings.ToUpper(query))
+	parts := strings.Fields(query)
+	if len(parts) > 0 {
+		return parts[0]
+	}
+	return "UNKNOWN"
 }
 
 // NewTDTrinoClient creates a new Treasure Data Trino client
@@ -159,11 +221,17 @@ func NewTDTrinoClient(config TDTrinoClientConfig) (*TDTrinoClient, error) {
 		httpClient = &http.Client{Timeout: 30 * time.Second}
 	}
 
-	// Wrap the HTTP client to add the X-Trino-User header
+	// Build base transport (avoid additional HTTP-level instrumentation to prevent duplicate spans)
+	baseTransport := httpClient.Transport
+	if baseTransport == nil {
+		baseTransport = http.DefaultTransport
+	}
+
+	// Wrap the HTTP client to add the X-Trino-User header and keep instrumentation
 	wrappedClient := &http.Client{
 		Timeout: httpClient.Timeout,
 		Transport: &trinoTransport{
-			base:   httpClient.Transport,
+			base:   baseTransport,
 			apiKey: config.APIKey,
 		},
 	}
@@ -181,6 +249,26 @@ func NewTDTrinoClient(config TDTrinoClientConfig) (*TDTrinoClient, error) {
 		return nil, wrapError(err)
 	}
 
+	// Initialize tracer
+	var tracer trace.Tracer
+	if config.EnableTracing && config.Tracer != nil {
+		tracer = config.Tracer
+	} else if config.EnableTracing {
+		tracer = otel.Tracer("tdcli-trino")
+	} else {
+		tracer = otel.Tracer("tdcli-trino") // This will be a no-op tracer by default
+	}
+
+	// Initialize meter
+	var meter metric.Meter
+	if config.EnableTracing && config.Meter != nil {
+		meter = config.Meter
+	} else if config.EnableTracing {
+		meter = otel.Meter("tdcli-trino")
+	} else {
+		meter = otel.Meter("tdcli-trino") // This will be a no-op meter by default
+	}
+
 	client := &TDTrinoClient{
 		db:       db,
 		apiKey:   config.APIKey,
@@ -188,7 +276,19 @@ func NewTDTrinoClient(config TDTrinoClientConfig) (*TDTrinoClient, error) {
 		endpoint: endpoint,
 		database: config.Database,
 		source:   config.Source,
+		tracer:   tracer,
+		meter:    meter,
 	}
+
+	// Initialize metrics instruments
+	if err := client.initializeMetrics(); err != nil {
+		// Log error but don't fail client creation
+		// This allows graceful degradation if metrics can't be initialized
+		fmt.Printf("Warning: Failed to initialize Trino client metrics: %v\n", err)
+	}
+
+	// Record connection creation
+	client.recordConnectionChange(context.Background(), 1)
 
 	return client, nil
 }
@@ -229,6 +329,8 @@ func (c *TDTrinoClient) DB() *sql.DB {
 // Close closes the database connection
 func (c *TDTrinoClient) Close() error {
 	if c.db != nil {
+		// Record connection closure
+		c.recordConnectionChange(context.Background(), -1)
 		return wrapError(c.db.Close())
 	}
 	return nil
@@ -236,7 +338,61 @@ func (c *TDTrinoClient) Close() error {
 
 // Ping verifies the connection to the database
 func (c *TDTrinoClient) Ping(ctx context.Context) error {
-	return wrapError(c.db.PingContext(ctx))
+	// Record start time for metrics
+	startTime := time.Now()
+
+	// Create span for the ping operation
+	ctx, span := c.tracer.Start(ctx, "trino.ping")
+	defer span.End()
+
+	// Add span attributes
+	span.SetAttributes(
+		attribute.String("db.system", "trino"),
+		attribute.String("db.name", c.database),
+		attribute.String("db.operation", "PING"),
+		attribute.String("trino.catalog", defaultCatalog),
+		attribute.String("trino.schema", c.database),
+		attribute.String("trino.region", c.region),
+		attribute.String("trino.endpoint", c.endpoint),
+	)
+
+	// Record metrics
+	metricAttrs := metric.WithAttributes(
+		attribute.String("database", c.database),
+		attribute.String("operation", "PING"),
+		attribute.String("region", c.region),
+	)
+
+	err := c.db.PingContext(ctx)
+
+	// Record ping duration
+	duration := time.Since(startTime).Seconds()
+	if c.queryDuration != nil {
+		c.queryDuration.Record(ctx, duration, metricAttrs)
+	}
+
+	// Record ping count
+	if c.queryCounter != nil {
+		successAttr := attribute.String("success", "true")
+		if err != nil {
+			successAttr = attribute.String("success", "false")
+		}
+		c.queryCounter.Add(ctx, 1, metric.WithAttributes(
+			attribute.String("database", c.database),
+			attribute.String("operation", "PING"),
+			attribute.String("region", c.region),
+			successAttr,
+		))
+	}
+
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return wrapError(err)
+	}
+
+	span.SetStatus(codes.Ok, "Ping successful")
+	return nil
 }
 
 // Query executes a query and returns the rows
@@ -244,8 +400,70 @@ func (c *TDTrinoClient) Query(ctx context.Context, query string, args ...any) (*
 	// Strip trailing semicolons - Trino doesn't expect them
 	query = strings.TrimRight(strings.TrimSpace(query), ";")
 
-	rows, err := c.db.QueryContext(ctx, query, args...)
-	return rows, wrapError(err)
+	// Record start time for metrics
+	startTime := time.Now()
+	operation := extractSQLOperation(query)
+
+	// Create span for the query operation
+	ctx, span := c.tracer.Start(ctx, "trino.query")
+	defer span.End()
+
+	// Add span attributes
+	span.SetAttributes(
+		attribute.String("db.system", "trino"),
+		attribute.String("db.name", c.database),
+		attribute.String("db.statement", sanitizeSQL(query)),
+		attribute.String("db.operation", operation),
+		attribute.String("trino.catalog", defaultCatalog),
+		attribute.String("trino.schema", c.database),
+		attribute.String("trino.region", c.region),
+		attribute.String("trino.endpoint", c.endpoint),
+	)
+
+	// Record metrics
+	metricAttrs := metric.WithAttributes(
+		attribute.String("database", c.database),
+		attribute.String("operation", operation),
+		attribute.String("region", c.region),
+	)
+
+	// Add progress callback named args to capture query ID
+	updater := &otelTrinoProgressUpdater{span: span}
+	period := 500 * time.Millisecond
+	argsWithProgress := append(args,
+		sql.Named("X-Trino-Progress-Callback", updater),
+		sql.Named("X-Trino-Progress-Callback-Period", period),
+	)
+	rows, err := c.db.QueryContext(ctx, query, argsWithProgress...)
+
+	// Record query duration
+	duration := time.Since(startTime).Seconds()
+	if c.queryDuration != nil {
+		c.queryDuration.Record(ctx, duration, metricAttrs)
+	}
+
+	// Record query count
+	if c.queryCounter != nil {
+		successAttr := attribute.String("success", "true")
+		if err != nil {
+			successAttr = attribute.String("success", "false")
+		}
+		c.queryCounter.Add(ctx, 1, metric.WithAttributes(
+			attribute.String("database", c.database),
+			attribute.String("operation", operation),
+			attribute.String("region", c.region),
+			successAttr,
+		))
+	}
+
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return rows, wrapError(err)
+	}
+
+	span.SetStatus(codes.Ok, "Query executed successfully")
+	return rows, nil
 }
 
 // QueryRow executes a query that is expected to return at most one row
@@ -253,7 +471,62 @@ func (c *TDTrinoClient) QueryRow(ctx context.Context, query string, args ...any)
 	// Strip trailing semicolons - Trino doesn't expect them
 	query = strings.TrimRight(strings.TrimSpace(query), ";")
 
-	return c.db.QueryRowContext(ctx, query, args...)
+	// Record start time for metrics
+	startTime := time.Now()
+	operation := extractSQLOperation(query)
+
+	// Create span for the query row operation
+	ctx, span := c.tracer.Start(ctx, "trino.query_row")
+	defer span.End()
+
+	// Add span attributes
+	span.SetAttributes(
+		attribute.String("db.system", "trino"),
+		attribute.String("db.name", c.database),
+		attribute.String("db.statement", sanitizeSQL(query)),
+		attribute.String("db.operation", operation),
+		attribute.String("trino.catalog", defaultCatalog),
+		attribute.String("trino.schema", c.database),
+		attribute.String("trino.region", c.region),
+		attribute.String("trino.endpoint", c.endpoint),
+	)
+
+	// Record metrics
+	metricAttrs := metric.WithAttributes(
+		attribute.String("database", c.database),
+		attribute.String("operation", operation),
+		attribute.String("region", c.region),
+	)
+
+	// Add progress callback named args to capture query ID
+	updater := &otelTrinoProgressUpdater{span: span}
+	period := 500 * time.Millisecond
+	argsWithProgress := append(args,
+		sql.Named("X-Trino-Progress-Callback", updater),
+		sql.Named("X-Trino-Progress-Callback-Period", period),
+	)
+	row := c.db.QueryRowContext(ctx, query, argsWithProgress...)
+
+	// Record query duration
+	duration := time.Since(startTime).Seconds()
+	if c.queryDuration != nil {
+		c.queryDuration.Record(ctx, duration, metricAttrs)
+	}
+
+	// Record query count (assume success since sql.Row doesn't expose errors until Scan)
+	if c.queryCounter != nil {
+		c.queryCounter.Add(ctx, 1, metric.WithAttributes(
+			attribute.String("database", c.database),
+			attribute.String("operation", operation),
+			attribute.String("region", c.region),
+			attribute.String("success", "true"),
+		))
+	}
+
+	// Note: sql.Row doesn't expose errors until Scan() is called,
+	// so we can't check for errors here. The span will be marked as OK.
+	span.SetStatus(codes.Ok, "QueryRow executed successfully")
+	return row
 }
 
 // Exec executes a query without returning any rows
@@ -261,8 +534,81 @@ func (c *TDTrinoClient) Exec(ctx context.Context, query string, args ...any) (sq
 	// Strip trailing semicolons - Trino doesn't expect them
 	query = strings.TrimRight(strings.TrimSpace(query), ";")
 
-	result, err := c.db.ExecContext(ctx, query, args...)
-	return result, wrapError(err)
+	// Record start time for metrics
+	startTime := time.Now()
+	operation := extractSQLOperation(query)
+
+	// Create span for the exec operation
+	ctx, span := c.tracer.Start(ctx, "trino.exec")
+	defer span.End()
+
+	// Add span attributes
+	span.SetAttributes(
+		attribute.String("db.system", "trino"),
+		attribute.String("db.name", c.database),
+		attribute.String("db.statement", sanitizeSQL(query)),
+		attribute.String("db.operation", operation),
+		attribute.String("trino.catalog", defaultCatalog),
+		attribute.String("trino.schema", c.database),
+		attribute.String("trino.region", c.region),
+		attribute.String("trino.endpoint", c.endpoint),
+	)
+
+	// Record metrics
+	metricAttrs := metric.WithAttributes(
+		attribute.String("database", c.database),
+		attribute.String("operation", operation),
+		attribute.String("region", c.region),
+	)
+
+	// Add progress callback named args to capture query ID
+	updater := &otelTrinoProgressUpdater{span: span}
+	period := 500 * time.Millisecond
+	argsWithProgress := append(args,
+		sql.Named("X-Trino-Progress-Callback", updater),
+		sql.Named("X-Trino-Progress-Callback-Period", period),
+	)
+	result, err := c.db.ExecContext(ctx, query, argsWithProgress...)
+
+	// Record query duration
+	duration := time.Since(startTime).Seconds()
+	if c.queryDuration != nil {
+		c.queryDuration.Record(ctx, duration, metricAttrs)
+	}
+
+	// Record query count
+	if c.queryCounter != nil {
+		successAttr := attribute.String("success", "true")
+		if err != nil {
+			successAttr = attribute.String("success", "false")
+		}
+		c.queryCounter.Add(ctx, 1, metric.WithAttributes(
+			attribute.String("database", c.database),
+			attribute.String("operation", operation),
+			attribute.String("region", c.region),
+			successAttr,
+		))
+	}
+
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return result, wrapError(err)
+	}
+
+	// Add result information if available and record rows processed
+	if result != nil {
+		if rowsAffected, err := result.RowsAffected(); err == nil {
+			span.SetAttributes(attribute.Int64("db.rows_affected", rowsAffected))
+			// Record rows processed metric
+			if c.rowsProcessed != nil {
+				c.rowsProcessed.Add(ctx, rowsAffected, metricAttrs)
+			}
+		}
+	}
+
+	span.SetStatus(codes.Ok, "Exec executed successfully")
+	return result, nil
 }
 
 // Begin starts a transaction
@@ -323,4 +669,82 @@ func (c *TDTrinoClient) GetEndpoint() string {
 // Driver returns the Trino driver
 func (c *TDTrinoClient) Driver() driver.Driver {
 	return c.db.Driver()
+}
+
+// NewTDTrinoClientWithTracing creates a new Trino client with tracing enabled
+func NewTDTrinoClientWithTracing(config TDTrinoClientConfig) (*TDTrinoClient, error) {
+	config.EnableTracing = true
+	return NewTDTrinoClient(config)
+}
+
+// NewTDTrinoClientWithOTEL creates a new Trino client with OpenTelemetry support
+func NewTDTrinoClientWithOTEL(config TDTrinoClientConfig, tracer trace.Tracer, meter metric.Meter) (*TDTrinoClient, error) {
+	config.EnableTracing = true
+	config.Tracer = tracer
+	config.Meter = meter
+	return NewTDTrinoClient(config)
+}
+
+// initializeMetrics creates and initializes metric instruments
+func (c *TDTrinoClient) initializeMetrics() error {
+	var err error
+
+	// Query duration histogram
+	c.queryDuration, err = c.meter.Float64Histogram(
+		"trino_query_duration",
+		metric.WithDescription("Duration of Trino queries in seconds"),
+		metric.WithUnit("s"),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create query duration histogram: %w", err)
+	}
+
+	// Query counter
+	c.queryCounter, err = c.meter.Int64Counter(
+		"trino_query_total",
+		metric.WithDescription("Total number of Trino queries executed"),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create query counter: %w", err)
+	}
+
+	// Connection gauge
+	c.connectionGauge, err = c.meter.Int64UpDownCounter(
+		"trino_connections",
+		metric.WithDescription("Number of active Trino connections"),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create connection gauge: %w", err)
+	}
+
+	// Rows processed counter
+	c.rowsProcessed, err = c.meter.Int64Counter(
+		"trino_rows_processed",
+		metric.WithDescription("Total number of rows processed by Trino queries"),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create rows processed counter: %w", err)
+	}
+
+	// Bytes processed counter
+	c.bytesProcessed, err = c.meter.Int64Counter(
+		"trino_bytes_processed",
+		metric.WithDescription("Total number of bytes processed by Trino queries"),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create bytes processed counter: %w", err)
+	}
+
+	return nil
+}
+
+// recordConnectionChange records connection status changes
+func (c *TDTrinoClient) recordConnectionChange(ctx context.Context, delta int64) {
+	if c.connectionGauge != nil {
+		c.connectionGauge.Add(ctx, delta, metric.WithAttributes(
+			attribute.String("database", c.database),
+			attribute.String("region", c.region),
+			attribute.String("endpoint", c.endpoint),
+		))
+	}
 }

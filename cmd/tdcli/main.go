@@ -6,9 +6,11 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/alecthomas/kong"
 	td "github.com/mickeey2525/treasuredata-go-sdk"
+	"github.com/mickeey2525/treasuredata-go-sdk/otel"
 )
 
 var (
@@ -126,6 +128,31 @@ func main() {
 		}
 	}
 
+	// Initialize OTEL manager before creating the client so we can wire HTTP instrumentation
+	otelConfig := cli.ToOTELConfig()
+	otelManager, err := otel.NewOTELManager(otelConfig)
+	if err != nil {
+		if cli.Verbose {
+			log.Printf("Warning: Failed to create OTEL manager: %v", err)
+		}
+		// Continue without OTEL if creation fails
+		otelManager = nil
+	}
+
+	// Initialize OTEL if manager was created successfully
+	if otelManager != nil {
+		initCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		if err := otelManager.Initialize(initCtx); err != nil {
+			if cli.Verbose {
+				log.Printf("Warning: Failed to initialize OTEL: %v", err)
+			}
+			// Continue without OTEL if initialization fails
+			otelManager = nil
+		}
+	}
+
 	// Create client if API key is provided
 	var client *td.Client
 	if cli.APIKey != "" {
@@ -147,17 +174,37 @@ func main() {
 			clientOptions = append(clientOptions, td.WithSSLOptions(sslOptions))
 		}
 
+		// Wire OTEL into the HTTP transport when enabled
+		if otelManager != nil && otelManager.IsEnabled() {
+			clientOptions = append(clientOptions, td.WithOTEL(otelManager.GetTracer(), otelManager.GetMeter()))
+		}
+
 		client, err = td.NewClient(cli.APIKey, clientOptions...)
 		if err != nil {
 			log.Fatalf("Failed to create client: %v", err)
 		}
 	}
 
+	// Set up cleanup function for OTEL
+	defer func() {
+		if otelManager != nil {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			if err := otelManager.Shutdown(shutdownCtx); err != nil {
+				if cli.Verbose {
+					log.Printf("Warning: Failed to shutdown OTEL: %v", err)
+				}
+			}
+		}
+	}()
+
 	// Create CLI context
 	cliContext := &CLIContext{
 		Context:     context.Background(),
 		Client:      client,
 		GlobalFlags: cli.ToFlags(),
+		OTELManager: otelManager,
 	}
 
 	// Execute the command
@@ -176,11 +223,21 @@ func isValidAPIKey(apiKey string) bool {
 
 func handleError(err error, message string, verbose bool) {
 	if err != nil {
-		if verbose {
-			log.Fatalf("%s: %v", message, err)
+		if captureHandlerErrors {
+			// When in capture mode, panic with the error instead of calling os.Exit
+			if verbose {
+				panic(fmt.Errorf("%s: %v", message, err))
+			} else {
+				panic(err)
+			}
 		} else {
-			fmt.Printf("Error: %s\n", err.Error())
-			os.Exit(1)
+			// Original behavior - exit the program
+			if verbose {
+				log.Fatalf("%s: %v", message, err)
+			} else {
+				fmt.Printf("Error: %s\n", err.Error())
+				os.Exit(1)
+			}
 		}
 	}
 }

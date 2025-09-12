@@ -16,6 +16,9 @@ import (
 	"time"
 
 	"github.com/google/go-querystring/query"
+	"github.com/mickeey2525/treasuredata-go-sdk/otel"
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/trace"
 )
 
 const (
@@ -137,6 +140,10 @@ type Client struct {
 	// User agent for API requests
 	UserAgent string
 
+	// OpenTelemetry instrumentation (optional)
+	tracer trace.Tracer
+	meter  metric.Meter
+
 	// Services for different API resources
 	Databases   *DatabasesService
 	Tables      *TablesService
@@ -206,6 +213,31 @@ func WithRegion(region string) ClientOption {
 func WithUserAgent(ua string) ClientOption {
 	return func(c *Client) error {
 		c.UserAgent = ua
+		return nil
+	}
+}
+
+// WithOTEL configures OpenTelemetry instrumentation for the client
+func WithOTEL(tracer trace.Tracer, meter metric.Meter) ClientOption {
+	return func(c *Client) error {
+		c.tracer = tracer
+		c.meter = meter
+
+		// If we have OTEL instrumentation, wrap the HTTP client transport
+		if tracer != nil && meter != nil && c.httpClient != nil {
+			transport := c.httpClient.Transport
+			if transport == nil {
+				transport = http.DefaultTransport
+			}
+
+			// Create instrumented transport
+			instrumentedTransport, err := otel.NewOTELHTTPTransport(transport, tracer, meter)
+			if err != nil {
+				return fmt.Errorf("failed to create instrumented HTTP transport: %w", err)
+			}
+			c.httpClient.Transport = instrumentedTransport
+		}
+
 		return nil
 	}
 }
@@ -479,6 +511,21 @@ func (c *Client) NewWorkflowRequest(method, urlStr string, body interface{}) (*h
 	req.Header.Set("Accept", "application/json")
 
 	return req, nil
+}
+
+// GetTracer returns the configured tracer for the client
+func (c *Client) GetTracer() trace.Tracer {
+	return c.tracer
+}
+
+// GetMeter returns the configured meter for the client
+func (c *Client) GetMeter() metric.Meter {
+	return c.meter
+}
+
+// IsOTELEnabled returns whether OpenTelemetry instrumentation is enabled
+func (c *Client) IsOTELEnabled() bool {
+	return c.tracer != nil && c.meter != nil
 }
 
 // Do sends an API request and returns the API response
