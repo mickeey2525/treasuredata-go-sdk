@@ -304,6 +304,48 @@ func TestResourceManager(t *testing.T) {
 	})
 }
 
+// TestGlobalResourceManagerCleanup tests that the global resource manager can be stopped properly
+func TestGlobalResourceManagerCleanup(t *testing.T) {
+	// Get initial goroutine count
+	initialGoroutines := runtime.NumGoroutine()
+
+	// Register a test manager with global resource manager
+	config := DefaultOTELConfig()
+	config.Enabled = false // Keep disabled to avoid complex cleanup
+	config.ServiceName = "global-test"
+
+	manager, err := NewOTELManager(config)
+	if err != nil {
+		t.Fatalf("Failed to create manager: %v", err)
+	}
+
+	RegisterGlobalManager(manager)
+
+	// Get resource usage to verify the global manager is working
+	usage := GetGlobalResourceUsage()
+	if usage == nil {
+		t.Fatal("Expected resource usage to be available")
+	}
+
+	// Stop the global resource manager
+	StopGlobalResourceManager()
+
+	// Give some time for the goroutine to clean up
+	time.Sleep(50 * time.Millisecond)
+
+	// Verify no significant goroutine leak (allowing some tolerance for test framework goroutines)
+	finalGoroutines := runtime.NumGoroutine()
+	if finalGoroutines > initialGoroutines+2 {
+		t.Errorf("Potential goroutine leak: started with %d, ended with %d goroutines",
+			initialGoroutines, finalGoroutines)
+	}
+
+	// Cleanup the manager
+	if err := manager.Shutdown(context.Background()); err != nil {
+		t.Errorf("Failed to shutdown manager: %v", err)
+	}
+}
+
 // TestOptimizedAttributeBuilder tests the optimized attribute builder
 func TestOptimizedAttributeBuilder(t *testing.T) {
 	// Test basic building

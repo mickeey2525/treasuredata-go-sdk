@@ -1,3 +1,25 @@
+// Package otel provides performance-optimized OpenTelemetry utilities and helpers.
+//
+// # Resource Lifecycle Management
+//
+// This package manages global resources including background goroutines for cleanup tasks.
+// To prevent resource leaks during application shutdown, call the cleanup functions:
+//
+//	// During application shutdown:
+//	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+//	defer cancel()
+//
+//	// Shutdown all managed OTEL resources
+//	if err := otel.ShutdownAllGlobalManagers(ctx); err != nil {
+//		log.Printf("Error shutting down OTEL managers: %v", err)
+//	}
+//
+//	// Stop background cleanup goroutine
+//	otel.StopGlobalResourceManager()
+//
+// The global resource manager automatically starts a background goroutine for periodic
+// cleanup tasks. This goroutine will run for the lifetime of the application unless
+// explicitly stopped using StopGlobalResourceManager().
 package otel
 
 import (
@@ -418,6 +440,13 @@ func GetGlobalResourceUsage() map[string]interface{} {
 // ShutdownAllGlobalManagers shuts down all globally registered managers
 func ShutdownAllGlobalManagers(ctx context.Context) error {
 	return globalResourceManager.ShutdownAll(ctx)
+}
+
+// StopGlobalResourceManager stops the global resource manager and its background cleanup goroutine.
+// This should be called during application shutdown to prevent goroutine leaks.
+// Once stopped, the global resource manager cannot be restarted.
+func StopGlobalResourceManager() {
+	globalResourceManager.Stop()
 }
 
 // OptimizedAttributeBuilder provides a fluent interface for building attributes efficiently

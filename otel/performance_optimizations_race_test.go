@@ -125,7 +125,7 @@ func TestPerformanceMonitorConcurrentOperations(t *testing.T) {
 		}
 
 		if opStats.MinTime > opStats.MaxTime {
-			t.Errorf("Operation %s: min time (%v) should not be greater than max time (%v)", 
+			t.Errorf("Operation %s: min time (%v) should not be greater than max time (%v)",
 				operationName, opStats.MinTime, opStats.MaxTime)
 		}
 	}

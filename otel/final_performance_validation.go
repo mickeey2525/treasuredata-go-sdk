@@ -51,12 +51,15 @@ func DefaultPerformanceThresholds() PerformanceThresholds {
 
 // NewPerformanceValidator creates a new performance validator
 func NewPerformanceValidator() (*PerformanceValidator, error) {
-	// Create enabled OTEL manager
+	// Create enabled OTEL manager with no-op exporters for testing
 	enabledConfig := DefaultOTELConfig()
 	enabledConfig.Enabled = true
 	enabledConfig.ServiceName = "performance-validation"
 	enabledConfig.BatchTimeout = 100 * time.Millisecond
 	enabledConfig.BatchSize = 100
+	// Clear endpoints to avoid network connections in tests
+	enabledConfig.TraceEndpoint = ""
+	enabledConfig.MetricEndpoint = ""
 
 	enabledManager, err := NewOTELManager(enabledConfig)
 	if err != nil {

@@ -184,6 +184,7 @@ func TestHandleCreateAudienceFolder(t *testing.T) {
 			// Test argument validation
 			if len(tt.args) < 2 {
 				t.Log("Function should handle usage error for insufficient arguments")
+				t.Log("Function should call log.Fatal with 'Usage: cdp folders create <audience-id> <folder-name> [description] [parent-folder-id]'")
 				return
 			}
 
@@ -205,6 +206,7 @@ func TestHandleCreateAudienceFolder(t *testing.T) {
 
 			// Verify the expected output format would be generated
 			if tt.mockResponse != nil {
+				t.Log("Audience folder created successfully")
 				for _, expected := range tt.expectedOutput {
 					t.Logf("Expected output should contain: %s", expected)
 				}
@@ -288,6 +290,7 @@ func TestHandleUpdateAudienceFolder(t *testing.T) {
 				// For error cases, we just verify the function would handle them
 				if len(tt.args) < 3 {
 					t.Log("Function should handle usage error for insufficient arguments")
+					t.Log("Function should call log.Fatal with 'Usage: cdp folder update <audience-id> <folder-id> <key=value>...'")
 				}
 				return
 			}
@@ -350,6 +353,7 @@ func TestHandleDeleteAudienceFolder(t *testing.T) {
 				// For error cases, we just verify the function would handle them
 				if len(tt.args) < 2 {
 					t.Log("Function should handle usage error for insufficient arguments")
+					t.Log("Function should call log.Fatal with 'Usage: cdp folder delete <audience-id> <folder-id>'")
 				}
 				return
 			}
@@ -437,6 +441,7 @@ func TestHandleGetAudienceFolder(t *testing.T) {
 				// For error cases, we just verify the function would handle them
 				if len(tt.args) < 2 {
 					t.Log("Function should handle usage error for insufficient arguments")
+					t.Log("Function should call log.Fatal with 'Audience ID and folder ID required'")
 				}
 				return
 			}

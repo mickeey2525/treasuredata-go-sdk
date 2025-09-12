@@ -218,11 +218,21 @@ func isValidAPIKey(apiKey string) bool {
 
 func handleError(err error, message string, verbose bool) {
 	if err != nil {
-		if verbose {
-			log.Fatalf("%s: %v", message, err)
+		if captureHandlerErrors {
+			// When in capture mode, panic with the error instead of calling os.Exit
+			if verbose {
+				panic(fmt.Errorf("%s: %v", message, err))
+			} else {
+				panic(err)
+			}
 		} else {
-			fmt.Printf("Error: %s\n", err.Error())
-			os.Exit(1)
+			// Original behavior - exit the program
+			if verbose {
+				log.Fatalf("%s: %v", message, err)
+			} else {
+				fmt.Printf("Error: %s\n", err.Error())
+				os.Exit(1)
+			}
 		}
 	}
 }
