@@ -55,6 +55,9 @@ func (m *OTELManager) Initialize(ctx context.Context) error {
 		return nil
 	}
 
+	// Register with global resource manager for cleanup
+	RegisterGlobalManager(m)
+
 	if !m.config.Enabled {
 		// Use no-op providers when disabled
 		m.tracer = otel.Tracer(m.config.ServiceName)
@@ -153,6 +156,9 @@ func (m *OTELManager) Shutdown(ctx context.Context) error {
 	if !m.initialized {
 		return nil
 	}
+
+	// Unregister from global resource manager
+	UnregisterGlobalManager(m)
 
 	if m.shutdown != nil {
 		if err := m.shutdown(ctx); err != nil {
