@@ -1,31 +1,35 @@
 # Implementation Plan
 
-- [x] 1. Set up OpenTelemetry dependencies and core infrastructure
-  - Add OpenTelemetry Go packages to go.mod (otel, otel/trace, otel/metric, otel/exporters/otlp)
+-
+  1. [x] Set up OpenTelemetry dependencies and core infrastructure
+  - Add OpenTelemetry Go packages to go.mod (otel, otel/trace, otel/metric,
+    otel/exporters/otlp)
   - Create otel package directory structure for OTEL-specific code
   - Implement basic OTEL manager interface and configuration structures
   - _Requirements: 2.3, 5.3_
 
-- [ ] 2. Implement OTEL configuration and initialization
-  - [ ] 2.1 Create OTEL configuration structures and validation
+-
+  2. [x] Implement OTEL configuration and initialization
+  - [x] 2.1 Create OTEL configuration structures and validation
     - Define OTELConfig struct with all configuration options
     - Implement configuration validation functions with proper error handling
     - Create configuration loading from environment variables and CLI flags
     - _Requirements: 2.1, 2.2, 2.4_
 
-  - [ ] 2.2 Implement OTEL manager with provider initialization
+  - [x] 2.2 Implement OTEL manager with provider initialization
     - Create OTELManager struct with tracer and meter provider setup
     - Implement provider initialization with proper resource configuration
     - Add graceful shutdown functionality for OTEL providers
     - _Requirements: 2.3, 5.3, 6.3_
 
-  - [ ] 2.3 Add OTEL exporter configuration and setup
+  - [x] 2.3 Add OTEL exporter configuration and setup
     - Implement OTLP trace exporter with configurable endpoints
     - Implement OTLP metric exporter with batch processing
     - Add support for custom headers and authentication
     - _Requirements: 6.2, 6.3, 6.4_
 
-- [ ] 3. Extend CLI structure with OTEL flags and integration
+-
+  3. [ ] Extend CLI structure with OTEL flags and integration
   - [ ] 3.1 Add OTEL configuration flags to CLI struct
     - Extend CLI struct in cmd/tdcli/cli.go with OTEL-specific flags
     - Implement flag parsing and validation for OTEL options
@@ -38,7 +42,8 @@
     - Implement proper OTEL shutdown in CLI cleanup
     - _Requirements: 5.1, 5.2_
 
-- [ ] 4. Implement Trino client instrumentation
+-
+  4. [ ] Implement Trino client instrumentation
   - [ ] 4.1 Extend TDTrinoClient with OTEL support
     - Add tracer and meter fields to TDTrinoClient struct
     - Extend TDTrinoClientConfig with OTEL configuration options
@@ -47,7 +52,8 @@
 
   - [ ] 4.2 Add span creation for Trino operations
     - Instrument Query, QueryRow, and Exec methods with span creation
-    - Add proper span attributes for database operations (db.system, db.statement, etc.)
+    - Add proper span attributes for database operations (db.system,
+      db.statement, etc.)
     - Implement error recording and span status setting
     - _Requirements: 3.1, 3.4, 7.1, 7.4_
 
@@ -57,7 +63,8 @@
     - Implement proper metric labeling with database and operation type
     - _Requirements: 4.2, 4.3_
 
-- [ ] 5. Implement HTTP client instrumentation for TD API calls
+-
+  5. [ ] Implement HTTP client instrumentation for TD API calls
   - [ ] 5.1 Create instrumented HTTP transport wrapper
     - Implement otelHTTPTransport struct wrapping http.RoundTripper
     - Add span creation for HTTP requests with proper attributes
@@ -66,7 +73,8 @@
 
   - [ ] 5.2 Integrate HTTP instrumentation into TD Client
     - Modify Client struct to include tracer and meter fields
-    - Update NewClient to accept OTEL configuration and create instrumented transport
+    - Update NewClient to accept OTEL configuration and create instrumented
+      transport
     - Add API-specific span attributes (td.api_version, td.endpoint)
     - _Requirements: 3.2, 4.3, 7.1_
 
@@ -76,20 +84,24 @@
     - Implement error counter with categorization by error type
     - _Requirements: 4.3, 7.4_
 
-- [ ] 6. Add CLI command-level instrumentation
+-
+  6. [ ] Add CLI command-level instrumentation
   - [ ] 6.1 Implement command span creation
-    - Create spans for each CLI command execution with command name and arguments
+    - Create spans for each CLI command execution with command name and
+      arguments
     - Add CLI-specific span attributes (cli.command, cli.version, cli.region)
     - Implement proper span hierarchy for nested operations
     - _Requirements: 1.1, 1.2, 3.3, 7.1_
 
   - [ ] 6.2 Add CLI metrics collection
-    - Create metrics for command duration, execution count, and success/failure rates
+    - Create metrics for command duration, execution count, and success/failure
+      rates
     - Implement metrics recording in command execution flow
     - Add proper metric labels for command types and outcomes
     - _Requirements: 4.1, 4.3_
 
-- [ ] 7. Implement data sanitization and security measures
+-
+  7. [ ] Implement data sanitization and security measures
   - [ ] 7.1 Create data sanitization utilities
     - Implement SQL query sanitization to remove sensitive literals
     - Create URL sanitization to mask API keys and sensitive parameters
@@ -102,7 +114,8 @@
     - Implement proper error message sanitization
     - _Requirements: 7.1_
 
-- [ ] 8. Add comprehensive error handling and graceful degradation
+-
+  8. [ ] Add comprehensive error handling and graceful degradation
   - [ ] 8.1 Implement OTEL error handling
     - Create OTELError type with severity levels and proper error wrapping
     - Add graceful degradation when OTEL dependencies are missing
@@ -115,7 +128,8 @@
     - Create fallback logging when exports consistently fail
     - _Requirements: 6.4_
 
-- [ ] 9. Create comprehensive test suite
+-
+  9. [ ] Create comprehensive test suite
   - [ ] 9.1 Implement unit tests for OTEL components
     - Create test utilities with mock OTEL providers
     - Write unit tests for OTELManager initialization and configuration
@@ -134,7 +148,8 @@
     - Implement memory usage and latency impact tests
     - _Requirements: 5.2, 5.4_
 
-- [ ] 10. Add configuration validation and documentation
+-
+  10. [ ] Add configuration validation and documentation
   - [ ] 10.1 Implement configuration validation
     - Add validation for OTEL endpoint URLs and sampling rates
     - Create helpful error messages for invalid configurations
@@ -147,7 +162,8 @@
     - Add troubleshooting guide for common OTEL issues
     - _Requirements: 2.1, 2.2_
 
-- [ ] 11. Final integration and testing
+-
+  11. [ ] Final integration and testing
   - [ ] 11.1 Integrate all components and test end-to-end functionality
     - Verify complete trace propagation through CLI operations
     - Test metric collection and export for all instrumented components
