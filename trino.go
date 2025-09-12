@@ -1,25 +1,24 @@
 package treasuredata
 
 import (
-	"context"
-	"database/sql"
-	"database/sql/driver"
-	"fmt"
-	"net/http"
-	"net/url"
-	"os"
-	"regexp"
-	"strings"
-	"time"
+    "context"
+    "database/sql"
+    "database/sql/driver"
+    "fmt"
+    "net/http"
+    "net/url"
+    "os"
+    "regexp"
+    "strings"
+    "time"
 
-	"github.com/trinodb/trino-go-client/trino"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/codes"
-	"go.opentelemetry.io/otel/metric"
-	"go.opentelemetry.io/otel/trace"
-	"sync"
+    "github.com/trinodb/trino-go-client/trino"
+    "go.opentelemetry.io/otel"
+    "go.opentelemetry.io/otel/attribute"
+    "go.opentelemetry.io/otel/codes"
+    "go.opentelemetry.io/otel/metric"
+    "go.opentelemetry.io/otel/trace"
+    "sync"
 )
 
 const (
@@ -222,21 +221,20 @@ func NewTDTrinoClient(config TDTrinoClientConfig) (*TDTrinoClient, error) {
 		httpClient = &http.Client{Timeout: 30 * time.Second}
 	}
 
-	// Build base transport and wrap with otelhttp for HTTP instrumentation
-	baseTransport := httpClient.Transport
-	if baseTransport == nil {
-		baseTransport = http.DefaultTransport
-	}
-	instrumentedBase := otelhttp.NewTransport(baseTransport)
+    // Build base transport (avoid additional HTTP-level instrumentation to prevent duplicate spans)
+    baseTransport := httpClient.Transport
+    if baseTransport == nil {
+        baseTransport = http.DefaultTransport
+    }
 
 	// Wrap the HTTP client to add the X-Trino-User header and keep instrumentation
-	wrappedClient := &http.Client{
-		Timeout: httpClient.Timeout,
-		Transport: &trinoTransport{
-			base:   instrumentedBase,
-			apiKey: config.APIKey,
-		},
-	}
+    wrappedClient := &http.Client{
+        Timeout: httpClient.Timeout,
+        Transport: &trinoTransport{
+            base:   baseTransport,
+            apiKey: config.APIKey,
+        },
+    }
 
 	// Register custom client
 	clientName := fmt.Sprintf("td_%s_%d", config.Region, time.Now().UnixNano())

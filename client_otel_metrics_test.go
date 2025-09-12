@@ -1,10 +1,10 @@
 package treasuredata
 
 import (
-	"context"
-	"net/http"
-	"net/http/httptest"
-	"testing"
+    "context"
+    "net/http"
+    "net/http/httptest"
+    "testing"
 
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
@@ -14,29 +14,28 @@ import (
 )
 
 func TestClientOTELMetrics(t *testing.T) {
-	// Create test server that returns different responses
-	requestCount := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		requestCount++
-		w.Header().Set("Content-Type", "application/json")
+    // In-memory handler that returns different responses
+    requestCount := 0
+    handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        requestCount++
+        w.Header().Set("Content-Type", "application/json")
 
-		// Return different status codes for different requests
-		switch requestCount {
-		case 1:
-			// Success response
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"databases": [{"name": "test_db"}]}`))
-		case 2:
-			// Client error
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(`{"error": "Bad request"}`))
-		case 3:
-			// Server error
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(`{"error": "Internal server error"}`))
-		}
-	}))
-	defer server.Close()
+        // Return different status codes for different requests
+        switch requestCount {
+        case 1:
+            // Success response
+            w.WriteHeader(http.StatusOK)
+            w.Write([]byte(`{"databases": [{"name": "test_db"}]}`))
+        case 2:
+            // Client error
+            w.WriteHeader(http.StatusBadRequest)
+            w.Write([]byte(`{"error": "Bad request"}`))
+        case 3:
+            // Server error
+            w.WriteHeader(http.StatusInternalServerError)
+            w.Write([]byte(`{"error": "Internal server error"}`))
+        }
+    })
 
 	// Set up tracing and metrics
 	tp := trace.NewTracerProvider(
@@ -51,11 +50,23 @@ func TestClientOTELMetrics(t *testing.T) {
 	mp := metric.NewMeterProvider(metric.WithReader(reader))
 	meter := mp.Meter("test")
 
-	// Create client with OTEL instrumentation
-	client, err := NewClient("test-api-key",
-		WithEndpoint(server.URL),
-		WithOTEL(tracer, meter),
-	)
+    // Create client with OTEL instrumentation using in-memory transport
+    rt := roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+        rr := httptest.NewRecorder()
+        handler.ServeHTTP(rr, req)
+        resp := rr.Result()
+        resp.Request = req
+        // Ensure ContentLength is set like a real server
+        if resp.ContentLength <= 0 {
+            resp.ContentLength = int64(rr.Body.Len())
+        }
+        return resp, nil
+    })
+    client, err := NewClient("test-api-key",
+        WithEndpoint("http://example"),
+        WithHTTPClient(&http.Client{Transport: rt}),
+        WithOTEL(tracer, meter),
+    )
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -242,24 +253,23 @@ func verifyDurationHistogramMetric(t *testing.T, m metricdata.Metrics) {
 }
 
 func TestClientOTELMetricsLabeling(t *testing.T) {
-	// Create test server
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
+    // In-memory handler
+    handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        w.Header().Set("Content-Type", "application/json")
 
-		// Return different responses based on endpoint
-		switch r.URL.Path {
-		case "/v3/databases":
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"databases": []}`))
-		case "/v1/jobs":
-			w.WriteHeader(http.StatusCreated)
-			w.Write([]byte(`{"job": {"id": "123"}}`))
-		default:
-			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte(`{"error": "Not found"}`))
-		}
-	}))
-	defer server.Close()
+        // Return different responses based on endpoint
+        switch r.URL.Path {
+        case "/v3/databases":
+            w.WriteHeader(http.StatusOK)
+            w.Write([]byte(`{"databases": []}`))
+        case "/v1/jobs":
+            w.WriteHeader(http.StatusCreated)
+            w.Write([]byte(`{"job": {"id": "123"}}`))
+        default:
+            w.WriteHeader(http.StatusNotFound)
+            w.Write([]byte(`{"error": "Not found"}`))
+        }
+    })
 
 	// Set up metrics
 	reader := metric.NewManualReader()
@@ -269,11 +279,22 @@ func TestClientOTELMetricsLabeling(t *testing.T) {
 	tp := trace.NewTracerProvider()
 	tracer := tp.Tracer("test")
 
-	// Create client
-	client, err := NewClient("test-api-key",
-		WithEndpoint(server.URL),
-		WithOTEL(tracer, meter),
-	)
+    // Create client with in-memory transport
+    rt := roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+        rr := httptest.NewRecorder()
+        handler.ServeHTTP(rr, req)
+        resp := rr.Result()
+        resp.Request = req
+        if resp.ContentLength <= 0 {
+            resp.ContentLength = int64(rr.Body.Len())
+        }
+        return resp, nil
+    })
+    client, err := NewClient("test-api-key",
+        WithEndpoint("http://example"),
+        WithHTTPClient(&http.Client{Transport: rt}),
+        WithOTEL(tracer, meter),
+    )
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}

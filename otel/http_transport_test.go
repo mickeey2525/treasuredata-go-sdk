@@ -45,13 +45,12 @@ func TestNewOTELHTTPTransport(t *testing.T) {
 }
 
 func TestHTTPTransportRoundTrip(t *testing.T) {
-	// Create test server
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// In-memory handler; no real server is started
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"status": "ok"}`))
-	}))
-	defer server.Close()
+	})
 
 	// Set up tracing
 	exporter := tracetest.NewInMemoryExporter()
@@ -69,8 +68,17 @@ func TestHTTPTransportRoundTrip(t *testing.T) {
 	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
 	meter := mp.Meter("test")
 
-	// Create instrumented transport
-	transport, err := NewOTELHTTPTransport(nil, tracer, meter)
+	// Base transport that routes to the in-memory handler
+    base := roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+        rr := httptest.NewRecorder()
+        handler.ServeHTTP(rr, req)
+        resp := rr.Result()
+        resp.Request = req
+        return resp, nil
+    })
+
+	// Create instrumented transport wrapping the in-memory base
+	transport, err := NewOTELHTTPTransport(base, tracer, meter)
 	if err != nil {
 		t.Fatalf("Failed to create transport: %v", err)
 	}
@@ -78,8 +86,8 @@ func TestHTTPTransportRoundTrip(t *testing.T) {
 	// Create HTTP client with instrumented transport
 	client := &http.Client{Transport: transport}
 
-	// Make request
-	resp, err := client.Get(server.URL + "/v3/databases")
+	// Make request to dummy URL; handled by in-memory transport
+	resp, err := client.Get("http://example/v3/databases")
 	if err != nil {
 		t.Fatalf("Request failed: %v", err)
 	}
@@ -170,8 +178,13 @@ func TestHTTPTransportError(t *testing.T) {
 	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
 	meter := mp.Meter("test")
 
-	// Create instrumented transport
-	transport, err := NewOTELHTTPTransport(nil, tracer, meter)
+	// Create a base transport that always returns an error (no network)
+	base := roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+		return nil, fmt.Errorf("connection refused")
+	})
+
+	// Create instrumented transport wrapping the failing base
+	transport, err := NewOTELHTTPTransport(base, tracer, meter)
 	if err != nil {
 		t.Fatalf("Failed to create transport: %v", err)
 	}
@@ -179,8 +192,8 @@ func TestHTTPTransportError(t *testing.T) {
 	// Create HTTP client with instrumented transport
 	client := &http.Client{Transport: transport}
 
-	// Make request to non-existent server
-	_, err = client.Get("http://non-existent-server.invalid")
+	// Make request to dummy URL; failing base simulates network error
+	_, err = client.Get("http://example/any")
 	if err == nil {
 		t.Fatal("Expected request to fail")
 	}
@@ -218,6 +231,11 @@ func TestHTTPTransportError(t *testing.T) {
 		t.Error("Expected error counter metric to be recorded")
 	}
 }
+
+// roundTripperFunc helps build a RoundTripper from a function for tests.
+type roundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
 func TestSanitizeURL(t *testing.T) {
 	transport := &otelHTTPTransport{}

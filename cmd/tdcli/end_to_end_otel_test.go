@@ -17,8 +17,8 @@ import (
 
 // TestEndToEndOTELIntegration tests complete OTEL integration across all components
 func TestEndToEndOTELIntegration(t *testing.T) {
-	// Set up test server to simulate TD API
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// In-memory handler to simulate TD API (no real server)
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Add trace headers to simulate trace propagation
 		traceID := r.Header.Get("traceparent")
 		if traceID != "" {
@@ -66,8 +66,7 @@ func TestEndToEndOTELIntegration(t *testing.T) {
 			w.WriteHeader(http.StatusNotFound)
 			w.Write([]byte(`{"error": "Not found"}`))
 		}
-	}))
-	defer server.Close()
+	})
 
 	// Create OTEL manager with test configuration (no external endpoints)
 	config := &otel.OTELConfig{
@@ -102,9 +101,17 @@ func TestEndToEndOTELIntegration(t *testing.T) {
 	}
 	defer manager.Shutdown(ctx)
 
-	// Create TD client with OTEL instrumentation
+	// Create TD client with OTEL instrumentation and in-memory transport
+    rt := roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+        rr := httptest.NewRecorder()
+        handler.ServeHTTP(rr, req)
+        resp := rr.Result()
+        resp.Request = req
+        return resp, nil
+    })
 	client, err := treasuredata.NewClient("test_account/test_key",
-		treasuredata.WithEndpoint(server.URL),
+		treasuredata.WithEndpoint("http://example"),
+		treasuredata.WithHTTPClient(&http.Client{Transport: rt}),
 		treasuredata.WithOTEL(manager.GetTracer(), manager.GetMeter()),
 	)
 	if err != nil {
@@ -325,6 +332,11 @@ func TestEndToEndOTELIntegration(t *testing.T) {
 		t.Log("Data sanitization test passed")
 	})
 }
+
+// roundTripperFunc is a helper to create a RoundTripper from a function.
+type roundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
 // TestEndToEndOTELConfigurationFromEnvironment tests configuration loading from environment variables
 func TestEndToEndOTELConfigurationFromEnvironment(t *testing.T) {

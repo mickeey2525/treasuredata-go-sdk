@@ -15,13 +15,12 @@ import (
 )
 
 func TestClientWithOTEL(t *testing.T) {
-	// Create test server
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// In-memory handler (no real server)
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"databases": []}`))
-	}))
-	defer server.Close()
+	})
 
 	// Set up tracing
 	exporter := tracetest.NewInMemoryExporter()
@@ -39,9 +38,17 @@ func TestClientWithOTEL(t *testing.T) {
 	mp := metric.NewMeterProvider(metric.WithReader(reader))
 	meter := mp.Meter("test")
 
-	// Create client with OTEL instrumentation
+	// Create client with OTEL instrumentation using in-memory transport
+    rt := roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+        rr := httptest.NewRecorder()
+        handler.ServeHTTP(rr, req)
+        resp := rr.Result()
+        resp.Request = req
+        return resp, nil
+    })
 	client, err := NewClient("test-api-key",
-		WithEndpoint(server.URL),
+		WithEndpoint("http://example"),
+		WithHTTPClient(&http.Client{Transport: rt}),
 		WithOTEL(tracer, meter),
 	)
 	if err != nil {

@@ -2,7 +2,6 @@ package otel
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"math/rand"
@@ -307,17 +306,8 @@ func (h *ExportFailureHandler) HandleExport(ctx context.Context, operation strin
 		return nil
 	})
 
-	// Suppress noisy errors when circuit breaker is open; drop this export silently
-	if err != nil {
-		var oe *OTELError
-		if errors.As(err, &oe) {
-			if oe.Operation == operation && oe.Cause != nil && oe.Cause.Error() == "circuit breaker is open" {
-				// Suppress repeated errors while the circuit is open.
-				return nil
-			}
-		}
-	}
-	return err
+    // Return the error (including when circuit breaker is open) so callers can react accordingly
+    return err
 }
 
 // recordSuccess records a successful export

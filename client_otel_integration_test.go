@@ -20,8 +20,8 @@ import (
 
 // TestHTTPClientOTELIntegration tests the full OTEL integration with HTTP client
 func TestHTTPClientOTELIntegration(t *testing.T) {
-	// Set up test server
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// In-memory handler (no real server)
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Simulate different API endpoints
 		switch {
 		case strings.Contains(r.URL.Path, "/v3/databases"):
@@ -54,8 +54,7 @@ func TestHTTPClientOTELIntegration(t *testing.T) {
 			w.WriteHeader(http.StatusNotFound)
 			w.Write([]byte(`{"error": "Not found"}`))
 		}
-	}))
-	defer server.Close()
+	})
 
 	// Set up OTEL providers
 	exporter := tracetest.NewInMemoryExporter()
@@ -73,9 +72,17 @@ func TestHTTPClientOTELIntegration(t *testing.T) {
 	mp := metric.NewMeterProvider(metric.WithReader(reader))
 	meter := mp.Meter("http-test")
 
-	// Create client with OTEL instrumentation
+	// Create client with OTEL instrumentation using in-memory transport
+    rt := roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+        rr := httptest.NewRecorder()
+        handler.ServeHTTP(rr, req)
+        resp := rr.Result()
+        resp.Request = req
+        return resp, nil
+    })
 	client, err := NewClient("test-api-key",
-		WithEndpoint(server.URL),
+		WithEndpoint("http://example"),
+		WithHTTPClient(&http.Client{Transport: rt}),
 		WithOTEL(tracer, meter),
 	)
 	if err != nil {
@@ -306,12 +313,11 @@ func TestHTTPClientOTELIntegration(t *testing.T) {
 
 // TestHTTPClientOTELURLSanitization tests URL sanitization in spans
 func TestHTTPClientOTELURLSanitization(t *testing.T) {
-	// Set up test server
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// In-memory handler
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"status": "ok"}`))
-	}))
-	defer server.Close()
+	})
 
 	// Set up OTEL providers
 	exporter := tracetest.NewInMemoryExporter()
@@ -328,9 +334,17 @@ func TestHTTPClientOTELURLSanitization(t *testing.T) {
 	mp := metric.NewMeterProvider(metric.WithReader(reader))
 	meter := mp.Meter("http-test")
 
-	// Create client with OTEL instrumentation
+	// Create client with OTEL instrumentation using in-memory transport
+    rt := roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+        rr := httptest.NewRecorder()
+        handler.ServeHTTP(rr, req)
+        resp := rr.Result()
+        resp.Request = req
+        return resp, nil
+    })
 	client, err := NewClient("test-api-key",
-		WithEndpoint(server.URL),
+		WithEndpoint("http://example"),
+		WithHTTPClient(&http.Client{Transport: rt}),
 		WithOTEL(tracer, meter),
 	)
 	if err != nil {
@@ -426,13 +440,12 @@ func TestHTTPClientOTELURLSanitization(t *testing.T) {
 
 // TestHTTPClientOTELWithOTELManager tests integration with OTEL manager
 func TestHTTPClientOTELWithOTELManager(t *testing.T) {
-	// Set up test server
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// In-memory handler
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"status": "ok"}`))
-	}))
-	defer server.Close()
+	})
 
 	// Create OTEL manager
 	config := otel.DefaultOTELConfig()
@@ -451,9 +464,17 @@ func TestHTTPClientOTELWithOTELManager(t *testing.T) {
 	}
 	defer manager.Shutdown(ctx)
 
-	// Create HTTP client using manager's tracer and meter
+	// Create HTTP client using manager's tracer and meter, with in-memory transport
+    rt := roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+        rr := httptest.NewRecorder()
+        handler.ServeHTTP(rr, req)
+        resp := rr.Result()
+        resp.Request = req
+        return resp, nil
+    })
 	client, err := NewClient("test-api-key",
-		WithEndpoint(server.URL),
+		WithEndpoint("http://example"),
+		WithHTTPClient(&http.Client{Transport: rt}),
 		WithOTEL(manager.GetTracer(), manager.GetMeter()),
 	)
 	if err != nil {
@@ -481,15 +502,14 @@ func TestHTTPClientOTELWithOTELManager(t *testing.T) {
 
 // TestHTTPClientOTELMultipleRequests tests concurrent requests with OTEL
 func TestHTTPClientOTELMultipleRequests(t *testing.T) {
-	// Set up test server
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// In-memory handler
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Add some delay to simulate real API
 		time.Sleep(10 * time.Millisecond)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"status": "ok"}`))
-	}))
-	defer server.Close()
+	})
 
 	// Set up OTEL providers
 	exporter := tracetest.NewInMemoryExporter()
@@ -506,9 +526,17 @@ func TestHTTPClientOTELMultipleRequests(t *testing.T) {
 	mp := metric.NewMeterProvider(metric.WithReader(reader))
 	meter := mp.Meter("http-test")
 
-	// Create client with OTEL instrumentation
+	// Create client with OTEL instrumentation using in-memory transport
+            rt := roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+                rr := httptest.NewRecorder()
+                handler.ServeHTTP(rr, req)
+                resp := rr.Result()
+                resp.Request = req
+                return resp, nil
+            })
 	client, err := NewClient("test-api-key",
-		WithEndpoint(server.URL),
+		WithEndpoint("http://example"),
+		WithHTTPClient(&http.Client{Transport: rt}),
 		WithOTEL(tracer, meter),
 	)
 	if err != nil {
@@ -599,12 +627,11 @@ func TestHTTPClientOTELRegionExtraction(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Set up test server
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// In-memory handler
+			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte(`{"status": "ok"}`))
-			}))
-			defer server.Close()
+			})
 
 			// Set up OTEL providers
 			exporter := tracetest.NewInMemoryExporter()
@@ -621,11 +648,15 @@ func TestHTTPClientOTELRegionExtraction(t *testing.T) {
 			mp := metric.NewMeterProvider(metric.WithReader(reader))
 			meter := mp.Meter("http-test")
 
-			// Create client with OTEL instrumentation
-			// Note: We use the test server URL, but the region extraction logic
-			// would work with real TD endpoints
+			// Create client with OTEL instrumentation using in-memory transport
+			rt := roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+				rr := httptest.NewRecorder()
+				handler.ServeHTTP(rr, req)
+				return rr.Result(), nil
+			})
 			client, err := NewClient("test-api-key",
-				WithEndpoint(server.URL),
+				WithEndpoint("http://example"),
+				WithHTTPClient(&http.Client{Transport: rt}),
 				WithOTEL(tracer, meter),
 			)
 			if err != nil {
