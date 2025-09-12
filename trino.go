@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/trinodb/trino-go-client/trino"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 )
 
 const (
@@ -36,16 +38,19 @@ type TDTrinoClient struct {
 	endpoint string
 	database string
 	source   string
+	tracer   trace.Tracer
 }
 
 // TDTrinoClientConfig holds configuration for the Trino client
 type TDTrinoClientConfig struct {
-	APIKey     string
-	Region     string
-	Endpoint   string
-	Database   string
-	Source     string
-	HTTPClient *http.Client
+	APIKey        string
+	Region        string
+	Endpoint      string
+	Database      string
+	Source        string
+	HTTPClient    *http.Client
+	EnableTracing bool
+	Tracer        trace.Tracer
 }
 
 // TDTrinoError wraps errors to remove sensitive information
@@ -181,6 +186,16 @@ func NewTDTrinoClient(config TDTrinoClientConfig) (*TDTrinoClient, error) {
 		return nil, wrapError(err)
 	}
 
+	// Initialize tracer
+	var tracer trace.Tracer
+	if config.EnableTracing && config.Tracer != nil {
+		tracer = config.Tracer
+	} else if config.EnableTracing {
+		tracer = otel.Tracer("tdcli-trino")
+	} else {
+		tracer = otel.Tracer("tdcli-trino") // This will be a no-op tracer by default
+	}
+
 	client := &TDTrinoClient{
 		db:       db,
 		apiKey:   config.APIKey,
@@ -188,6 +203,7 @@ func NewTDTrinoClient(config TDTrinoClientConfig) (*TDTrinoClient, error) {
 		endpoint: endpoint,
 		database: config.Database,
 		source:   config.Source,
+		tracer:   tracer,
 	}
 
 	return client, nil
@@ -323,4 +339,10 @@ func (c *TDTrinoClient) GetEndpoint() string {
 // Driver returns the Trino driver
 func (c *TDTrinoClient) Driver() driver.Driver {
 	return c.db.Driver()
+}
+
+// NewTDTrinoClientWithTracing creates a new Trino client with tracing enabled
+func NewTDTrinoClientWithTracing(config TDTrinoClientConfig) (*TDTrinoClient, error) {
+	config.EnableTracing = true
+	return NewTDTrinoClient(config)
 }
