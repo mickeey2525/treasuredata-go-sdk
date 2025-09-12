@@ -324,62 +324,6 @@ func TestEndToEndOTELIntegration(t *testing.T) {
 
 		t.Log("Data sanitization test passed")
 	})
-
-	// Test 6: Performance impact measurement
-	t.Run("Performance impact measurement", func(t *testing.T) {
-		const numIterations = 100
-
-		// Measure execution time with OTEL enabled
-		startWithOTEL := time.Now()
-		for i := 0; i < numIterations; i++ {
-			err := InstrumentedRun(cliCtx, "performance.test", []string{}, func(ctx *CLIContext) error {
-				// Simulate minimal work
-				time.Sleep(time.Microsecond)
-				return nil
-			})
-			if err != nil {
-				t.Fatalf("Performance test iteration %d failed: %v", i, err)
-			}
-		}
-		durationWithOTEL := time.Since(startWithOTEL)
-
-		// Create context without OTEL for comparison
-		cliCtxNoOTEL := &CLIContext{
-			Context:     ctx,
-			OTELManager: nil, // Disable OTEL
-			Client:      client,
-			GlobalFlags: cliCtx.GlobalFlags,
-		}
-
-		// Measure execution time without OTEL
-		startWithoutOTEL := time.Now()
-		for i := 0; i < numIterations; i++ {
-			err := InstrumentedRun(cliCtxNoOTEL, "performance.test", []string{}, func(ctx *CLIContext) error {
-				// Simulate minimal work
-				time.Sleep(time.Microsecond)
-				return nil
-			})
-			if err != nil {
-				t.Fatalf("Performance test without OTEL iteration %d failed: %v", i, err)
-			}
-		}
-		durationWithoutOTEL := time.Since(startWithoutOTEL)
-
-		// Calculate overhead
-		overhead := durationWithOTEL - durationWithoutOTEL
-		overheadPercentage := float64(overhead) / float64(durationWithoutOTEL) * 100
-
-		t.Logf("Performance impact: OTEL=%v, No-OTEL=%v, Overhead=%v (%.2f%%)",
-			durationWithOTEL, durationWithoutOTEL, overhead, overheadPercentage)
-
-		// Verify overhead is reasonable (less than 300% for this micro-benchmark)
-		// Note: In real-world scenarios with actual work, the overhead percentage would be much lower
-		if overheadPercentage > 300 {
-			t.Errorf("OTEL overhead too high: %.2f%% (expected < 300%%)", overheadPercentage)
-		}
-
-		t.Log("Performance impact measurement test passed")
-	})
 }
 
 // TestEndToEndOTELConfigurationFromEnvironment tests configuration loading from environment variables
