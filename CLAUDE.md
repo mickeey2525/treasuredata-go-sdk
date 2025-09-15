@@ -8,40 +8,29 @@ This is the **Treasure Data Go SDK**, a client library for interacting with Trea
 
 ## Commands
 
-### Development Commands
+### Build, Test, and Development Commands
 ```bash
-# Build the project
+# Install tools (via Aqua)
+aqua i
+
+# Compile SDK + packages
 go build ./...
 
-# Run tests
-go test ./...
+# Build CLI
+go build -o dist/tdcli ./cmd/tdcli
 
-# Run tests with verbose output
-go test -v ./...
+# Run tests (unit + integration)
+go test ./... -race -cover
 
-# Run tests with coverage
-go test -cover ./...
+# Focus tests by package or name
+go test ./... -run TestName
 
-# Format code
+# Lint/vet (stdlib)
+go vet ./...
 go fmt ./...
 
-# Vet code for common errors
-go vet ./...
-
-# Download dependencies
-go mod download
-
-# Tidy up go.mod
-go mod tidy
-
-# Generate documentation
-go doc -all
-```
-
-### Installation and Setup
-```bash
-# Install as a dependency
-go get github.com/treasuredata/treasuredata-go-sdk
+# Release dry-run
+goreleaser release --snapshot --clean
 
 # Run example tests
 go test -run Example
@@ -60,8 +49,8 @@ The SDK is organized into logical files based on functionality:
 
 #### Core Files
 - `client.go` - Main client and configuration
-- `types.go` - Common types and utilities
-- `errors.go` - Error handling
+- `trino.go` - Trino SQL client implementation
+- Root package: Go SDK for Treasure Data (`*.go`), grouped by domain
 
 #### Service Files
 - `databases.go` - Database operations
@@ -73,6 +62,12 @@ The SDK is organized into logical files based on functionality:
 - `permissions.go` - Access control and policies
 - `bulk_import.go` - Bulk data import operations
 - `workflow.go` - Workflow automation
+- `workflow_*.go` - Extended workflow functionality (projects, schedules, attempts, hooks)
+
+#### OpenTelemetry Integration
+- `otel/` - HTTP transport, helpers, performance optimizations
+- `docs/` - Integration documentation
+- `examples/` - Runnable configurations and validation scripts
 
 #### CDP (Customer Data Platform) Files
 The CDP functionality is split across multiple files for better maintainability:
@@ -135,31 +130,28 @@ Each service follows the same pattern:
 
 ## Development Guidelines
 
-### Code Style
-- Follow standard Go conventions
-- Use `gofmt` for formatting
-- All public APIs must have documentation comments
-- Use consistent naming across services
+### Coding Style & Naming Conventions
+- Go formatting: run `go fmt ./...` before pushing; 4-space tabs (Go default)
+- File naming mirrors services: `databases.go`, `tables.go`; tests as `xxx_test.go`
+- Exported identifiers require clear comments; avoid stutter (e.g., `Client`, `DatabasesService`)
+- Context-first methods: pass `context.Context` as the first parameter for I/O
+- Errors: wrap with context using `fmt.Errorf("...: %w", err)`; prefer sentinel/typed errors where applicable
 
-### Formatting
-- When writing Go code, always run `go fmt ./...` to ensure consistent code formatting
-- Formatting helps maintain code readability and follows Go community standards
+### Testing Guidelines
+- Framework: standard `testing` with table tests where helpful
+- Coverage: aim to keep/new code ≥80% where practical
+- Integration tests: OTEL/Trino tests run without external services by using in-memory exporters; when unsure, target by `-run`
+- Add tests next to sources; prefer small, deterministic HTTP handlers for API mocks
+- Tests: `*_test.go` colocated with sources; fixtures in `testdata/`
 
-### Testing
-- Example tests in `examples_test.go` serve as documentation
-- Use `context.Background()` for examples
-- Include error handling in all examples
+### Security & Configuration Tips
+- Never hardcode API keys or OTEL credentials. Use env vars (e.g., `TD_API_KEY`, `OTEL_*`) or local config
+- For TLS, prefer system CAs; when adding custom CA/certs, use `SSLOptions` and document why
+- CI/readability: ensure `go build`, `go test -race`, and `go vet` pass locally; do not commit secrets—use `TD_API_KEY` or `~/.tdcli/.tdcli.toml` for local runs
 
-### API Integration
-- All API methods accept `context.Context` as first parameter
-- Use options structs for optional parameters
-- Return appropriate Go types (no generic interface{} unless necessary)
-- Handle HTTP status codes appropriately
-
-### Dependencies
-- Minimal dependencies: only `github.com/google/go-querystring` for URL encoding
-- Standard library preferred for HTTP operations
-- No external testing frameworks - use Go's built-in testing
+### Commit & Pull Request Guidelines
+- Commits: use Conventional Commits where possible (`feat:`, `fix:`, `chore:`); keep messages imperative and scoped
+- PRs: include a clear summary, linked issues, rationale, and test/demo output. Update `README.md`/`docs/` and examples if behavior changes
 
 ## CLI (tdcli) Structure
 
