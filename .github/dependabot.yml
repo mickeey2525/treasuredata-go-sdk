@@ -1,0 +1,56 @@
+version: 2
+updates:
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "04:00"
+      timezone: "Asia/Tokyo"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependabot"
+      - "go"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      otel:
+        patterns:
+          - "go.opentelemetry.io/*"
+      trino:
+        patterns:
+          - "github.com/trinodb/*"
+      golang-x:
+        patterns:
+          - "golang.org/x/*"
+      major-and-minor:
+        patterns:
+          - "*"
+        update-types:
+          - "major"
+          - "minor"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "04:30"
+      timezone: "Asia/Tokyo"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependabot"
+      - "github-actions"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      actions-major-and-minor:
+        patterns:
+          - "*"
+        update-types:
+          - "major"
+          - "minor"
+      official-actions:
+        patterns:
+          - "actions/*"
