@@ -24,7 +24,7 @@ updates:
       golang-x:
         patterns:
           - "golang.org/x/*"
-      minor-and-patch:
+      major-and-minor:
         patterns:
           - "*"
         update-types:
@@ -45,7 +45,7 @@ updates:
       prefix: "chore"
       include: "scope"
     groups:
-      actions-minor-and-patch:
+      actions-major-and-minor:
         patterns:
           - "*"
         update-types:
