@@ -91,6 +91,7 @@ homebrew_casks:
       owner: mickeey2525
       name: homebrew-tap
       branch: main
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     commit_author:
       name: mickeey2525
       email: mickeey2525@users.noreply.github.com
