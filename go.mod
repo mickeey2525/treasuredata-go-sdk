@@ -7,7 +7,7 @@ require (
 	github.com/alecthomas/kong v1.12.0
 	github.com/chzyer/readline v1.5.1
 	github.com/google/go-querystring v1.1.0
-	github.com/trinodb/trino-go-client v0.327.0
+	github.com/trinodb/trino-go-client v0.328.0
 	go.opentelemetry.io/otel v1.38.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp v1.38.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.38.0
