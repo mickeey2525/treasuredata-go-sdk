@@ -4,7 +4,7 @@ go 1.23.0
 
 require (
 	github.com/BurntSushi/toml v1.5.0
-	github.com/alecthomas/kong v1.12.1
+	github.com/alecthomas/kong v1.13.0
 	github.com/chzyer/readline v1.5.1
 	github.com/google/go-querystring v1.1.0
 	github.com/trinodb/trino-go-client v0.328.0
