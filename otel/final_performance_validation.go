@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
@@ -366,7 +367,7 @@ func (pv *PerformanceValidator) measureThroughput(ctx context.Context, manager *
 	meter := manager.GetMeter()
 	counter, _ := meter.Int64Counter("throughput_test_counter")
 
-	var totalOps int64
+	var totalOps atomic.Int64
 	var wg sync.WaitGroup
 	stopCh := make(chan struct{})
 
@@ -379,7 +380,7 @@ func (pv *PerformanceValidator) measureThroughput(ctx context.Context, manager *
 			for {
 				select {
 				case <-stopCh:
-					totalOps += ops
+					totalOps.Add(ops)
 					return
 				default:
 					// Perform a typical operation
@@ -403,7 +404,7 @@ func (pv *PerformanceValidator) measureThroughput(ctx context.Context, manager *
 	close(stopCh)
 	wg.Wait()
 
-	return totalOps
+	return totalOps.Load()
 }
 
 // Cleanup cleans up the validator resources
