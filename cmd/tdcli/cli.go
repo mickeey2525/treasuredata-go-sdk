@@ -14,7 +14,7 @@ import (
 type CLI struct {
 	// Global flags
 	APIKey  string `kong:"help='Treasure Data API key (format: account_id/api_key)',env='TD_API_KEY'"`
-	Region  string `kong:"help='API region (us, eu, tokyo, ap02)',default='us'"`
+	Region  string `kong:"help='API region (us, eu, tokyo, ap02, ap03)',default='us'"`
 	Format  string `kong:"help='Output format (json, table, csv)',default='table',enum='json,table,csv'"`
 	Output  string `kong:"help='Output to file'"`
 	Verbose bool   `kong:"short='v',help='Verbose output'"`
@@ -40,19 +40,23 @@ type CLI struct {
 	OTELResourceAttrs  map[string]string `kong:"help='OTEL resource attributes (key=value,key2=value2)',env='OTEL_RESOURCE_ATTRIBUTES'"`
 
 	// Commands
-	Version   VersionCmd   `kong:"cmd,help='Show version'"`
-	Config    ConfigCmd    `kong:"cmd,help='Configuration management'"`
-	Databases DatabasesCmd `kong:"cmd,aliases='db',help='Database management'"`
-	Tables    TablesCmd    `kong:"cmd,aliases='table',help='Table management'"`
-	Queries   QueriesCmd   `kong:"cmd,aliases='query,q',help='Query execution'"`
-	Jobs      JobsCmd      `kong:"cmd,aliases='job',help='Job management'"`
-	Users     UsersCmd     `kong:"cmd,aliases='user',help='User management'"`
-	Perms     PermsCmd     `kong:"cmd,aliases='permissions,acl',help='Access control and permissions'"`
-	Results   ResultsCmd   `kong:"cmd,aliases='result',help='Query results management'"`
-	Import    ImportCmd    `kong:"cmd,aliases='bulk-import',help='Bulk data import'"`
-	CDP       CDPCmd       `kong:"cmd,help='Customer Data Platform (CDP) management'"`
-	Workflow  WorkflowCmd  `kong:"cmd,aliases='wf',help='Workflow management'"`
-	Trino     TrinoCmd     `kong:"cmd,help='Trino SQL client'"`
+	Version         VersionCmd         `kong:"cmd,help='Show version'"`
+	Config          ConfigCmd          `kong:"cmd,help='Configuration management'"`
+	Databases       DatabasesCmd       `kong:"cmd,aliases='db',help='Database management'"`
+	Tables          TablesCmd          `kong:"cmd,aliases='table',help='Table management'"`
+	Queries         QueriesCmd         `kong:"cmd,aliases='query,q',help='Query execution'"`
+	Jobs            JobsCmd            `kong:"cmd,aliases='job',help='Job management'"`
+	Users           UsersCmd           `kong:"cmd,aliases='user',help='User management'"`
+	Perms           PermsCmd           `kong:"cmd,aliases='permissions,acl',help='Access control and permissions'"`
+	Results         ResultsCmd         `kong:"cmd,aliases='result',help='Query results management'"`
+	Import          ImportCmd          `kong:"cmd,aliases='bulk-import',help='Bulk data import'"`
+	CDP             CDPCmd             `kong:"cmd,help='Customer Data Platform (CDP) management'"`
+	Workflow        WorkflowCmd        `kong:"cmd,aliases='wf',help='Workflow management'"`
+	Trino           TrinoCmd           `kong:"cmd,help='Trino SQL client'"`
+	Postback        PostbackCmd        `kong:"cmd,help='Postback event ingestion'"`
+	Stream          StreamCmd          `kong:"cmd,aliases='stream-import',help='Stream data import'"`
+	Personalization PersonalizationCmd `kong:"cmd,aliases='p13n',help='Personalization API'"`
+	LLM             LLMCmd             `kong:"cmd,help='LLM API management'"`
 }
 
 // Global variable to signal handlers to return errors instead of calling os.Exit
@@ -2252,6 +2256,149 @@ func (cli *CLI) ToFlags() Flags {
 		KeyFile:            cli.KeyFile,
 		CAFile:             cli.CAFile,
 	}
+}
+
+// Postback commands
+type PostbackCmd struct {
+	Send PostbackSendCmd `kong:"cmd,help='Send event via postback'"`
+}
+
+type PostbackSendCmd struct {
+	Database string `kong:"arg,help='Database name'"`
+	Table    string `kong:"arg,help='Table name'"`
+	Data     string `kong:"arg,help='Event data as JSON string'"`
+}
+
+func (p *PostbackSendCmd) Run(ctx *CLIContext) error {
+	return runInstrumented(ctx, "postback.send", []string{p.Database, p.Table}, func() {
+		handlePostbackSend(ctx.Context, ctx.Client, []string{p.Database, p.Table, p.Data}, ctx.GlobalFlags)
+	})
+}
+
+// Stream Import commands
+type StreamCmd struct {
+	Import StreamImportCmd `kong:"cmd,help='Import data via stream import API'"`
+}
+
+type StreamImportCmd struct {
+	Database string `kong:"arg,help='Database name'"`
+	Table    string `kong:"arg,help='Table name'"`
+	FilePath string `kong:"arg,help='Path to msgpack.gz file'"`
+	UniqueID string `kong:"arg,optional,help='Unique ID for deduplication'"`
+}
+
+func (s *StreamImportCmd) Run(ctx *CLIContext) error {
+	return runInstrumented(ctx, "stream.import", []string{s.Database, s.Table, s.FilePath}, func() {
+		handleStreamImport(ctx.Context, ctx.Client, []string{s.Database, s.Table, s.FilePath, s.UniqueID}, ctx.GlobalFlags)
+	})
+}
+
+// Personalization commands
+type PersonalizationCmd struct {
+	Send PersonalizationSendCmd `kong:"cmd,help='Send personalization event'"`
+}
+
+type PersonalizationSendCmd struct {
+	Database string `kong:"arg,help='Database name'"`
+	Table    string `kong:"arg,help='Table name'"`
+	Data     string `kong:"arg,help='Event data as JSON string'"`
+	Token    string `kong:"help='Personalization token (WP13n-Token)'"`
+}
+
+func (p *PersonalizationSendCmd) Run(ctx *CLIContext) error {
+	return runInstrumented(ctx, "personalization.send", []string{p.Database, p.Table}, func() {
+		handlePersonalizationSend(ctx.Context, ctx.Client, []string{p.Database, p.Table, p.Data, p.Token}, ctx.GlobalFlags)
+	})
+}
+
+// LLM commands
+type LLMCmd struct {
+	Actions      LLMActionsCmd      `kong:"cmd,aliases='action',help='LLM action management'"`
+	Integrations LLMIntegrationsCmd `kong:"cmd,aliases='integration',help='LLM integration management'"`
+	Prompts      LLMPromptsCmd      `kong:"cmd,aliases='prompt',help='LLM prompt management'"`
+	Projects     LLMProjectsCmd     `kong:"cmd,aliases='project',help='LLM project management'"`
+}
+
+type LLMActionsCmd struct {
+	List    LLMActionsListCmd    `kong:"cmd,aliases='ls',help='List actions'"`
+	Get     LLMActionsGetCmd     `kong:"cmd,aliases='show',help='Get action details'"`
+	Execute LLMActionsExecuteCmd `kong:"cmd,help='Execute an action'"`
+}
+
+type LLMActionsListCmd struct{}
+
+func (l *LLMActionsListCmd) Run(ctx *CLIContext) error {
+	return runInstrumented(ctx, "llm.actions.list", []string{}, func() {
+		handleLLMActionList(ctx.Context, ctx.Client, ctx.GlobalFlags)
+	})
+}
+
+type LLMActionsGetCmd struct {
+	ActionID string `kong:"arg,help='Action ID'"`
+}
+
+func (l *LLMActionsGetCmd) Run(ctx *CLIContext) error {
+	return runInstrumented(ctx, "llm.actions.get", []string{l.ActionID}, func() {
+		handleLLMActionGet(ctx.Context, ctx.Client, []string{l.ActionID}, ctx.GlobalFlags)
+	})
+}
+
+type LLMActionsExecuteCmd struct {
+	ActionID string `kong:"arg,help='Action ID'"`
+	Input    string `kong:"arg,help='Input data as JSON string'"`
+}
+
+func (l *LLMActionsExecuteCmd) Run(ctx *CLIContext) error {
+	return runInstrumented(ctx, "llm.actions.execute", []string{l.ActionID}, func() {
+		handleLLMActionExecute(ctx.Context, ctx.Client, []string{l.ActionID, l.Input}, ctx.GlobalFlags)
+	})
+}
+
+type LLMIntegrationsCmd struct {
+	List LLMIntegrationsListCmd `kong:"cmd,aliases='ls',help='List integrations'"`
+}
+
+type LLMIntegrationsListCmd struct{}
+
+func (l *LLMIntegrationsListCmd) Run(ctx *CLIContext) error {
+	return runInstrumented(ctx, "llm.integrations.list", []string{}, func() {
+		handleLLMIntegrationList(ctx.Context, ctx.Client, ctx.GlobalFlags)
+	})
+}
+
+type LLMPromptsCmd struct {
+	List LLMPromptsListCmd `kong:"cmd,aliases='ls',help='List prompts'"`
+}
+
+type LLMPromptsListCmd struct{}
+
+func (l *LLMPromptsListCmd) Run(ctx *CLIContext) error {
+	return runInstrumented(ctx, "llm.prompts.list", []string{}, func() {
+		handleLLMPromptList(ctx.Context, ctx.Client, ctx.GlobalFlags)
+	})
+}
+
+type LLMProjectsCmd struct {
+	List LLMProjectsListCmd `kong:"cmd,aliases='ls',help='List projects'"`
+	Get  LLMProjectsGetCmd  `kong:"cmd,aliases='show',help='Get project details'"`
+}
+
+type LLMProjectsListCmd struct{}
+
+func (l *LLMProjectsListCmd) Run(ctx *CLIContext) error {
+	return runInstrumented(ctx, "llm.projects.list", []string{}, func() {
+		handleLLMProjectList(ctx.Context, ctx.Client, ctx.GlobalFlags)
+	})
+}
+
+type LLMProjectsGetCmd struct {
+	ProjectID string `kong:"arg,help='Project ID'"`
+}
+
+func (l *LLMProjectsGetCmd) Run(ctx *CLIContext) error {
+	return runInstrumented(ctx, "llm.projects.get", []string{l.ProjectID}, func() {
+		handleLLMProjectGet(ctx.Context, ctx.Client, []string{l.ProjectID}, ctx.GlobalFlags)
+	})
 }
 
 // ToOTELConfig converts CLI OTEL flags to OTELConfig
