@@ -8,6 +8,8 @@ import (
 	td "github.com/mickeey2525/treasuredata-go-sdk"
 )
 
+const streamImportSizeWarningThreshold = 100 * 1024 * 1024 // 100 MB
+
 func handleStreamImport(ctx context.Context, client *td.Client, args []string, flags Flags) {
 	if len(args) < 3 {
 		fmt.Println("Usage: tdcli stream import <database> <table> <file-path> [unique-id]")
@@ -29,6 +31,12 @@ func handleStreamImport(ctx context.Context, client *td.Client, args []string, f
 		return
 	}
 	defer file.Close()
+
+	if info, err := file.Stat(); err == nil {
+		if info.Size() > streamImportSizeWarningThreshold {
+			fmt.Printf("Warning: file size is %d MB (>100 MB). Large files may take a while or fail due to network timeouts.\n", info.Size()/(1024*1024))
+		}
+	}
 
 	var resp *td.ImportResponse
 	if uniqueID != "" {
