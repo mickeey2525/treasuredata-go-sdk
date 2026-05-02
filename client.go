@@ -38,6 +38,7 @@ var RegionalEndpoints = map[string]string{
 	"eu":    "https://api.eu01.treasuredata.com",
 	"tokyo": "https://api.treasuredata.co.jp",
 	"ap02":  "https://api.ap02.treasuredata.com",
+	"ap03":  "https://api.ap03.treasuredata.com",
 }
 
 // CDP Regional endpoints
@@ -46,6 +47,7 @@ var CDPRegionalEndpoints = map[string]string{
 	"eu":    "https://api-cdp.eu01.treasuredata.com",
 	"tokyo": "https://api-cdp.treasuredata.co.jp",
 	"ap02":  "https://api-cdp.ap02.treasuredata.com",
+	"ap03":  "https://api-cdp.ap03.treasuredata.com",
 }
 
 // Workflow Regional endpoints
@@ -54,6 +56,39 @@ var WorkflowRegionalEndpoints = map[string]string{
 	"eu":    "https://api-workflow.eu01.treasuredata.com",
 	"tokyo": "https://api-workflow.treasuredata.co.jp",
 	"ap02":  "https://api-workflow.ap02.treasuredata.com",
+	"ap03":  "https://api-workflow.ap03.treasuredata.com",
+}
+
+// Personalization Regional endpoints
+var PersonalizationRegionalEndpoints = map[string]string{
+	"us":    "https://us01.p13n.in.treasuredata.com",
+	"eu":    "https://eu01.p13n.in.treasuredata.com",
+	"tokyo": "https://ap01.p13n.in.treasuredata.com",
+	"ap02":  "https://ap02.p13n.in.treasuredata.com",
+}
+
+// LLM Regional endpoints
+var LLMRegionalEndpoints = map[string]string{
+	"us":    "https://llm-api.treasuredata.com",
+	"eu":    "https://llm-api.eu01.treasuredata.com",
+	"tokyo": "https://llm-api.treasuredata.co.jp",
+	"ap02":  "https://llm-api.ap02.treasuredata.com",
+}
+
+// Postback Regional endpoints
+var PostbackRegionalEndpoints = map[string]string{
+	"us":    "https://in.treasuredata.com",
+	"eu":    "https://eu01.in.treasuredata.com",
+	"tokyo": "https://tokyo.in.treasuredata.com",
+	"ap02":  "https://ap02.in.treasuredata.com",
+}
+
+// StreamImport Regional endpoints
+var StreamImportRegionalEndpoints = map[string]string{
+	"us":    "https://api-import.treasuredata.com",
+	"eu":    "https://api-import.eu01.treasuredata.com",
+	"tokyo": "https://api-import.treasuredata.co.jp",
+	"ap02":  "https://api-import.ap02.treasuredata.com",
 }
 
 // TDTime represents a time that can be unmarshaled from Treasure Data's timestamp format
@@ -134,6 +169,18 @@ type Client struct {
 	// Workflow API URL
 	WorkflowURL *url.URL
 
+	// Personalization API URL
+	PersonalizationURL *url.URL
+
+	// LLM API URL
+	LLMURL *url.URL
+
+	// Postback API URL
+	PostbackURL *url.URL
+
+	// Stream Import API URL
+	StreamImportURL *url.URL
+
 	// API key for authentication
 	APIKey string
 
@@ -145,16 +192,20 @@ type Client struct {
 	meter  metric.Meter
 
 	// Services for different API resources
-	Databases   *DatabasesService
-	Tables      *TablesService
-	Jobs        *JobsService
-	Queries     *QueriesService
-	Results     *ResultsService
-	Users       *UsersService
-	Permissions *PermissionsService
-	BulkImport  *BulkImportService
-	CDP         *CDPService
-	Workflow    *WorkflowService
+	Databases       *DatabasesService
+	Tables          *TablesService
+	Jobs            *JobsService
+	Queries         *QueriesService
+	Results         *ResultsService
+	Users           *UsersService
+	Permissions     *PermissionsService
+	BulkImport      *BulkImportService
+	CDP             *CDPService
+	Workflow        *WorkflowService
+	Personalization *PersonalizationService
+	LLM             *LLMService
+	Postback        *PostbackService
+	StreamImport    *StreamImportService
 }
 
 // ClientOption is a function that configures a Client
@@ -205,6 +256,35 @@ func WithRegion(region string) ClientOption {
 			}
 			c.WorkflowURL = u
 		}
+		if p13nEndpoint, ok := PersonalizationRegionalEndpoints[regionLower]; ok {
+			u, err := url.Parse(p13nEndpoint)
+			if err != nil {
+				return fmt.Errorf("invalid personalization regional endpoint for %s: %w", region, err)
+			}
+			c.PersonalizationURL = u
+		}
+		if llmEndpoint, ok := LLMRegionalEndpoints[regionLower]; ok {
+			u, err := url.Parse(llmEndpoint)
+			if err != nil {
+				return fmt.Errorf("invalid LLM regional endpoint for %s: %w", region, err)
+			}
+			c.LLMURL = u
+		}
+		if postbackEndpoint, ok := PostbackRegionalEndpoints[regionLower]; ok {
+			u, err := url.Parse(postbackEndpoint)
+			if err != nil {
+				return fmt.Errorf("invalid postback regional endpoint for %s: %w", region, err)
+			}
+			c.PostbackURL = u
+		}
+		if streamImportEndpoint, ok := StreamImportRegionalEndpoints[regionLower]; ok {
+			u, err := url.Parse(streamImportEndpoint)
+			if err != nil {
+				return fmt.Errorf("invalid stream import regional endpoint for %s: %w", region, err)
+			}
+			c.StreamImportURL = u
+		}
+
 		return nil
 	}
 }
@@ -315,16 +395,24 @@ func NewClient(apiKey string, opts ...ClientOption) (*Client, error) {
 	baseURL, _ := url.Parse(defaultBaseURL)
 	cdpURL, _ := url.Parse(CDPRegionalEndpoints["us"])
 	workflowURL, _ := url.Parse(WorkflowRegionalEndpoints["us"])
+	p13nURL, _ := url.Parse(PersonalizationRegionalEndpoints["us"])
+	llmURL, _ := url.Parse(LLMRegionalEndpoints["us"])
+	postbackURL, _ := url.Parse(PostbackRegionalEndpoints["us"])
+	streamImportURL, _ := url.Parse(StreamImportRegionalEndpoints["us"])
 
 	c := &Client{
 		httpClient: &http.Client{
 			Timeout: defaultTimeout,
 		},
-		BaseURL:     baseURL,
-		CDPURL:      cdpURL,
-		WorkflowURL: workflowURL,
-		APIKey:      apiKey,
-		UserAgent:   "treasuredata-go-sdk/1.0.0",
+		BaseURL:            baseURL,
+		CDPURL:             cdpURL,
+		WorkflowURL:        workflowURL,
+		PersonalizationURL: p13nURL,
+		LLMURL:             llmURL,
+		PostbackURL:        postbackURL,
+		StreamImportURL:    streamImportURL,
+		APIKey:             apiKey,
+		UserAgent:          "treasuredata-go-sdk/1.0.0",
 	}
 
 	// Apply options
@@ -345,6 +433,10 @@ func NewClient(apiKey string, opts ...ClientOption) (*Client, error) {
 	c.BulkImport = &BulkImportService{client: c}
 	c.CDP = &CDPService{client: c}
 	c.Workflow = &WorkflowService{client: c}
+	c.Personalization = &PersonalizationService{client: c}
+	c.LLM = &LLMService{client: c}
+	c.Postback = &PostbackService{client: c}
+	c.StreamImport = &StreamImportService{client: c}
 
 	return c, nil
 }
@@ -482,6 +574,142 @@ func (c *Client) NewCDPJSONAPIRequest(method, urlStr string, body interface{}) (
 // NewWorkflowRequest creates an API request for Workflow endpoints
 func (c *Client) NewWorkflowRequest(method, urlStr string, body interface{}) (*http.Request, error) {
 	u, err := c.WorkflowURL.Parse(urlStr)
+	if err != nil {
+		return nil, err
+	}
+
+	var buf io.ReadWriter
+	if body != nil {
+		buf = new(bytes.Buffer)
+		enc := json.NewEncoder(buf)
+		enc.SetEscapeHTML(false)
+		err := enc.Encode(body)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	req, err := http.NewRequest(method, u.String(), buf)
+	if err != nil {
+		return nil, err
+	}
+
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+
+	req.Header.Set("Authorization", fmt.Sprintf("TD1 %s", c.APIKey))
+	req.Header.Set("User-Agent", c.UserAgent)
+	req.Header.Set("Accept", "application/json")
+
+	return req, nil
+}
+
+// NewPersonalizationRequest creates an API request for Personalization endpoints
+func (c *Client) NewPersonalizationRequest(method, urlStr string, body interface{}) (*http.Request, error) {
+	u, err := c.PersonalizationURL.Parse(urlStr)
+	if err != nil {
+		return nil, err
+	}
+
+	var buf io.ReadWriter
+	if body != nil {
+		buf = new(bytes.Buffer)
+		enc := json.NewEncoder(buf)
+		enc.SetEscapeHTML(false)
+		err := enc.Encode(body)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	req, err := http.NewRequest(method, u.String(), buf)
+	if err != nil {
+		return nil, err
+	}
+
+	if body != nil {
+		req.Header.Set("Content-Type", "application/vnd.treasuredata.v1+json")
+	}
+
+	req.Header.Set("Authorization", fmt.Sprintf("TD1 %s", c.APIKey))
+	req.Header.Set("User-Agent", c.UserAgent)
+	req.Header.Set("Accept", "application/vnd.treasuredata.v1+json")
+
+	return req, nil
+}
+
+// NewLLMRequest creates an API request for LLM endpoints
+func (c *Client) NewLLMRequest(method, urlStr string, body interface{}) (*http.Request, error) {
+	u, err := c.LLMURL.Parse(urlStr)
+	if err != nil {
+		return nil, err
+	}
+
+	var buf io.ReadWriter
+	if body != nil {
+		buf = new(bytes.Buffer)
+		enc := json.NewEncoder(buf)
+		enc.SetEscapeHTML(false)
+		err := enc.Encode(body)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	req, err := http.NewRequest(method, u.String(), buf)
+	if err != nil {
+		return nil, err
+	}
+
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+
+	req.Header.Set("Authorization", fmt.Sprintf("TD1 %s", c.APIKey))
+	req.Header.Set("User-Agent", c.UserAgent)
+	req.Header.Set("Accept", "application/json")
+
+	return req, nil
+}
+
+// NewPostbackRequest creates an API request for Postback endpoints
+func (c *Client) NewPostbackRequest(method, urlStr string, body interface{}) (*http.Request, error) {
+	u, err := c.PostbackURL.Parse(urlStr)
+	if err != nil {
+		return nil, err
+	}
+
+	var buf io.ReadWriter
+	if body != nil {
+		buf = new(bytes.Buffer)
+		enc := json.NewEncoder(buf)
+		enc.SetEscapeHTML(false)
+		err := enc.Encode(body)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	req, err := http.NewRequest(method, u.String(), buf)
+	if err != nil {
+		return nil, err
+	}
+
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+
+	req.Header.Set("X-TD-Write-Key", c.APIKey)
+	req.Header.Set("User-Agent", c.UserAgent)
+	req.Header.Set("Accept", "application/json")
+
+	return req, nil
+}
+
+// NewStreamImportRequest creates an API request for Stream Import endpoints
+func (c *Client) NewStreamImportRequest(method, urlStr string, body interface{}) (*http.Request, error) {
+	u, err := c.StreamImportURL.Parse(urlStr)
 	if err != nil {
 		return nil, err
 	}
