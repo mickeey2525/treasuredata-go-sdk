@@ -971,6 +971,9 @@ func trinoClientError(operation string, err error, flags Flags) {
 	fmt.Printf("  Region: %s\n", flags.Region)
 	fmt.Printf("  Database: %s\n", flags.Database)
 
+	if captureHandlerErrors {
+		panic(fmt.Errorf("failed to %s: %v", operation, err))
+	}
 	log.Fatal("")
 }
 
@@ -1026,6 +1029,9 @@ func enhanceTrinoQueryError(operation string, err error, query string, flags Fla
 		fmt.Printf("  • Use --verbose flag for more detailed error information\n")
 	}
 
+	if captureHandlerErrors {
+		panic(fmt.Errorf("failed to %s: %v", operation, err))
+	}
 	log.Fatal("")
 }
 
