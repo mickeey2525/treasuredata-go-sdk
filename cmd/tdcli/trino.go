@@ -541,7 +541,7 @@ func handleTrinoInteractive(ctx context.Context, client *td.Client, _ []string, 
 			input = "SHOW TABLES"
 		case strings.HasPrefix(lowerInput, "use "):
 			newDB := strings.TrimSpace(input[4:])
-			newDB = strings.Trim(newDB, `"'`)
+			newDB = strings.Trim(newDB, `"';`)
 
 			if newDB == "" {
 				fmt.Println("❌ Error: Database name required. Usage: USE database_name")
@@ -951,7 +951,7 @@ func switchDatabase(trinoClient **td.TDTrinoClient, config *td.TDTrinoClientConf
 
 	fmt.Printf("🔄 Switching to database '%s'...\\n", newDB)
 
-	testQuery := fmt.Sprintf("SHOW TABLES FROM %s LIMIT 1", td.EscapeIdentifier(newDB))
+	testQuery := fmt.Sprintf("SHOW TABLES FROM %s", td.EscapeIdentifier(newDB))
 	testRows, testErr := (*trinoClient).Query(ctx, testQuery)
 	if testErr != nil {
 		fmt.Printf("❌ Cannot access database '%s'\\n", newDB)
