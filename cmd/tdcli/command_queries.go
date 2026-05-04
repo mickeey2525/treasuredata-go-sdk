@@ -18,11 +18,11 @@ type QuerySubmitCmd struct {
 }
 
 func (q *QuerySubmitCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "queries.submit", []string{q.Query}, func() {
+	return runInstrumented(ctx, "queries.submit", []string{q.Query}, func() error {
 		ctx.GlobalFlags.Database = q.Database
 		ctx.GlobalFlags.Priority = q.Priority
 		ctx.GlobalFlags.Engine = q.Engine
-		handleQuerySubmit(ctx.Context, ctx.Client, []string{q.Query}, ctx.GlobalFlags)
+		return handleQuerySubmit(ctx.Context, ctx.Client, []string{q.Query}, ctx.GlobalFlags)
 	})
 }
 
@@ -31,8 +31,8 @@ type QueryStatusCmd struct {
 }
 
 func (q *QueryStatusCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "queries.status", []string{q.JobID}, func() {
-		handleQueryStatus(ctx.Context, ctx.Client, []string{q.JobID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "queries.status", []string{q.JobID}, func() error {
+		return handleQueryStatus(ctx.Context, ctx.Client, []string{q.JobID}, ctx.GlobalFlags)
 	})
 }
 
@@ -42,9 +42,9 @@ type QueryResultCmd struct {
 }
 
 func (q *QueryResultCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "queries.result", []string{q.JobID}, func() {
+	return runInstrumented(ctx, "queries.result", []string{q.JobID}, func() error {
 		ctx.GlobalFlags.Limit = q.Limit
-		handleQueryResult(ctx.Context, ctx.Client, []string{q.JobID}, ctx.GlobalFlags)
+		return handleQueryResult(ctx.Context, ctx.Client, []string{q.JobID}, ctx.GlobalFlags)
 	})
 }
 
@@ -53,9 +53,9 @@ type QueryListCmd struct {
 }
 
 func (q *QueryListCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "queries.list", []string{}, func() {
+	return runInstrumented(ctx, "queries.list", []string{}, func() error {
 		ctx.GlobalFlags.Status = q.Status
-		handleQueryList(ctx.Context, ctx.Client, ctx.GlobalFlags)
+		return handleQueryList(ctx.Context, ctx.Client, ctx.GlobalFlags)
 	})
 }
 
@@ -64,7 +64,7 @@ type QueryCancelCmd struct {
 }
 
 func (q *QueryCancelCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "queries.cancel", []string{q.JobID}, func() {
-		handleQueryCancel(ctx.Context, ctx.Client, []string{q.JobID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "queries.cancel", []string{q.JobID}, func() error {
+		return handleQueryCancel(ctx.Context, ctx.Client, []string{q.JobID}, ctx.GlobalFlags)
 	})
 }

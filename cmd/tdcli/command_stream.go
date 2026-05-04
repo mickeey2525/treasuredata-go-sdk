@@ -12,7 +12,7 @@ type StreamImportCmd struct {
 }
 
 func (s *StreamImportCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "stream.import", []string{s.Database, s.Table, s.FilePath}, func() {
-		handleStreamImport(ctx.Context, ctx.Client, []string{s.Database, s.Table, s.FilePath, s.UniqueID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "stream.import", []string{s.Database, s.Table, s.FilePath}, func() error {
+		return handleStreamImport(ctx.Context, ctx.Client, []string{s.Database, s.Table, s.FilePath, s.UniqueID}, ctx.GlobalFlags)
 	})
 }

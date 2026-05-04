@@ -12,14 +12,14 @@ import (
 )
 
 // HandleListFunnels lists CDP funnels
-func HandleListFunnels(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleListFunnels(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 1 {
-		handleUsageError("Audience ID required", flags.Verbose)
+		return usageError("Audience ID required")
 	}
 
 	funnels, err := client.CDP.ListFunnels(ctx, args[0])
 	if err != nil {
-		handleError(err, "Failed to list funnels", flags.Verbose)
+		return wrapError(err, "failed to list funnels", flags.Verbose)
 	}
 
 	csvFormatter := func(data interface{}) string {
@@ -54,20 +54,20 @@ func HandleListFunnels(ctx context.Context, client *td.Client, args []string, fl
 	}
 
 	if err := formatAndWriteOutput(funnels, flags.Format, flags.Output, "id,name,created_at,updated_at", csvFormatter, tableFormatter); err != nil {
-		handleError(err, "Failed to write output", flags.Verbose)
+		return wrapError(err, "failed to write output", flags.Verbose)
 	}
+	return nil
 }
 
 // HandleCreateFunnel creates a new CDP funnel
-func HandleCreateFunnel(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleCreateFunnel(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 3 {
-		handleUsageError("Usage: cdp funnel create <audience-id> <name> <steps-json>", flags.Verbose)
+		return usageError("Usage: cdp funnel create <audience-id> <name> <steps-json>")
 	}
 
 	var stages []td.CDPFunnelStage
-	err := json.Unmarshal([]byte(args[2]), &stages)
-	if err != nil {
-		handleUsageError(fmt.Sprintf("Invalid stages JSON: %v", err), flags.Verbose)
+	if err := json.Unmarshal([]byte(args[2]), &stages); err != nil {
+		return usageError(fmt.Sprintf("Invalid stages JSON: %v", err))
 	}
 
 	req := td.CDPFunnelCreateRequest{
@@ -77,28 +77,29 @@ func HandleCreateFunnel(ctx context.Context, client *td.Client, args []string, f
 
 	funnel, err := client.CDP.CreateFunnel(ctx, args[0], req)
 	if err != nil {
-		handleError(err, "Failed to create funnel", flags.Verbose)
+		return wrapError(err, "failed to create funnel", flags.Verbose)
 	}
 
 	fmt.Printf("Funnel created successfully\n")
 	fmt.Printf("ID: %s\n", funnel.ID)
 	fmt.Printf("Name: %s\n", funnel.Name)
+	return nil
 }
 
 // HandleGetFunnel retrieves a specific funnel
-func HandleGetFunnel(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleGetFunnel(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 2 {
-		handleUsageError("Usage: cdp funnel get <audience-id> <funnel-id>", flags.Verbose)
+		return usageError("Usage: cdp funnel get <audience-id> <funnel-id>")
 	}
 
 	funnel, err := client.CDP.GetFunnel(ctx, args[0], args[1])
 	if err != nil {
-		handleError(err, "Failed to get funnel", flags.Verbose)
+		return wrapError(err, "failed to get funnel", flags.Verbose)
 	}
 
 	switch flags.Format {
 	case "json":
-		printJSON(funnel)
+		return printJSON(funnel)
 	case "csv":
 		fmt.Println("id,name,step_count,created_at,updated_at")
 		fmt.Printf("%s,%s,%d,%s,%s\n",
@@ -118,18 +119,18 @@ func HandleGetFunnel(ctx context.Context, client *td.Client, args []string, flag
 			}
 		}
 	}
+	return nil
 }
 
 // HandleUpdateFunnel updates a funnel
-func HandleUpdateFunnel(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleUpdateFunnel(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 4 {
-		handleUsageError("Usage: cdp funnel update <audience-id> <funnel-id> <name> <steps-json>", flags.Verbose)
+		return usageError("Usage: cdp funnel update <audience-id> <funnel-id> <name> <steps-json>")
 	}
 
 	var stages []td.CDPFunnelStage
-	err := json.Unmarshal([]byte(args[3]), &stages)
-	if err != nil {
-		handleUsageError(fmt.Sprintf("Invalid stages JSON: %v", err), flags.Verbose)
+	if err := json.Unmarshal([]byte(args[3]), &stages); err != nil {
+		return usageError(fmt.Sprintf("Invalid stages JSON: %v", err))
 	}
 
 	req := td.CDPFunnelCreateRequest{
@@ -139,30 +140,31 @@ func HandleUpdateFunnel(ctx context.Context, client *td.Client, args []string, f
 
 	funnel, err := client.CDP.UpdateFunnel(ctx, args[0], args[1], req)
 	if err != nil {
-		handleError(err, "Failed to update funnel", flags.Verbose)
+		return wrapError(err, "failed to update funnel", flags.Verbose)
 	}
 
 	fmt.Printf("Funnel %s updated successfully\n", funnel.ID)
+	return nil
 }
 
 // HandleDeleteFunnel deletes a funnel
-func HandleDeleteFunnel(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleDeleteFunnel(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 2 {
-		handleUsageError("Usage: cdp funnel delete <audience-id> <funnel-id>", flags.Verbose)
+		return usageError("Usage: cdp funnel delete <audience-id> <funnel-id>")
 	}
 
-	_, err := client.CDP.DeleteFunnel(ctx, args[0], args[1])
-	if err != nil {
-		handleError(err, "Failed to delete funnel", flags.Verbose)
+	if _, err := client.CDP.DeleteFunnel(ctx, args[0], args[1]); err != nil {
+		return wrapError(err, "failed to delete funnel", flags.Verbose)
 	}
 
 	fmt.Printf("Funnel %s deleted successfully\n", args[1])
+	return nil
 }
 
 // HandleCloneFunnel clones a funnel
-func HandleCloneFunnel(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleCloneFunnel(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 3 {
-		handleUsageError("Usage: cdp funnel clone <audience-id> <funnel-id> <new-name>", flags.Verbose)
+		return usageError("Usage: cdp funnel clone <audience-id> <funnel-id> <new-name>")
 	}
 
 	req := td.CDPFunnelCloneRequest{
@@ -170,28 +172,29 @@ func HandleCloneFunnel(ctx context.Context, client *td.Client, args []string, fl
 	}
 	funnel, err := client.CDP.CloneFunnel(ctx, args[0], args[1], req)
 	if err != nil {
-		handleError(err, "Failed to clone funnel", flags.Verbose)
+		return wrapError(err, "failed to clone funnel", flags.Verbose)
 	}
 
 	fmt.Printf("Funnel cloned successfully\n")
 	fmt.Printf("New Funnel ID: %s\n", funnel.ID)
 	fmt.Printf("Name: %s\n", funnel.Name)
+	return nil
 }
 
 // HandleGetFunnelStatistics gets funnel statistics
-func HandleGetFunnelStatistics(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleGetFunnelStatistics(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 2 {
-		handleUsageError("Usage: cdp funnel statistics <audience-id> <funnel-id>", flags.Verbose)
+		return usageError("Usage: cdp funnel statistics <audience-id> <funnel-id>")
 	}
 
 	stats, err := client.CDP.GetFunnelStatistics(ctx, args[0], args[1], nil)
 	if err != nil {
-		handleError(err, "Failed to get funnel statistics", flags.Verbose)
+		return wrapError(err, "failed to get funnel statistics", flags.Verbose)
 	}
 
 	switch flags.Format {
 	case "json":
-		printJSON(stats)
+		return printJSON(stats)
 	case "csv":
 		fmt.Println("stage_id,history_count")
 		for _, stage := range stats.Stages {
@@ -211,12 +214,13 @@ func HandleGetFunnelStatistics(ctx context.Context, client *td.Client, args []st
 			w.Flush()
 		}
 	}
+	return nil
 }
 
 // HandleCreateEntityFunnel creates a new entity funnel
-func HandleCreateEntityFunnel(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleCreateEntityFunnel(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 2 {
-		handleUsageError("Usage: cdp funnel create-entity <name> [description]", flags.Verbose)
+		return usageError("Usage: cdp funnel create-entity <name> [description]")
 	}
 
 	desc := ""
@@ -229,13 +233,13 @@ func HandleCreateEntityFunnel(ctx context.Context, client *td.Client, args []str
 		Attributes: td.CDPFunnelEntityAttributes{
 			Name:        args[0],
 			Description: &desc,
-			Stages:      []td.CDPFunnelStageEntity{}, // Empty stages for now
+			Stages:      []td.CDPFunnelStageEntity{},
 		},
 	}
 
 	funnel, err := client.CDP.CreateEntityFunnel(ctx, req)
 	if err != nil {
-		handleError(err, "Failed to create entity funnel", flags.Verbose)
+		return wrapError(err, "failed to create entity funnel", flags.Verbose)
 	}
 
 	if dataMap, ok := funnel.Data.(map[string]interface{}); ok {
@@ -249,22 +253,23 @@ func HandleCreateEntityFunnel(ctx context.Context, client *td.Client, args []str
 			}
 		}
 	}
+	return nil
 }
 
 // HandleGetEntityFunnel retrieves an entity funnel
-func HandleGetEntityFunnel(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleGetEntityFunnel(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 1 {
-		handleUsageError("Usage: cdp funnel get-entity <funnel-id>", flags.Verbose)
+		return usageError("Usage: cdp funnel get-entity <funnel-id>")
 	}
 
 	funnel, err := client.CDP.GetEntityFunnel(ctx, args[0])
 	if err != nil {
-		handleError(err, "Failed to get entity funnel", flags.Verbose)
+		return wrapError(err, "failed to get entity funnel", flags.Verbose)
 	}
 
 	switch flags.Format {
 	case "json":
-		printJSON(funnel)
+		return printJSON(funnel)
 	default:
 		if dataMap, ok := funnel.Data.(map[string]interface{}); ok {
 			if id, exists := dataMap["id"]; exists {
@@ -289,26 +294,25 @@ func HandleGetEntityFunnel(ctx context.Context, client *td.Client, args []string
 			}
 		}
 	}
+	return nil
 }
 
 // HandleUpdateEntityFunnel updates an entity funnel
-func HandleUpdateEntityFunnel(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleUpdateEntityFunnel(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 1 {
-		handleUsageError("Usage: cdp funnel update-entity <funnel-id> [key=value...]", flags.Verbose)
+		return usageError("Usage: cdp funnel update-entity <funnel-id> [key=value...]")
 	}
 
 	updates := make(map[string]interface{})
 
-	// Parse key=value pairs from remaining arguments
 	for _, arg := range args[1:] {
 		parts := strings.SplitN(arg, "=", 2)
 		if len(parts) != 2 {
-			handleUsageError(fmt.Sprintf("Invalid update format: %s (expected key=value)", arg), flags.Verbose)
+			return usageError(fmt.Sprintf("Invalid update format: %s (expected key=value)", arg))
 		}
 		updates[parts[0]] = parts[1]
 	}
 
-	// Parse flags for updates
 	if flags.Name != "" {
 		updates["name"] = flags.Name
 	}
@@ -318,7 +322,7 @@ func HandleUpdateEntityFunnel(ctx context.Context, client *td.Client, args []str
 
 	funnel, err := client.CDP.UpdateEntityFunnel(ctx, args[0], updates)
 	if err != nil {
-		handleError(err, "Failed to update entity funnel", flags.Verbose)
+		return wrapError(err, "failed to update entity funnel", flags.Verbose)
 	}
 
 	if dataMap, ok := funnel.Data.(map[string]interface{}); ok {
@@ -326,4 +330,5 @@ func HandleUpdateEntityFunnel(ctx context.Context, client *td.Client, args []str
 			fmt.Printf("Entity funnel %s updated successfully\n", id)
 		}
 	}
+	return nil
 }

@@ -2,8 +2,8 @@ package cdp
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
-	"log"
 	"os"
 
 	td "github.com/mickeey2525/treasuredata-go-sdk"
@@ -32,57 +32,43 @@ type Flags struct {
 	CAFile             string
 }
 
-// CaptureErrors signals handleError to panic instead of calling log.Fatalf.
-// Set by the main package's runHandlerWithErrorCapture when wrapping commands.
-var CaptureErrors = false
-
-// handleError handles errors with optional verbose output
-func handleError(err error, message string, verbose bool) {
-	if err != nil {
-		if CaptureErrors {
-			if verbose {
-				panic(fmt.Errorf("%s: %v", message, err))
-			}
-			panic(err)
-		}
+// wrapError returns a formatted error suitable for propagating up to the
+// caller. When verbose, it includes status/message details for TD API errors.
+func wrapError(err error, message string, verbose bool) error {
+	if err == nil {
+		return nil
 	}
 	if verbose {
-		if tdErr, ok := err.(*td.ErrorResponse); ok {
-			log.Fatalf("%s: %v (Status: %d, Message: %s)", message, err, tdErr.Response.StatusCode, tdErr.Message)
+		var tdErr *td.ErrorResponse
+		if errors.As(err, &tdErr) && tdErr.Response != nil {
+			return fmt.Errorf("%s: %w (status: %d, message: %s)", message, err, tdErr.Response.StatusCode, tdErr.Message)
 		}
 	}
-	log.Fatalf("%s: %v", message, err)
+	return fmt.Errorf("%s: %w", message, err)
 }
 
-// HandleError is an exported version of handleError for use in other files
-func HandleError(err error, verbose bool) {
-	handleError(err, "Operation failed", verbose)
+// usageError builds a usage-failure error for a missing/invalid arg.
+func usageError(message string) error {
+	return errors.New(message)
 }
 
-// handleUsageError handles usage errors with consistent formatting
-func handleUsageError(usageMessage string, verbose bool) {
-	if verbose {
-		log.Fatalf("Usage error: %s", usageMessage)
-	}
-	log.Fatalf("%s", usageMessage)
-}
-
-// FormatOutput formats and outputs data using JSON by default
-func FormatOutput(data interface{}, format, output string) {
-	switch format {
-	case "json":
-		printJSON(data)
-	default:
-		printJSON(data) // Default to JSON for new commands
-	}
-}
-
-// printJSON prints data as JSON
-func printJSON(data interface{}) {
+// printJSON encodes data as indented JSON to stdout.
+func printJSON(data interface{}) error {
 	encoder := json.NewEncoder(os.Stdout)
 	encoder.SetIndent("", "  ")
 	if err := encoder.Encode(data); err != nil {
-		log.Fatalf("Failed to encode JSON: %v", err)
+		return fmt.Errorf("failed to encode JSON: %w", err)
+	}
+	return nil
+}
+
+// FormatOutput formats and outputs data using JSON by default.
+func FormatOutput(data interface{}, format, output string) error {
+	switch format {
+	case "json":
+		return printJSON(data)
+	default:
+		return printJSON(data)
 	}
 }
 

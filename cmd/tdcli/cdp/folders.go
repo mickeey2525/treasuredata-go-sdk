@@ -11,9 +11,9 @@ import (
 )
 
 // HandleCreateAudienceFolder creates a new audience folder
-func HandleCreateAudienceFolder(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleCreateAudienceFolder(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 2 {
-		handleUsageError("Audience ID and folder name required", flags.Verbose)
+		return usageError("Audience ID and folder name required")
 	}
 
 	req := &td.CDPAudienceFolderCreateRequest{
@@ -28,29 +28,29 @@ func HandleCreateAudienceFolder(ctx context.Context, client *td.Client, args []s
 
 	folder, err := client.CDP.CreateAudienceFolder(ctx, args[0], req)
 	if err != nil {
-		handleError(err, "Failed to create audience folder", flags.Verbose)
+		return wrapError(err, "failed to create audience folder", flags.Verbose)
 	}
 
 	fmt.Printf("Audience folder created successfully\n")
 	fmt.Printf("ID: %s\n", folder.ID)
 	fmt.Printf("Name: %s\n", folder.Name)
+	return nil
 }
 
 // HandleUpdateAudienceFolder updates an audience folder
-func HandleUpdateAudienceFolder(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleUpdateAudienceFolder(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 3 {
-		handleUsageError("Usage: cdp folder update <audience-id> <folder-id> <key=value>...", flags.Verbose)
+		return usageError("Usage: cdp folder update <audience-id> <folder-id> <key=value>...")
 	}
 
 	audienceID := args[0]
 	folderID := args[1]
 	req := &td.CDPAudienceFolderUpdateRequest{}
 
-	// Parse key=value pairs
 	for _, arg := range args[2:] {
 		parts := strings.SplitN(arg, "=", 2)
 		if len(parts) != 2 {
-			handleUsageError(fmt.Sprintf("Invalid update format: %s (expected key=value)", arg), flags.Verbose)
+			return usageError(fmt.Sprintf("Invalid update format: %s (expected key=value)", arg))
 		}
 		switch parts[0] {
 		case "name":
@@ -58,46 +58,47 @@ func HandleUpdateAudienceFolder(ctx context.Context, client *td.Client, args []s
 		case "description":
 			req.Description = parts[1]
 		default:
-			handleUsageError(fmt.Sprintf("Unknown field: %s", parts[0]), flags.Verbose)
+			return usageError(fmt.Sprintf("Unknown field: %s", parts[0]))
 		}
 	}
 
 	folder, err := client.CDP.UpdateAudienceFolder(ctx, audienceID, folderID, req)
 	if err != nil {
-		handleError(err, "Failed to update audience folder", flags.Verbose)
+		return wrapError(err, "failed to update audience folder", flags.Verbose)
 	}
 
 	fmt.Printf("Audience folder %s updated successfully\n", folder.ID)
+	return nil
 }
 
 // HandleDeleteAudienceFolder deletes an audience folder
-func HandleDeleteAudienceFolder(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleDeleteAudienceFolder(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 2 {
-		handleUsageError("Usage: cdp folder delete <audience-id> <folder-id>", flags.Verbose)
+		return usageError("Usage: cdp folder delete <audience-id> <folder-id>")
 	}
 
-	err := client.CDP.DeleteAudienceFolder(ctx, args[0], args[1])
-	if err != nil {
-		handleError(err, "Failed to delete audience folder", flags.Verbose)
+	if err := client.CDP.DeleteAudienceFolder(ctx, args[0], args[1]); err != nil {
+		return wrapError(err, "failed to delete audience folder", flags.Verbose)
 	}
 
 	fmt.Printf("Audience folder %s deleted successfully\n", args[1])
+	return nil
 }
 
 // HandleGetAudienceFolder gets an audience folder
-func HandleGetAudienceFolder(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleGetAudienceFolder(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 2 {
-		handleUsageError("Audience ID and folder ID required", flags.Verbose)
+		return usageError("Audience ID and folder ID required")
 	}
 
 	folder, err := client.CDP.GetAudienceFolder(ctx, args[0], args[1])
 	if err != nil {
-		handleError(err, "Failed to get audience folder", flags.Verbose)
+		return wrapError(err, "failed to get audience folder", flags.Verbose)
 	}
 
 	switch flags.Format {
 	case "json":
-		printJSON(folder)
+		return printJSON(folder)
 	case "csv":
 		fmt.Println("id,audience_id,name,description,parent_id,created_at,updated_at")
 		parentID := ""
@@ -126,17 +127,18 @@ func HandleGetAudienceFolder(ctx context.Context, client *td.Client, args []stri
 		fmt.Printf("Created: %s\n", folder.CreatedAt.Format("2006-01-02 15:04:05"))
 		fmt.Printf("Updated: %s\n", folder.UpdatedAt.Format("2006-01-02 15:04:05"))
 	}
+	return nil
 }
 
 // HandleListFolders lists all folders in an audience
-func HandleListFolders(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleListFolders(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 1 {
-		handleUsageError("Audience ID required", flags.Verbose)
+		return usageError("Audience ID required")
 	}
 
 	resp, err := client.CDP.ListFolders(ctx, args[0])
 	if err != nil {
-		handleError(err, "Failed to list folders", flags.Verbose)
+		return wrapError(err, "failed to list folders", flags.Verbose)
 	}
 
 	csvFormatter := func(data interface{}) string {
@@ -186,14 +188,15 @@ func HandleListFolders(ctx context.Context, client *td.Client, args []string, fl
 	}
 
 	if err := formatAndWriteOutput(resp, flags.Format, flags.Output, "id,audience_id,name,description,parent_folder_id,created_at,updated_at", csvFormatter, tableFormatter); err != nil {
-		handleError(err, "Failed to write output", flags.Verbose)
+		return wrapError(err, "failed to write output", flags.Verbose)
 	}
+	return nil
 }
 
 // HandleCreateEntityFolder creates an entity folder
-func HandleCreateEntityFolder(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleCreateEntityFolder(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 1 {
-		handleUsageError("Folder name required", flags.Verbose)
+		return usageError("Folder name required")
 	}
 
 	req := &td.CDPFolderCreateRequest{
@@ -208,28 +211,29 @@ func HandleCreateEntityFolder(ctx context.Context, client *td.Client, args []str
 
 	folder, err := client.CDP.CreateEntityFolder(ctx, req)
 	if err != nil {
-		handleError(err, "Failed to create entity folder", flags.Verbose)
+		return wrapError(err, "failed to create entity folder", flags.Verbose)
 	}
 
 	fmt.Printf("Entity folder created successfully\n")
 	fmt.Printf("ID: %s\n", folder.ID)
 	fmt.Printf("Name: %s\n", folder.Name)
+	return nil
 }
 
 // HandleGetEntityFolder gets an entity folder
-func HandleGetEntityFolder(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleGetEntityFolder(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 1 {
-		handleUsageError("Folder ID required", flags.Verbose)
+		return usageError("Folder ID required")
 	}
 
 	folder, err := client.CDP.GetEntityFolder(ctx, args[0])
 	if err != nil {
-		handleError(err, "Failed to get entity folder", flags.Verbose)
+		return wrapError(err, "failed to get entity folder", flags.Verbose)
 	}
 
 	switch flags.Format {
 	case "json":
-		printJSON(folder)
+		return printJSON(folder)
 	default:
 		if dataMap, ok := folder.Data.(map[string]interface{}); ok {
 			if id, exists := dataMap["id"]; exists {
@@ -257,22 +261,22 @@ func HandleGetEntityFolder(ctx context.Context, client *td.Client, args []string
 			}
 		}
 	}
+	return nil
 }
 
 // HandleUpdateEntityFolder updates an entity folder
-func HandleUpdateEntityFolder(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleUpdateEntityFolder(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 2 {
-		handleUsageError("Usage: cdp folder update-entity <folder-id> <key=value>...", flags.Verbose)
+		return usageError("Usage: cdp folder update-entity <folder-id> <key=value>...")
 	}
 
 	folderID := args[0]
 	req := &td.CDPFolderUpdateRequest{}
 
-	// Parse key=value pairs
 	for _, arg := range args[1:] {
 		parts := strings.SplitN(arg, "=", 2)
 		if len(parts) != 2 {
-			handleUsageError(fmt.Sprintf("Invalid update format: %s (expected key=value)", arg), flags.Verbose)
+			return usageError(fmt.Sprintf("Invalid update format: %s (expected key=value)", arg))
 		}
 		switch parts[0] {
 		case "name":
@@ -280,48 +284,49 @@ func HandleUpdateEntityFolder(ctx context.Context, client *td.Client, args []str
 		case "description":
 			req.Description = parts[1]
 		default:
-			handleUsageError(fmt.Sprintf("Unknown field: %s", parts[0]), flags.Verbose)
+			return usageError(fmt.Sprintf("Unknown field: %s", parts[0]))
 		}
 	}
 
 	folder, err := client.CDP.UpdateEntityFolder(ctx, folderID, req)
 	if err != nil {
-		handleError(err, "Failed to update entity folder", flags.Verbose)
+		return wrapError(err, "failed to update entity folder", flags.Verbose)
 	}
 
 	fmt.Printf("Entity folder %s updated successfully\n", folder.ID)
+	return nil
 }
 
 // HandleDeleteEntityFolder deletes an entity folder
-func HandleDeleteEntityFolder(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleDeleteEntityFolder(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 1 {
-		handleUsageError("Folder ID required", flags.Verbose)
+		return usageError("Folder ID required")
 	}
 
-	err := client.CDP.DeleteEntityFolder(ctx, args[0])
-	if err != nil {
-		handleError(err, "Failed to delete entity folder", flags.Verbose)
+	if err := client.CDP.DeleteEntityFolder(ctx, args[0]); err != nil {
+		return wrapError(err, "failed to delete entity folder", flags.Verbose)
 	}
 
 	fmt.Printf("Entity folder %s deleted successfully\n", args[0])
+	return nil
 }
 
 // HandleGetEntitiesByFolder gets entities in a folder
-func HandleGetEntitiesByFolder(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleGetEntitiesByFolder(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 1 {
-		handleUsageError("Folder ID required", flags.Verbose)
+		return usageError("Folder ID required")
 	}
 
 	folderID := args[0]
 
 	entities, err := client.CDP.GetEntitiesByFolder(ctx, folderID)
 	if err != nil {
-		handleError(err, "Failed to get entities by folder", flags.Verbose)
+		return wrapError(err, "failed to get entities by folder", flags.Verbose)
 	}
 
 	switch flags.Format {
 	case "json":
-		printJSON(entities)
+		return printJSON(entities)
 	case "csv":
 		fmt.Println("id,type,name")
 		for _, entity := range entities.Data {
@@ -336,7 +341,7 @@ func HandleGetEntitiesByFolder(ctx context.Context, client *td.Client, args []st
 	default:
 		if len(entities.Data) == 0 {
 			fmt.Println("No entities found in folder")
-			return
+			return nil
 		}
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
@@ -353,4 +358,5 @@ func HandleGetEntitiesByFolder(ctx context.Context, client *td.Client, args []st
 		w.Flush()
 		fmt.Printf("\nTotal: %d entities\n", len(entities.Data))
 	}
+	return nil
 }

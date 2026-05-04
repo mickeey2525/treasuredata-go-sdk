@@ -10,8 +10,8 @@ type ResultsGetCmd struct {
 }
 
 func (r *ResultsGetCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "results.get", []string{r.JobID}, func() {
+	return runInstrumented(ctx, "results.get", []string{r.JobID}, func() error {
 		ctx.GlobalFlags.Limit = r.Limit
-		handleResultGet(ctx.Context, ctx.Client, []string{r.JobID}, ctx.GlobalFlags)
+		return handleResultGet(ctx.Context, ctx.Client, []string{r.JobID}, ctx.GlobalFlags)
 	})
 }

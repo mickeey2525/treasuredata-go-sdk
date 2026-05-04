@@ -3,6 +3,7 @@ package cdp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -12,41 +13,40 @@ import (
 )
 
 // HandleActivationCreate creates a new CDP activation
-func HandleActivationCreate(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleActivationCreate(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 4 {
-		handleUsageError("Segment ID, name, description, and configuration (JSON) required", flags.Verbose)
+		return usageError("Segment ID, name, description, and configuration (JSON) required")
 	}
 
 	var config map[string]interface{}
 	if args[3] != "" {
-		err := json.Unmarshal([]byte(args[3]), &config)
-		if err != nil {
-			handleUsageError(fmt.Sprintf("Invalid configuration JSON: %v", err), flags.Verbose)
+		if err := json.Unmarshal([]byte(args[3]), &config); err != nil {
+			return usageError(fmt.Sprintf("Invalid configuration JSON: %v", err))
 		}
 	}
 
 	activation, err := client.CDP.CreateActivation(ctx, args[0], args[1], args[2], config)
 	if err != nil {
-		handleError(err, "Failed to create activation", flags.Verbose)
+		return wrapError(err, "failed to create activation", flags.Verbose)
 	}
 
 	fmt.Printf("Activation created successfully\n")
 	fmt.Printf("ID: %s\n", activation.ID)
 	fmt.Printf("Name: %s\n", activation.Name)
 	fmt.Printf("Status: %s\n", activation.Status)
+	return nil
 }
 
 // HandleActivationCreateWithStruct creates a new CDP activation using struct-based API
-func HandleActivationCreateWithStruct(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleActivationCreateWithStruct(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 4 {
-		handleUsageError("Name, type, segment ID, and configuration (JSON) required", flags.Verbose)
+		return usageError("Name, type, segment ID, and configuration (JSON) required")
 	}
 
 	var config map[string]interface{}
 	if args[3] != "" {
-		err := json.Unmarshal([]byte(args[3]), &config)
-		if err != nil {
-			handleUsageError(fmt.Sprintf("Invalid configuration JSON: %v", err), flags.Verbose)
+		if err := json.Unmarshal([]byte(args[3]), &config); err != nil {
+			return usageError(fmt.Sprintf("Invalid configuration JSON: %v", err))
 		}
 	}
 
@@ -62,17 +62,18 @@ func HandleActivationCreateWithStruct(ctx context.Context, client *td.Client, ar
 
 	activation, err := client.CDP.CreateActivationWithRequest(ctx, args[2], req)
 	if err != nil {
-		handleError(err, "Failed to create activation with struct", flags.Verbose)
+		return wrapError(err, "failed to create activation with struct", flags.Verbose)
 	}
 
 	fmt.Printf("Activation created successfully\n")
 	fmt.Printf("ID: %s\n", activation.ID)
 	fmt.Printf("Name: %s\n", activation.Name)
 	fmt.Printf("Status: %s\n", activation.Status)
+	return nil
 }
 
 // HandleActivationListWithForce lists all activations with optional force flag
-func HandleActivationListWithForce(ctx context.Context, client *td.Client, flags Flags, force bool) {
+func HandleActivationListWithForce(ctx context.Context, client *td.Client, flags Flags, force bool) error {
 	fmt.Println("⚠️  Warning: 'cdp activations ls' lists activations from ALL audiences.")
 	fmt.Println("    For better performance, use specific commands:")
 	fmt.Println("    • cdp activations list-by-audience <audience-id>        - List activations for specific audience")
@@ -81,15 +82,14 @@ func HandleActivationListWithForce(ctx context.Context, client *td.Client, flags
 	fmt.Println("    • cdp audience ls                                      - List available audiences first")
 	fmt.Println()
 
-	// First get a list of audiences to show activations from all audiences
 	audiences, err := client.CDP.ListAudiences(ctx)
 	if err != nil {
-		handleError(err, "Failed to list audiences", flags.Verbose)
+		return wrapError(err, "failed to list audiences", flags.Verbose)
 	}
 
 	if len(audiences.Audiences) == 0 {
 		fmt.Println("No audiences found")
-		return
+		return nil
 	}
 
 	fmt.Printf("Found %d audiences. This will make %d API calls to collect all activations.\n", len(audiences.Audiences), len(audiences.Audiences))
@@ -103,7 +103,7 @@ func HandleActivationListWithForce(ctx context.Context, client *td.Client, flags
 
 		if response != "y" && response != "yes" {
 			fmt.Println("Operation cancelled.")
-			return
+			return nil
 		}
 	} else {
 		fmt.Println("Force flag enabled, skipping confirmation...")
@@ -111,7 +111,6 @@ func HandleActivationListWithForce(ctx context.Context, client *td.Client, flags
 
 	fmt.Printf("Collecting activations from %d audiences...\n", len(audiences.Audiences))
 
-	// Collect activations from all audiences
 	var allActivations []td.CDPActivation
 	total := len(audiences.Audiences)
 	for i, audience := range audiences.Audiences {
@@ -121,7 +120,6 @@ func HandleActivationListWithForce(ctx context.Context, client *td.Client, flags
 
 		resp, err := client.CDP.ListActivations(ctx, audience.ID, nil)
 		if err != nil {
-			// Skip this audience if there's an error, but continue with others
 			if flags.Verbose {
 				fmt.Printf("Warning: Failed to get activations for audience %s: %v\n", audience.ID, err)
 			}
@@ -132,7 +130,6 @@ func HandleActivationListWithForce(ctx context.Context, client *td.Client, flags
 
 	fmt.Printf("Completed! Collected %d total activations from %d audiences.\n", len(allActivations), total)
 
-	// Create a response with all collected activations
 	resp := &td.CDPActivationListResponse{
 		Activations: allActivations,
 		Total:       int64(len(allActivations)),
@@ -140,7 +137,7 @@ func HandleActivationListWithForce(ctx context.Context, client *td.Client, flags
 
 	switch flags.Format {
 	case "json":
-		printJSON(resp)
+		return printJSON(resp)
 	case "csv":
 		fmt.Println("id,name,type,audience_id,status,created_at,updated_at")
 		for _, activation := range resp.Activations {
@@ -153,7 +150,7 @@ func HandleActivationListWithForce(ctx context.Context, client *td.Client, flags
 	default:
 		if len(resp.Activations) == 0 {
 			fmt.Println("No activations found")
-			return
+			return nil
 		}
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
@@ -166,27 +163,28 @@ func HandleActivationListWithForce(ctx context.Context, client *td.Client, flags
 		w.Flush()
 		fmt.Printf("\nTotal: %d activations\n", resp.Total)
 	}
+	return nil
 }
 
 // HandleActivationGet retrieves a specific activation
-func HandleActivationGet(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleActivationGet(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 3 {
-		handleUsageError("Usage: cdp activation get <audience-id> <segment-id> <activation-id>", flags.Verbose)
+		return usageError("Usage: cdp activation get <audience-id> <segment-id> <activation-id>")
 	}
 
 	activation, err := client.CDP.GetActivation(ctx, args[0], args[1], args[2])
 	if err != nil {
-		handleError(err, "Failed to get activation", flags.Verbose)
+		return wrapError(err, "failed to get activation", flags.Verbose)
 	}
 
-	printActivationDetails(activation, flags)
+	return printActivationDetails(activation, flags)
 }
 
 // printActivationDetails prints activation details in various formats
-func printActivationDetails(activation *td.CDPActivation, flags Flags) {
+func printActivationDetails(activation *td.CDPActivation, flags Flags) error {
 	switch flags.Format {
 	case "json":
-		printJSON(activation)
+		return printJSON(activation)
 	case "csv":
 		fmt.Println("id,name,type,audience_id,status,created_at,updated_at")
 		fmt.Printf("%s,%s,%s,%s,%s,%s,%s\n",
@@ -253,73 +251,74 @@ func printActivationDetails(activation *td.CDPActivation, flags Flags) {
 			}
 		}
 	}
+	return nil
 }
 
 // HandleActivationUpdateStatus updates activation status
-func HandleActivationUpdateStatus(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleActivationUpdateStatus(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 4 {
-		handleUsageError("Usage: cdp activation update-status <audience-id> <segment-id> <activation-id> <status>", flags.Verbose)
+		return usageError("Usage: cdp activation update-status <audience-id> <segment-id> <activation-id> <status>")
 	}
 
-	_, err := client.CDP.UpdateActivationStatus(ctx, args[0], args[1], args[2], args[3])
-	if err != nil {
-		handleError(err, "Failed to update activation status", flags.Verbose)
+	if _, err := client.CDP.UpdateActivationStatus(ctx, args[0], args[1], args[2], args[3]); err != nil {
+		return wrapError(err, "failed to update activation status", flags.Verbose)
 	}
 
 	fmt.Printf("Activation status updated to '%s' successfully\n", args[3])
+	return nil
 }
 
 // HandleActivationUpdate updates an activation
-func HandleActivationUpdate(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleActivationUpdate(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 4 {
-		handleUsageError("Usage: cdp activation update <audience-id> <segment-id> <activation-id> <updates-json>", flags.Verbose)
+		return usageError("Usage: cdp activation update <audience-id> <segment-id> <activation-id> <updates-json>")
 	}
 
 	var updates td.CDPActivationUpdateRequest
-	err := json.Unmarshal([]byte(args[3]), &updates)
-	if err != nil {
-		handleUsageError(fmt.Sprintf("Invalid updates JSON: %v", err), flags.Verbose)
+	if err := json.Unmarshal([]byte(args[3]), &updates); err != nil {
+		return usageError(fmt.Sprintf("Invalid updates JSON: %v", err))
 	}
 
 	activation, err := client.CDP.UpdateActivation(ctx, args[0], args[1], args[2], &updates)
 	if err != nil {
-		handleError(err, "Failed to update activation", flags.Verbose)
+		return wrapError(err, "failed to update activation", flags.Verbose)
 	}
 
 	fmt.Printf("Activation updated successfully\n")
 	fmt.Printf("ID: %s\n", activation.ID)
 	fmt.Printf("Name: %s\n", activation.Name)
 	fmt.Printf("Status: %s\n", activation.Status)
+	return nil
 }
 
 // HandleActivationDelete deletes an activation
-func HandleActivationDelete(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleActivationDelete(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 3 {
-		handleUsageError("Usage: cdp activation delete <audience-id> <segment-id> <activation-id>", flags.Verbose)
+		return usageError("Usage: cdp activation delete <audience-id> <segment-id> <activation-id>")
 	}
 
-	err := client.CDP.DeleteActivation(ctx, args[0], args[1], args[2])
-	if err != nil {
-		handleError(err, "Failed to delete activation", flags.Verbose)
+	if err := client.CDP.DeleteActivation(ctx, args[0], args[1], args[2]); err != nil {
+		return wrapError(err, "failed to delete activation", flags.Verbose)
 	}
 
 	fmt.Printf("Activation %s deleted successfully\n", args[2])
+	return nil
 }
 
 // HandleActivationExecute executes an activation
-func HandleActivationExecute(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleActivationExecute(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 3 {
-		handleUsageError("Usage: cdp activation execute <audience-id> <segment-id> <activation-id>", flags.Verbose)
+		return usageError("Usage: cdp activation execute <audience-id> <segment-id> <activation-id>")
 	}
 
 	execution, err := client.CDP.ExecuteActivation(ctx, args[0], args[1], args[2])
 	if err != nil {
-		handleError(err, "Failed to execute activation", flags.Verbose)
+		return wrapError(err, "failed to execute activation", flags.Verbose)
 	}
 
 	switch flags.Format {
 	case "json":
-		printJSON(execution)
+		return printJSON(execution)
 	case "csv":
 		fmt.Println("id,status,created_at")
 		fmt.Printf("%s,%s,%s\n", execution.ID, execution.Status, execution.CreatedAt.Format("2006-01-02 15:04:05"))
@@ -329,17 +328,18 @@ func HandleActivationExecute(ctx context.Context, client *td.Client, args []stri
 		fmt.Printf("Status: %s\n", execution.Status)
 		fmt.Printf("Created: %s\n", execution.CreatedAt.Format("2006-01-02 15:04:05"))
 	}
+	return nil
 }
 
 // HandleActivationGetExecutions gets activation execution history
-func HandleActivationGetExecutions(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleActivationGetExecutions(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 3 {
-		handleUsageError("Usage: cdp activation executions <audience-id> <segment-id> <activation-id>", flags.Verbose)
+		return usageError("Usage: cdp activation executions <audience-id> <segment-id> <activation-id>")
 	}
 
 	executions, err := client.CDP.GetActivationExecutions(ctx, args[0], args[1], args[2])
 	if err != nil {
-		handleError(err, "Failed to get activation executions", flags.Verbose)
+		return wrapError(err, "failed to get activation executions", flags.Verbose)
 	}
 
 	csvFormatter := func(data interface{}) string {
@@ -370,28 +370,29 @@ func HandleActivationGetExecutions(ctx context.Context, client *td.Client, args 
 	}
 
 	if err := formatAndWriteOutput(executions, flags.Format, flags.Output, "id,status,created_at", csvFormatter, tableFormatter); err != nil {
-		handleError(err, "Failed to write output", flags.Verbose)
+		return wrapError(err, "failed to write output", flags.Verbose)
 	}
+	return nil
 }
 
 // HandleActivationListByAudience lists activations for a specific audience
-func HandleActivationListByAudience(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleActivationListByAudience(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 1 {
-		handleUsageError("Audience ID required", flags.Verbose)
+		return usageError("Audience ID required")
 	}
 
 	resp, err := client.CDP.ListActivations(ctx, args[0], nil)
 	if err != nil {
-		// Enhanced error handling for common issues
-		if tdErr, ok := err.(*td.ErrorResponse); ok {
+		var tdErr *td.ErrorResponse
+		if errors.As(err, &tdErr) && tdErr.Response != nil {
 			switch tdErr.Response.StatusCode {
 			case 422:
-				handleUsageError(fmt.Sprintf("Invalid audience ID '%s'. Please use a valid audience ID.\n\nTo find valid audience IDs, run:\n  cdp audiences ls\n\nIf you want activations for a parent segment, use:\n  cdp activations list-by-parent-segment %s", args[0], args[0]), flags.Verbose)
+				return usageError(fmt.Sprintf("Invalid audience ID '%s'. Please use a valid audience ID.\n\nTo find valid audience IDs, run:\n  cdp audiences ls\n\nIf you want activations for a parent segment, use:\n  cdp activations list-by-parent-segment %s", args[0], args[0]))
 			case 404:
-				handleUsageError(fmt.Sprintf("Audience '%s' not found. Please check the audience ID and try again.\n\nTo find valid audience IDs, run:\n  cdp audiences ls", args[0]), flags.Verbose)
+				return usageError(fmt.Sprintf("Audience '%s' not found. Please check the audience ID and try again.\n\nTo find valid audience IDs, run:\n  cdp audiences ls", args[0]))
 			}
 		}
-		handleError(err, "Failed to list activations", flags.Verbose)
+		return wrapError(err, "failed to list activations", flags.Verbose)
 	}
 
 	csvFormatter := func(data interface{}) string {
@@ -426,14 +427,15 @@ func HandleActivationListByAudience(ctx context.Context, client *td.Client, args
 	}
 
 	if err := formatAndWriteOutput(resp, flags.Format, flags.Output, "id,name,type,audience_id,status,created_at,updated_at", csvFormatter, tableFormatter); err != nil {
-		handleError(err, "Failed to write output", flags.Verbose)
+		return wrapError(err, "failed to write output", flags.Verbose)
 	}
+	return nil
 }
 
 // HandleActivationListBySegmentFolder lists activations for a segment folder
-func HandleActivationListBySegmentFolder(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleActivationListBySegmentFolder(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 1 {
-		handleUsageError("Segment folder ID required", flags.Verbose)
+		return usageError("Segment folder ID required")
 	}
 
 	opts := &td.CDPActivationListOptions{
@@ -443,7 +445,7 @@ func HandleActivationListBySegmentFolder(ctx context.Context, client *td.Client,
 
 	resp, err := client.CDP.GetSegmentFolderActivations(ctx, args[0], opts)
 	if err != nil {
-		handleError(err, "Failed to list activations for segment folder", flags.Verbose)
+		return wrapError(err, "failed to list activations for segment folder", flags.Verbose)
 	}
 
 	csvFormatter := func(data interface{}) string {
@@ -478,24 +480,25 @@ func HandleActivationListBySegmentFolder(ctx context.Context, client *td.Client,
 	}
 
 	if err := formatAndWriteOutput(resp, flags.Format, flags.Output, "id,name,type,audience_id,status,created_at,updated_at", csvFormatter, tableFormatter); err != nil {
-		handleError(err, "Failed to write output", flags.Verbose)
+		return wrapError(err, "failed to write output", flags.Verbose)
 	}
+	return nil
 }
 
 // HandleActivationRunForSegment runs activation for a segment
-func HandleActivationRunForSegment(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleActivationRunForSegment(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 2 {
-		handleUsageError("Usage: cdp activation run-segment <segment-id> <activation-id>", flags.Verbose)
+		return usageError("Usage: cdp activation run-segment <segment-id> <activation-id>")
 	}
 
 	execution, err := client.CDP.RunSegmentActivation(ctx, args[0], args[1])
 	if err != nil {
-		handleError(err, "Failed to run activation for segment", flags.Verbose)
+		return wrapError(err, "failed to run activation for segment", flags.Verbose)
 	}
 
 	switch flags.Format {
 	case "json":
-		printJSON(execution)
+		return printJSON(execution)
 	case "csv":
 		fmt.Println("id,status,created_at")
 		fmt.Printf("%s,%s,%s\n", execution.ID, execution.Status, execution.CreatedAt.Format("2006-01-02 15:04:05"))
@@ -505,12 +508,13 @@ func HandleActivationRunForSegment(ctx context.Context, client *td.Client, args 
 		fmt.Printf("Status: %s\n", execution.Status)
 		fmt.Printf("Created: %s\n", execution.CreatedAt.Format("2006-01-02 15:04:05"))
 	}
+	return nil
 }
 
 // HandleActivationListByParentSegment lists activations for a parent segment
-func HandleActivationListByParentSegment(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleActivationListByParentSegment(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 1 {
-		handleUsageError("Parent segment ID required", flags.Verbose)
+		return usageError("Parent segment ID required")
 	}
 
 	opts := &td.CDPActivationListOptions{
@@ -520,7 +524,7 @@ func HandleActivationListByParentSegment(ctx context.Context, client *td.Client,
 
 	resp, err := client.CDP.GetParentSegmentActivations(ctx, args[0], opts)
 	if err != nil {
-		handleError(err, "Failed to list activations for parent segment", flags.Verbose)
+		return wrapError(err, "failed to list activations for parent segment", flags.Verbose)
 	}
 
 	csvFormatter := func(data interface{}) string {
@@ -555,24 +559,25 @@ func HandleActivationListByParentSegment(ctx context.Context, client *td.Client,
 	}
 
 	if err := formatAndWriteOutput(resp, flags.Format, flags.Output, "id,name,type,audience_id,status,created_at,updated_at", csvFormatter, tableFormatter); err != nil {
-		handleError(err, "Failed to write output", flags.Verbose)
+		return wrapError(err, "failed to write output", flags.Verbose)
 	}
+	return nil
 }
 
 // HandleGetMatchedActivationsForParentSegment gets matched activations for a parent segment
-func HandleGetMatchedActivationsForParentSegment(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleGetMatchedActivationsForParentSegment(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 1 {
-		handleUsageError("Parent segment ID required", flags.Verbose)
+		return usageError("Parent segment ID required")
 	}
 
 	resp, err := client.CDP.GetParentSegmentMatchedActivations(ctx, args[0])
 	if err != nil {
-		handleError(err, "Failed to get matched activations for parent segment", flags.Verbose)
+		return wrapError(err, "failed to get matched activations for parent segment", flags.Verbose)
 	}
 
 	switch flags.Format {
 	case "json":
-		printJSON(resp)
+		return printJSON(resp)
 	case "csv":
 		fmt.Println("id,name,type,status,created_at")
 		for _, activation := range resp.Activations {
@@ -583,7 +588,7 @@ func HandleGetMatchedActivationsForParentSegment(ctx context.Context, client *td
 	default:
 		if len(resp.Activations) == 0 {
 			fmt.Println("No matched activations found for parent segment")
-			return
+			return nil
 		}
 		fmt.Printf("Matched Activations for Parent Segment %s:\n", args[0])
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
@@ -596,22 +601,23 @@ func HandleGetMatchedActivationsForParentSegment(ctx context.Context, client *td
 		w.Flush()
 		fmt.Printf("\nTotal: %d matched activations\n", len(resp.Activations))
 	}
+	return nil
 }
 
 // HandleGetWorkflowProjectsForParentSegment gets workflow projects for a parent segment
-func HandleGetWorkflowProjectsForParentSegment(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleGetWorkflowProjectsForParentSegment(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 1 {
-		handleUsageError("Parent segment ID required", flags.Verbose)
+		return usageError("Parent segment ID required")
 	}
 
 	resp, err := client.CDP.GetParentSegmentUserDefinedWorkflowProjects(ctx, args[0])
 	if err != nil {
-		handleError(err, "Failed to get workflow projects for parent segment", flags.Verbose)
+		return wrapError(err, "failed to get workflow projects for parent segment", flags.Verbose)
 	}
 
 	switch flags.Format {
 	case "json":
-		printJSON(resp)
+		return printJSON(resp)
 	case "csv":
 		fmt.Println("id,name,status,created_at")
 		for _, project := range resp.Projects {
@@ -622,7 +628,7 @@ func HandleGetWorkflowProjectsForParentSegment(ctx context.Context, client *td.C
 	default:
 		if len(resp.Projects) == 0 {
 			fmt.Println("No workflow projects found for parent segment")
-			return
+			return nil
 		}
 		fmt.Printf("Workflow Projects for Parent Segment %s:\n", args[0])
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
@@ -635,22 +641,23 @@ func HandleGetWorkflowProjectsForParentSegment(ctx context.Context, client *td.C
 		w.Flush()
 		fmt.Printf("\nTotal: %d workflow projects\n", len(resp.Projects))
 	}
+	return nil
 }
 
 // HandleGetWorkflowsForParentSegment gets workflows for a parent segment
-func HandleGetWorkflowsForParentSegment(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleGetWorkflowsForParentSegment(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 2 {
-		handleUsageError("Usage: cdp activations workflows <parent-segment-id> <workflow-project-name>", flags.Verbose)
+		return usageError("Usage: cdp activations workflows <parent-segment-id> <workflow-project-name>")
 	}
 
 	resp, err := client.CDP.GetParentSegmentUserDefinedWorkflows(ctx, args[0], args[1])
 	if err != nil {
-		handleError(err, "Failed to get workflows for parent segment", flags.Verbose)
+		return wrapError(err, "failed to get workflows for parent segment", flags.Verbose)
 	}
 
 	switch flags.Format {
 	case "json":
-		printJSON(resp)
+		return printJSON(resp)
 	case "csv":
 		fmt.Println("id,name,project_id,created_at")
 		for _, workflow := range resp.Workflows {
@@ -661,7 +668,7 @@ func HandleGetWorkflowsForParentSegment(ctx context.Context, client *td.Client, 
 	default:
 		if len(resp.Workflows) == 0 {
 			fmt.Println("No workflows found for parent segment")
-			return
+			return nil
 		}
 		fmt.Printf("Workflows for Parent Segment %s:\n", args[0])
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
@@ -674,4 +681,5 @@ func HandleGetWorkflowsForParentSegment(ctx context.Context, client *td.Client, 
 		w.Flush()
 		fmt.Printf("\nTotal: %d workflows\n", len(resp.Workflows))
 	}
+	return nil
 }

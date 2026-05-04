@@ -38,8 +38,8 @@ type CDPSegmentsCreateCmd struct {
 
 func (c *CDPSegmentsCreateCmd) Run(ctx *CLIContext) error {
 	args := []string{c.AudienceID, c.Name}
-	return runInstrumented(ctx, "cdp.segments.create", args, func() {
-		handleCDPSegmentCreate(ctx.Context, ctx.Client, []string{c.AudienceID, c.Name, c.Description, c.Query}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.segments.create", args, func() error {
+		return handleCDPSegmentCreate(ctx.Context, ctx.Client, []string{c.AudienceID, c.Name, c.Description, c.Query}, ctx.GlobalFlags)
 	})
 }
 
@@ -48,8 +48,8 @@ type CDPSegmentsListCmd struct {
 }
 
 func (c *CDPSegmentsListCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.segments.list", []string{c.AudienceID}, func() {
-		handleCDPSegmentList(ctx.Context, ctx.Client, []string{c.AudienceID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.segments.list", []string{c.AudienceID}, func() error {
+		return handleCDPSegmentList(ctx.Context, ctx.Client, []string{c.AudienceID}, ctx.GlobalFlags)
 	})
 }
 
@@ -59,8 +59,8 @@ type CDPSegmentsGetCmd struct {
 }
 
 func (c *CDPSegmentsGetCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.segments.get", []string{c.AudienceID, c.SegmentID}, func() {
-		handleCDPSegmentGet(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.segments.get", []string{c.AudienceID, c.SegmentID}, func() error {
+		return handleCDPSegmentGet(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentID}, ctx.GlobalFlags)
 	})
 }
 
@@ -72,8 +72,8 @@ type CDPSegmentsUpdateCmd struct {
 
 func (c *CDPSegmentsUpdateCmd) Run(ctx *CLIContext) error {
 	args := append([]string{c.AudienceID, c.SegmentID}, c.Updates...)
-	return runInstrumented(ctx, "cdp.segments.update", args, func() {
-		handleCDPSegmentUpdate(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.segments.update", args, func() error {
+		return handleCDPSegmentUpdate(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
 	})
 }
 
@@ -83,8 +83,8 @@ type CDPSegmentsDeleteCmd struct {
 }
 
 func (c *CDPSegmentsDeleteCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.segments.delete", []string{c.AudienceID, c.SegmentID}, func() {
-		handleCDPSegmentDelete(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.segments.delete", []string{c.AudienceID, c.SegmentID}, func() error {
+		return handleCDPSegmentDelete(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentID}, ctx.GlobalFlags)
 	})
 }
 
@@ -94,8 +94,8 @@ type CDPSegmentsFoldersCmd struct {
 }
 
 func (c *CDPSegmentsFoldersCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.segments.folders", []string{c.AudienceID, c.FolderID}, func() {
-		handleCDPSegmentFolders(ctx.Context, ctx.Client, []string{c.AudienceID, c.FolderID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.segments.folders", []string{c.AudienceID, c.FolderID}, func() error {
+		return handleCDPSegmentFolders(ctx.Context, ctx.Client, []string{c.AudienceID, c.FolderID}, ctx.GlobalFlags)
 	})
 }
 
@@ -105,8 +105,8 @@ type CDPSegmentsQueryCmd struct {
 }
 
 func (c *CDPSegmentsQueryCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.segments.query", []string{c.AudienceID}, func() {
-		handleCDPSegmentQuery(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentRules}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.segments.query", []string{c.AudienceID}, func() error {
+		return handleCDPSegmentQuery(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentRules}, ctx.GlobalFlags)
 	})
 }
 
@@ -117,8 +117,8 @@ type CDPSegmentsNewQueryCmd struct {
 }
 
 func (c *CDPSegmentsNewQueryCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.segments.new_query", []string{c.AudienceID, c.SegmentID}, func() {
-		handleCDPSegmentNewQuery(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentID, c.Query}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.segments.new_query", []string{c.AudienceID, c.SegmentID}, func() error {
+		return handleCDPSegmentNewQuery(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentID, c.Query}, ctx.GlobalFlags)
 	})
 }
 
@@ -129,8 +129,8 @@ type CDPSegmentsQueryStatusCmd struct {
 }
 
 func (c *CDPSegmentsQueryStatusCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.segments.query_status", []string{c.AudienceID, c.SegmentID, c.QueryID}, func() {
-		handleCDPSegmentQueryStatus(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentID, c.QueryID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.segments.query_status", []string{c.AudienceID, c.SegmentID, c.QueryID}, func() error {
+		return handleCDPSegmentQueryStatus(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentID, c.QueryID}, ctx.GlobalFlags)
 	})
 }
 
@@ -141,8 +141,8 @@ type CDPSegmentsKillQueryCmd struct {
 }
 
 func (c *CDPSegmentsKillQueryCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.segments.kill_query", []string{c.AudienceID, c.SegmentID, c.QueryID}, func() {
-		handleCDPSegmentKillQuery(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentID, c.QueryID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.segments.kill_query", []string{c.AudienceID, c.SegmentID, c.QueryID}, func() error {
+		return handleCDPSegmentKillQuery(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentID, c.QueryID}, ctx.GlobalFlags)
 	})
 }
 
@@ -155,8 +155,8 @@ type CDPSegmentsCustomersCmd struct {
 }
 
 func (c *CDPSegmentsCustomersCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.segments.customers", []string{c.AudienceID, c.SegmentID}, func() {
-		handleCDPSegmentCustomers(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.segments.customers", []string{c.AudienceID, c.SegmentID}, func() error {
+		return handleCDPSegmentCustomers(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentID}, ctx.GlobalFlags)
 	})
 }
 
@@ -166,8 +166,8 @@ type CDPSegmentsStatisticsCmd struct {
 }
 
 func (c *CDPSegmentsStatisticsCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.segments.statistics", []string{c.AudienceID, c.SegmentID}, func() {
-		handleCDPSegmentStatistics(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.segments.statistics", []string{c.AudienceID, c.SegmentID}, func() error {
+		return handleCDPSegmentStatistics(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentID}, ctx.GlobalFlags)
 	})
 }
 
@@ -193,16 +193,16 @@ type CDPAudiencesCreateCmd struct {
 }
 
 func (c *CDPAudiencesCreateCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.audiences.create", []string{c.Name}, func() {
-		handleCDPAudienceCreate(ctx.Context, ctx.Client, []string{c.Name, c.Description, c.SegmentIDs}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.audiences.create", []string{c.Name}, func() error {
+		return handleCDPAudienceCreate(ctx.Context, ctx.Client, []string{c.Name, c.Description, c.SegmentIDs}, ctx.GlobalFlags)
 	})
 }
 
 type CDPAudiencesListCmd struct{}
 
 func (c *CDPAudiencesListCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.audiences.list", []string{}, func() {
-		handleCDPAudienceList(ctx.Context, ctx.Client, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.audiences.list", []string{}, func() error {
+		return handleCDPAudienceList(ctx.Context, ctx.Client, ctx.GlobalFlags)
 	})
 }
 
@@ -211,8 +211,8 @@ type CDPAudiencesGetCmd struct {
 }
 
 func (c *CDPAudiencesGetCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.audiences.get", []string{c.AudienceID}, func() {
-		handleCDPAudienceGet(ctx.Context, ctx.Client, []string{c.AudienceID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.audiences.get", []string{c.AudienceID}, func() error {
+		return handleCDPAudienceGet(ctx.Context, ctx.Client, []string{c.AudienceID}, ctx.GlobalFlags)
 	})
 }
 
@@ -221,8 +221,8 @@ type CDPAudiencesDeleteCmd struct {
 }
 
 func (c *CDPAudiencesDeleteCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.audiences.delete", []string{c.AudienceID}, func() {
-		handleCDPAudienceDelete(ctx.Context, ctx.Client, []string{c.AudienceID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.audiences.delete", []string{c.AudienceID}, func() error {
+		return handleCDPAudienceDelete(ctx.Context, ctx.Client, []string{c.AudienceID}, ctx.GlobalFlags)
 	})
 }
 
@@ -231,8 +231,8 @@ type CDPAudiencesBehaviorsCmd struct {
 }
 
 func (c *CDPAudiencesBehaviorsCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.audiences.behaviors", []string{c.AudienceID}, func() {
-		handleCDPAudienceBehaviors(ctx.Context, ctx.Client, []string{c.AudienceID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.audiences.behaviors", []string{c.AudienceID}, func() error {
+		return handleCDPAudienceBehaviors(ctx.Context, ctx.Client, []string{c.AudienceID}, ctx.GlobalFlags)
 	})
 }
 
@@ -241,8 +241,8 @@ type CDPAudiencesRunCmd struct {
 }
 
 func (c *CDPAudiencesRunCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.audiences.run", []string{c.AudienceID}, func() {
-		handleCDPAudienceRun(ctx.Context, ctx.Client, []string{c.AudienceID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.audiences.run", []string{c.AudienceID}, func() error {
+		return handleCDPAudienceRun(ctx.Context, ctx.Client, []string{c.AudienceID}, ctx.GlobalFlags)
 	})
 }
 
@@ -251,8 +251,8 @@ type CDPAudiencesExecutionsCmd struct {
 }
 
 func (c *CDPAudiencesExecutionsCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.audiences.executions", []string{c.AudienceID}, func() {
-		handleCDPAudienceExecutions(ctx.Context, ctx.Client, []string{c.AudienceID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.audiences.executions", []string{c.AudienceID}, func() error {
+		return handleCDPAudienceExecutions(ctx.Context, ctx.Client, []string{c.AudienceID}, ctx.GlobalFlags)
 	})
 }
 
@@ -261,8 +261,8 @@ type CDPAudiencesStatisticsCmd struct {
 }
 
 func (c *CDPAudiencesStatisticsCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.audiences.statistics", []string{c.AudienceID}, func() {
-		handleCDPAudienceStatistics(ctx.Context, ctx.Client, []string{c.AudienceID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.audiences.statistics", []string{c.AudienceID}, func() error {
+		return handleCDPAudienceStatistics(ctx.Context, ctx.Client, []string{c.AudienceID}, ctx.GlobalFlags)
 	})
 }
 
@@ -272,8 +272,8 @@ type CDPAudiencesSampleValuesCmd struct {
 }
 
 func (c *CDPAudiencesSampleValuesCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.audiences.sample_values", []string{c.AudienceID}, func() {
-		handleCDPAudienceSampleValues(ctx.Context, ctx.Client, []string{c.AudienceID, c.Column}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.audiences.sample_values", []string{c.AudienceID}, func() error {
+		return handleCDPAudienceSampleValues(ctx.Context, ctx.Client, []string{c.AudienceID, c.Column}, ctx.GlobalFlags)
 	})
 }
 
@@ -284,8 +284,8 @@ type CDPAudiencesBehaviorSamplesCmd struct {
 }
 
 func (c *CDPAudiencesBehaviorSamplesCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.audiences.behavior_samples", []string{c.AudienceID, c.BehaviorID}, func() {
-		handleCDPAudienceBehaviorSamples(ctx.Context, ctx.Client, []string{c.AudienceID, c.BehaviorID, c.Column}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.audiences.behavior_samples", []string{c.AudienceID, c.BehaviorID}, func() error {
+		return handleCDPAudienceBehaviorSamples(ctx.Context, ctx.Client, []string{c.AudienceID, c.BehaviorID, c.Column}, ctx.GlobalFlags)
 	})
 }
 
@@ -318,8 +318,8 @@ type CDPActivationsCreateCmd struct {
 }
 
 func (c *CDPActivationsCreateCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.activations.create", []string{c.SegmentID, c.Name}, func() {
-		handleCDPActivationCreate(ctx.Context, ctx.Client, []string{c.SegmentID, c.Name, c.Description, c.Configuration}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.activations.create", []string{c.SegmentID, c.Name}, func() error {
+		return handleCDPActivationCreate(ctx.Context, ctx.Client, []string{c.SegmentID, c.Name, c.Description, c.Configuration}, ctx.GlobalFlags)
 	})
 }
 
@@ -332,12 +332,12 @@ type CDPActivationsCreateWithStructCmd struct {
 }
 
 func (c *CDPActivationsCreateWithStructCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.activations.create_with_struct", []string{c.Name, c.SegmentID}, func() {
+	return runInstrumented(ctx, "cdp.activations.create_with_struct", []string{c.Name, c.SegmentID}, func() error {
 		args := []string{c.Name, c.Type, c.SegmentID, c.Configuration}
 		if c.Description != "" {
 			args = append(args, c.Description)
 		}
-		handleCDPActivationCreateWithStruct(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
+		return handleCDPActivationCreateWithStruct(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
 	})
 }
 
@@ -346,8 +346,8 @@ type CDPActivationsListCmd struct {
 }
 
 func (c *CDPActivationsListCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.activations.list", []string{}, func() {
-		handleCDPActivationListWithForce(ctx.Context, ctx.Client, ctx.GlobalFlags, c.Force)
+	return runInstrumented(ctx, "cdp.activations.list", []string{}, func() error {
+		return handleCDPActivationListWithForce(ctx.Context, ctx.Client, ctx.GlobalFlags, c.Force)
 	})
 }
 
@@ -358,8 +358,8 @@ type CDPActivationsGetCmd struct {
 }
 
 func (c *CDPActivationsGetCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.activations.get", []string{c.AudienceID, c.SegmentID, c.ActivationID}, func() {
-		handleCDPActivationGet(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentID, c.ActivationID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.activations.get", []string{c.AudienceID, c.SegmentID, c.ActivationID}, func() error {
+		return handleCDPActivationGet(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentID, c.ActivationID}, ctx.GlobalFlags)
 	})
 }
 
@@ -370,8 +370,8 @@ type CDPActivationsUpdateCmd struct {
 
 func (c *CDPActivationsUpdateCmd) Run(ctx *CLIContext) error {
 	args := append([]string{c.ActivationID}, c.Updates...)
-	return runInstrumented(ctx, "cdp.activations.update", args, func() {
-		handleCDPActivationUpdate(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.activations.update", args, func() error {
+		return handleCDPActivationUpdate(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
 	})
 }
 
@@ -381,8 +381,8 @@ type CDPActivationsUpdateStatusCmd struct {
 }
 
 func (c *CDPActivationsUpdateStatusCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.activations.update_status", []string{c.ActivationID, c.Status}, func() {
-		handleCDPActivationUpdateStatus(ctx.Context, ctx.Client, []string{c.ActivationID, c.Status}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.activations.update_status", []string{c.ActivationID, c.Status}, func() error {
+		return handleCDPActivationUpdateStatus(ctx.Context, ctx.Client, []string{c.ActivationID, c.Status}, ctx.GlobalFlags)
 	})
 }
 
@@ -391,8 +391,8 @@ type CDPActivationsDeleteCmd struct {
 }
 
 func (c *CDPActivationsDeleteCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.activations.delete", []string{c.ActivationID}, func() {
-		handleCDPActivationDelete(ctx.Context, ctx.Client, []string{c.ActivationID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.activations.delete", []string{c.ActivationID}, func() error {
+		return handleCDPActivationDelete(ctx.Context, ctx.Client, []string{c.ActivationID}, ctx.GlobalFlags)
 	})
 }
 
@@ -401,8 +401,8 @@ type CDPActivationsExecuteCmd struct {
 }
 
 func (c *CDPActivationsExecuteCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.activations.execute", []string{c.ActivationID}, func() {
-		handleCDPExecuteActivation(ctx.Context, ctx.Client, []string{c.ActivationID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.activations.execute", []string{c.ActivationID}, func() error {
+		return handleCDPExecuteActivation(ctx.Context, ctx.Client, []string{c.ActivationID}, ctx.GlobalFlags)
 	})
 }
 
@@ -413,8 +413,8 @@ type CDPActivationsExecutionsCmd struct {
 }
 
 func (c *CDPActivationsExecutionsCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.activations.executions", []string{c.AudienceID, c.SegmentID, c.ActivationID}, func() {
-		handleCDPGetActivationExecutions(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentID, c.ActivationID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.activations.executions", []string{c.AudienceID, c.SegmentID, c.ActivationID}, func() error {
+		return handleCDPGetActivationExecutions(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentID, c.ActivationID}, ctx.GlobalFlags)
 	})
 }
 
@@ -423,8 +423,8 @@ type CDPActivationsListByAudienceCmd struct {
 }
 
 func (c *CDPActivationsListByAudienceCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.activations.list_by_audience", []string{c.AudienceID}, func() {
-		handleCDPListActivationsByAudience(ctx.Context, ctx.Client, []string{c.AudienceID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.activations.list_by_audience", []string{c.AudienceID}, func() error {
+		return handleCDPListActivationsByAudience(ctx.Context, ctx.Client, []string{c.AudienceID}, ctx.GlobalFlags)
 	})
 }
 
@@ -433,8 +433,8 @@ type CDPActivationsListBySegmentFolderCmd struct {
 }
 
 func (c *CDPActivationsListBySegmentFolderCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.activations.list_by_segment_folder", []string{c.FolderID}, func() {
-		handleCDPListActivationsBySegmentFolder(ctx.Context, ctx.Client, []string{c.FolderID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.activations.list_by_segment_folder", []string{c.FolderID}, func() error {
+		return handleCDPListActivationsBySegmentFolder(ctx.Context, ctx.Client, []string{c.FolderID}, ctx.GlobalFlags)
 	})
 }
 
@@ -444,8 +444,8 @@ type CDPActivationsRunSegmentCmd struct {
 }
 
 func (c *CDPActivationsRunSegmentCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.activations.run_segment", []string{c.ActivationID, c.SegmentID}, func() {
-		handleCDPRunActivationForSegment(ctx.Context, ctx.Client, []string{c.ActivationID, c.SegmentID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.activations.run_segment", []string{c.ActivationID, c.SegmentID}, func() error {
+		return handleCDPRunActivationForSegment(ctx.Context, ctx.Client, []string{c.ActivationID, c.SegmentID}, ctx.GlobalFlags)
 	})
 }
 
@@ -454,8 +454,8 @@ type CDPActivationsListByParentSegmentCmd struct {
 }
 
 func (c *CDPActivationsListByParentSegmentCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.activations.list_by_parent_segment", []string{c.SegmentID}, func() {
-		handleCDPListActivationsByParentSegment(ctx.Context, ctx.Client, []string{c.SegmentID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.activations.list_by_parent_segment", []string{c.SegmentID}, func() error {
+		return handleCDPListActivationsByParentSegment(ctx.Context, ctx.Client, []string{c.SegmentID}, ctx.GlobalFlags)
 	})
 }
 
@@ -464,8 +464,8 @@ type CDPActivationsWorkflowProjectsCmd struct {
 }
 
 func (c *CDPActivationsWorkflowProjectsCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.activations.workflow_projects", []string{c.SegmentID}, func() {
-		handleCDPGetWorkflowProjectsForParentSegment(ctx.Context, ctx.Client, []string{c.SegmentID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.activations.workflow_projects", []string{c.SegmentID}, func() error {
+		return handleCDPGetWorkflowProjectsForParentSegment(ctx.Context, ctx.Client, []string{c.SegmentID}, ctx.GlobalFlags)
 	})
 }
 
@@ -475,8 +475,8 @@ type CDPActivationsWorkflowsCmd struct {
 }
 
 func (c *CDPActivationsWorkflowsCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.activations.workflows", []string{c.SegmentID, c.WorkflowProjectName}, func() {
-		handleCDPGetWorkflowsForParentSegment(ctx.Context, ctx.Client, []string{c.SegmentID, c.WorkflowProjectName}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.activations.workflows", []string{c.SegmentID, c.WorkflowProjectName}, func() error {
+		return handleCDPGetWorkflowsForParentSegment(ctx.Context, ctx.Client, []string{c.SegmentID, c.WorkflowProjectName}, ctx.GlobalFlags)
 	})
 }
 
@@ -485,8 +485,8 @@ type CDPActivationsMatchedActivationsCmd struct {
 }
 
 func (c *CDPActivationsMatchedActivationsCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.activations.matched_activations", []string{c.SegmentID}, func() {
-		handleCDPGetMatchedActivationsForParentSegment(ctx.Context, ctx.Client, []string{c.SegmentID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.activations.matched_activations", []string{c.SegmentID}, func() error {
+		return handleCDPGetMatchedActivationsForParentSegment(ctx.Context, ctx.Client, []string{c.SegmentID}, ctx.GlobalFlags)
 	})
 }
 
@@ -508,8 +508,8 @@ type CDPFoldersListCmd struct {
 }
 
 func (c *CDPFoldersListCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.folders.list", []string{c.AudienceID}, func() {
-		handleCDPListFolders(ctx.Context, ctx.Client, []string{c.AudienceID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.folders.list", []string{c.AudienceID}, func() error {
+		return handleCDPListFolders(ctx.Context, ctx.Client, []string{c.AudienceID}, ctx.GlobalFlags)
 	})
 }
 
@@ -522,7 +522,7 @@ type CDPFoldersCreateCmd struct {
 
 func (c *CDPFoldersCreateCmd) Run(ctx *CLIContext) error {
 	args := []string{c.AudienceID, c.Name}
-	return runInstrumented(ctx, "cdp.folders.create_audience", args, func() {
+	return runInstrumented(ctx, "cdp.folders.create_audience", args, func() error {
 		realArgs := []string{c.AudienceID, c.Name}
 		if c.Description != "" {
 			realArgs = append(realArgs, c.Description)
@@ -530,7 +530,7 @@ func (c *CDPFoldersCreateCmd) Run(ctx *CLIContext) error {
 		if c.ParentID != "" {
 			realArgs = append(realArgs, c.ParentID)
 		}
-		handleCDPCreateAudienceFolder(ctx.Context, ctx.Client, realArgs, ctx.GlobalFlags)
+		return handleCDPCreateAudienceFolder(ctx.Context, ctx.Client, realArgs, ctx.GlobalFlags)
 	})
 }
 
@@ -540,8 +540,8 @@ type CDPFoldersGetCmd struct {
 }
 
 func (c *CDPFoldersGetCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.folders.get_audience", []string{c.AudienceID, c.FolderID}, func() {
-		handleCDPGetAudienceFolder(ctx.Context, ctx.Client, []string{c.AudienceID, c.FolderID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.folders.get_audience", []string{c.AudienceID, c.FolderID}, func() error {
+		return handleCDPGetAudienceFolder(ctx.Context, ctx.Client, []string{c.AudienceID, c.FolderID}, ctx.GlobalFlags)
 	})
 }
 
@@ -553,7 +553,7 @@ type CDPFoldersCreateEntityCmd struct {
 
 func (c *CDPFoldersCreateEntityCmd) Run(ctx *CLIContext) error {
 	args := []string{c.Name}
-	return runInstrumented(ctx, "cdp.folders.create_entity", args, func() {
+	return runInstrumented(ctx, "cdp.folders.create_entity", args, func() error {
 		realArgs := []string{c.Name}
 		if c.Description != "" {
 			realArgs = append(realArgs, c.Description)
@@ -561,7 +561,7 @@ func (c *CDPFoldersCreateEntityCmd) Run(ctx *CLIContext) error {
 		if c.ParentID != "" {
 			realArgs = append(realArgs, c.ParentID)
 		}
-		handleCDPCreateEntityFolder(ctx.Context, ctx.Client, realArgs, ctx.GlobalFlags)
+		return handleCDPCreateEntityFolder(ctx.Context, ctx.Client, realArgs, ctx.GlobalFlags)
 	})
 }
 
@@ -570,8 +570,8 @@ type CDPFoldersGetEntityCmd struct {
 }
 
 func (c *CDPFoldersGetEntityCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.folders.get_entity", []string{c.FolderID}, func() {
-		handleCDPGetEntityFolder(ctx.Context, ctx.Client, []string{c.FolderID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.folders.get_entity", []string{c.FolderID}, func() error {
+		return handleCDPGetEntityFolder(ctx.Context, ctx.Client, []string{c.FolderID}, ctx.GlobalFlags)
 	})
 }
 
@@ -584,7 +584,7 @@ type CDPFoldersUpdateEntityCmd struct {
 
 func (c *CDPFoldersUpdateEntityCmd) Run(ctx *CLIContext) error {
 	args := []string{c.FolderID}
-	return runInstrumented(ctx, "cdp.folders.update_entity", args, func() {
+	return runInstrumented(ctx, "cdp.folders.update_entity", args, func() error {
 		realArgs := []string{c.FolderID}
 		if c.Name != "" {
 			realArgs = append(realArgs, "name="+c.Name)
@@ -595,7 +595,7 @@ func (c *CDPFoldersUpdateEntityCmd) Run(ctx *CLIContext) error {
 		if c.ParentID != "" {
 			realArgs = append(realArgs, "parent_id="+c.ParentID)
 		}
-		handleCDPUpdateEntityFolder(ctx.Context, ctx.Client, realArgs, ctx.GlobalFlags)
+		return handleCDPUpdateEntityFolder(ctx.Context, ctx.Client, realArgs, ctx.GlobalFlags)
 	})
 }
 
@@ -604,8 +604,8 @@ type CDPFoldersDeleteEntityCmd struct {
 }
 
 func (c *CDPFoldersDeleteEntityCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.folders.delete_entity", []string{c.FolderID}, func() {
-		handleCDPDeleteEntityFolder(ctx.Context, ctx.Client, []string{c.FolderID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.folders.delete_entity", []string{c.FolderID}, func() error {
+		return handleCDPDeleteEntityFolder(ctx.Context, ctx.Client, []string{c.FolderID}, ctx.GlobalFlags)
 	})
 }
 
@@ -614,8 +614,8 @@ type CDPFoldersGetEntitiesCmd struct {
 }
 
 func (c *CDPFoldersGetEntitiesCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.folders.entities_by_folder", []string{c.FolderID}, func() {
-		handleCDPGetEntitiesByFolder(ctx.Context, ctx.Client, []string{c.FolderID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.folders.entities_by_folder", []string{c.FolderID}, func() error {
+		return handleCDPGetEntitiesByFolder(ctx.Context, ctx.Client, []string{c.FolderID}, ctx.GlobalFlags)
 	})
 }
 
@@ -637,8 +637,8 @@ type CDPTokensListCmd struct {
 }
 
 func (c *CDPTokensListCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.tokens.list", []string{c.AudienceID}, func() {
-		handleCDPListTokens(ctx.Context, ctx.Client, c, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.tokens.list", []string{c.AudienceID}, func() error {
+		return handleCDPListTokens(ctx.Context, ctx.Client, c, ctx.GlobalFlags)
 	})
 }
 
@@ -647,8 +647,8 @@ type CDPTokensGetEntityCmd struct {
 }
 
 func (c *CDPTokensGetEntityCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.tokens.get_entity", []string{c.TokenID}, func() {
-		handleCDPGetEntityToken(ctx.Context, ctx.Client, []string{c.TokenID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.tokens.get_entity", []string{c.TokenID}, func() error {
+		return handleCDPGetEntityToken(ctx.Context, ctx.Client, []string{c.TokenID}, ctx.GlobalFlags)
 	})
 }
 
@@ -659,8 +659,8 @@ type CDPTokensUpdateEntityCmd struct {
 
 func (c *CDPTokensUpdateEntityCmd) Run(ctx *CLIContext) error {
 	args := append([]string{c.TokenID}, c.Updates...)
-	return runInstrumented(ctx, "cdp.tokens.update_entity", args, func() {
-		handleCDPUpdateEntityToken(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.tokens.update_entity", args, func() error {
+		return handleCDPUpdateEntityToken(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
 	})
 }
 
@@ -669,8 +669,8 @@ type CDPTokensDeleteEntityCmd struct {
 }
 
 func (c *CDPTokensDeleteEntityCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.tokens.delete_entity", []string{c.TokenID}, func() {
-		handleCDPDeleteEntityToken(ctx.Context, ctx.Client, []string{c.TokenID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.tokens.delete_entity", []string{c.TokenID}, func() error {
+		return handleCDPDeleteEntityToken(ctx.Context, ctx.Client, []string{c.TokenID}, ctx.GlobalFlags)
 	})
 }
 
@@ -702,8 +702,8 @@ type CDPJourneysListCmd struct {
 }
 
 func (c *CDPJourneysListCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.journeys.list", []string{c.FolderID}, func() {
-		handleCDPJourneyList(ctx.Context, ctx.Client, []string{c.FolderID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.journeys.list", []string{c.FolderID}, func() error {
+		return handleCDPJourneyList(ctx.Context, ctx.Client, []string{c.FolderID}, ctx.GlobalFlags)
 	})
 }
 
@@ -712,8 +712,8 @@ type CDPJourneysCreateCmd struct {
 }
 
 func (c *CDPJourneysCreateCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.journeys.create", []string{}, func() {
-		handleCDPJourneyCreate(ctx.Context, ctx.Client, []string{c.RequestFile}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.journeys.create", []string{}, func() error {
+		return handleCDPJourneyCreate(ctx.Context, ctx.Client, []string{c.RequestFile}, ctx.GlobalFlags)
 	})
 }
 
@@ -722,8 +722,8 @@ type CDPJourneysGetCmd struct {
 }
 
 func (c *CDPJourneysGetCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.journeys.get", []string{c.JourneyID}, func() {
-		handleCDPJourneyGet(ctx.Context, ctx.Client, []string{c.JourneyID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.journeys.get", []string{c.JourneyID}, func() error {
+		return handleCDPJourneyGet(ctx.Context, ctx.Client, []string{c.JourneyID}, ctx.GlobalFlags)
 	})
 }
 
@@ -733,8 +733,8 @@ type CDPJourneysUpdateCmd struct {
 }
 
 func (c *CDPJourneysUpdateCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.journeys.update", []string{c.JourneyID}, func() {
-		handleCDPJourneyUpdate(ctx.Context, ctx.Client, []string{c.JourneyID, c.RequestFile}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.journeys.update", []string{c.JourneyID}, func() error {
+		return handleCDPJourneyUpdate(ctx.Context, ctx.Client, []string{c.JourneyID, c.RequestFile}, ctx.GlobalFlags)
 	})
 }
 
@@ -743,8 +743,8 @@ type CDPJourneysDeleteCmd struct {
 }
 
 func (c *CDPJourneysDeleteCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.journeys.delete", []string{c.JourneyID}, func() {
-		handleCDPJourneyDelete(ctx.Context, ctx.Client, []string{c.JourneyID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.journeys.delete", []string{c.JourneyID}, func() error {
+		return handleCDPJourneyDelete(ctx.Context, ctx.Client, []string{c.JourneyID}, ctx.GlobalFlags)
 	})
 }
 
@@ -753,8 +753,8 @@ type CDPJourneysDetailCmd struct {
 }
 
 func (c *CDPJourneysDetailCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.journeys.detail", []string{c.JourneyID}, func() {
-		handleCDPJourneyDetail(ctx.Context, ctx.Client, []string{c.JourneyID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.journeys.detail", []string{c.JourneyID}, func() error {
+		return handleCDPJourneyDetail(ctx.Context, ctx.Client, []string{c.JourneyID}, ctx.GlobalFlags)
 	})
 }
 
@@ -763,8 +763,8 @@ type CDPJourneysDuplicateCmd struct {
 }
 
 func (c *CDPJourneysDuplicateCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.journeys.duplicate", []string{}, func() {
-		handleCDPJourneyDuplicate(ctx.Context, ctx.Client, []string{c.RequestFile}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.journeys.duplicate", []string{}, func() error {
+		return handleCDPJourneyDuplicate(ctx.Context, ctx.Client, []string{c.RequestFile}, ctx.GlobalFlags)
 	})
 }
 
@@ -773,8 +773,8 @@ type CDPJourneysPauseCmd struct {
 }
 
 func (c *CDPJourneysPauseCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.journeys.pause", []string{c.JourneyID}, func() {
-		handleCDPJourneyPause(ctx.Context, ctx.Client, []string{c.JourneyID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.journeys.pause", []string{c.JourneyID}, func() error {
+		return handleCDPJourneyPause(ctx.Context, ctx.Client, []string{c.JourneyID}, ctx.GlobalFlags)
 	})
 }
 
@@ -783,8 +783,8 @@ type CDPJourneysResumeCmd struct {
 }
 
 func (c *CDPJourneysResumeCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.journeys.resume", []string{c.JourneyID}, func() {
-		handleCDPJourneyResume(ctx.Context, ctx.Client, []string{c.JourneyID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.journeys.resume", []string{c.JourneyID}, func() error {
+		return handleCDPJourneyResume(ctx.Context, ctx.Client, []string{c.JourneyID}, ctx.GlobalFlags)
 	})
 }
 
@@ -802,8 +802,8 @@ func (c *CDPJourneysStatisticsCmd) Run(ctx *CLIContext) error {
 	if c.To != "" {
 		args = append(args, "--to", c.To)
 	}
-	return runInstrumented(ctx, "cdp.journeys.statistics", []string{c.JourneyID}, func() {
-		handleCDPJourneyStatistics(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.journeys.statistics", []string{c.JourneyID}, func() error {
+		return handleCDPJourneyStatistics(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
 	})
 }
 
@@ -815,8 +815,8 @@ type CDPJourneysCustomersCmd struct {
 
 func (c *CDPJourneysCustomersCmd) Run(ctx *CLIContext) error {
 	args := []string{c.JourneyID, fmt.Sprintf("--limit=%d", c.Limit), fmt.Sprintf("--offset=%d", c.Offset)}
-	return runInstrumented(ctx, "cdp.journeys.customers", []string{c.JourneyID}, func() {
-		handleCDPJourneyCustomers(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.journeys.customers", []string{c.JourneyID}, func() error {
+		return handleCDPJourneyCustomers(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
 	})
 }
 
@@ -829,8 +829,8 @@ type CDPJourneysStageCustomersCmd struct {
 
 func (c *CDPJourneysStageCustomersCmd) Run(ctx *CLIContext) error {
 	args := []string{c.JourneyID, c.StageID, fmt.Sprintf("--limit=%d", c.Limit), fmt.Sprintf("--offset=%d", c.Offset)}
-	return runInstrumented(ctx, "cdp.journeys.stage_customers", []string{c.JourneyID, c.StageID}, func() {
-		handleCDPJourneyStageCustomers(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.journeys.stage_customers", []string{c.JourneyID, c.StageID}, func() error {
+		return handleCDPJourneyStageCustomers(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
 	})
 }
 
@@ -848,8 +848,8 @@ func (c *CDPJourneysConversionSankeyCmd) Run(ctx *CLIContext) error {
 	if c.To != "" {
 		args = append(args, "--to", c.To)
 	}
-	return runInstrumented(ctx, "cdp.journeys.conversion_sankey", []string{c.JourneyID}, func() {
-		handleCDPJourneyConversionSankey(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.journeys.conversion_sankey", []string{c.JourneyID}, func() error {
+		return handleCDPJourneyConversionSankey(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
 	})
 }
 
@@ -867,8 +867,8 @@ func (c *CDPJourneysActivationSankeyCmd) Run(ctx *CLIContext) error {
 	if c.To != "" {
 		args = append(args, "--to", c.To)
 	}
-	return runInstrumented(ctx, "cdp.journeys.activation_sankey", []string{c.JourneyID}, func() {
-		handleCDPJourneyActivationSankey(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.journeys.activation_sankey", []string{c.JourneyID}, func() error {
+		return handleCDPJourneyActivationSankey(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
 	})
 }
 
@@ -877,8 +877,8 @@ type CDPJourneysSegmentRulesCmd struct {
 }
 
 func (c *CDPJourneysSegmentRulesCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.journeys.segment_rules", []string{c.AudienceID}, func() {
-		handleCDPJourneySegmentRules(ctx.Context, ctx.Client, []string{c.AudienceID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.journeys.segment_rules", []string{c.AudienceID}, func() error {
+		return handleCDPJourneySegmentRules(ctx.Context, ctx.Client, []string{c.AudienceID}, ctx.GlobalFlags)
 	})
 }
 
@@ -892,8 +892,8 @@ func (c *CDPJourneysBehaviorsCmd) Run(ctx *CLIContext) error {
 	if c.StepID != nil {
 		args = append(args, "--step-id", *c.StepID)
 	}
-	return runInstrumented(ctx, "cdp.journeys.behaviors", []string{c.JourneyID}, func() {
-		handleCDPJourneyBehaviors(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.journeys.behaviors", []string{c.JourneyID}, func() error {
+		return handleCDPJourneyBehaviors(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
 	})
 }
 
@@ -907,8 +907,8 @@ func (c *CDPJourneysTemplatesCmd) Run(ctx *CLIContext) error {
 	if c.StepID != nil {
 		args = append(args, "--step-id", *c.StepID)
 	}
-	return runInstrumented(ctx, "cdp.journeys.templates", []string{c.JourneyID}, func() {
-		handleCDPJourneyTemplates(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.journeys.templates", []string{c.JourneyID}, func() error {
+		return handleCDPJourneyTemplates(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
 	})
 }
 
@@ -924,8 +924,8 @@ type CDPJourneyActivationsListCmd struct {
 }
 
 func (c *CDPJourneyActivationsListCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.journeys.activations.list", []string{c.JourneyID}, func() {
-		handleCDPJourneyActivationList(ctx.Context, ctx.Client, []string{c.JourneyID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.journeys.activations.list", []string{c.JourneyID}, func() error {
+		return handleCDPJourneyActivationList(ctx.Context, ctx.Client, []string{c.JourneyID}, ctx.GlobalFlags)
 	})
 }
 
@@ -935,8 +935,8 @@ type CDPJourneyActivationsCreateCmd struct {
 }
 
 func (c *CDPJourneyActivationsCreateCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.journeys.activations.create", []string{c.JourneyID}, func() {
-		handleCDPJourneyActivationCreate(ctx.Context, ctx.Client, []string{c.JourneyID, c.RequestFile}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.journeys.activations.create", []string{c.JourneyID}, func() error {
+		return handleCDPJourneyActivationCreate(ctx.Context, ctx.Client, []string{c.JourneyID, c.RequestFile}, ctx.GlobalFlags)
 	})
 }
 
@@ -946,8 +946,8 @@ type CDPJourneyActivationsGetCmd struct {
 }
 
 func (c *CDPJourneyActivationsGetCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.journeys.activations.get", []string{c.JourneyID, c.ActivationStepID}, func() {
-		handleCDPJourneyActivationGet(ctx.Context, ctx.Client, []string{c.JourneyID, c.ActivationStepID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.journeys.activations.get", []string{c.JourneyID, c.ActivationStepID}, func() error {
+		return handleCDPJourneyActivationGet(ctx.Context, ctx.Client, []string{c.JourneyID, c.ActivationStepID}, ctx.GlobalFlags)
 	})
 }
 
@@ -958,8 +958,8 @@ type CDPJourneyActivationsUpdateCmd struct {
 }
 
 func (c *CDPJourneyActivationsUpdateCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.journeys.activations.update", []string{c.JourneyID, c.ActivationStepID}, func() {
-		handleCDPJourneyActivationUpdate(ctx.Context, ctx.Client, []string{c.JourneyID, c.ActivationStepID, c.RequestFile}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.journeys.activations.update", []string{c.JourneyID, c.ActivationStepID}, func() error {
+		return handleCDPJourneyActivationUpdate(ctx.Context, ctx.Client, []string{c.JourneyID, c.ActivationStepID, c.RequestFile}, ctx.GlobalFlags)
 	})
 }
 
@@ -978,8 +978,8 @@ type CDPActivationTemplatesListCmd struct {
 }
 
 func (c *CDPActivationTemplatesListCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.activation_templates.list", []string{c.ParentSegmentID}, func() {
-		handleCDPActivationTemplateList(ctx.Context, ctx.Client, []string{c.ParentSegmentID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.activation_templates.list", []string{c.ParentSegmentID}, func() error {
+		return handleCDPActivationTemplateList(ctx.Context, ctx.Client, []string{c.ParentSegmentID}, ctx.GlobalFlags)
 	})
 }
 
@@ -988,8 +988,8 @@ type CDPActivationTemplatesCreateCmd struct {
 }
 
 func (c *CDPActivationTemplatesCreateCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.activation_templates.create", []string{}, func() {
-		handleCDPActivationTemplateCreate(ctx.Context, ctx.Client, []string{c.RequestFile}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.activation_templates.create", []string{}, func() error {
+		return handleCDPActivationTemplateCreate(ctx.Context, ctx.Client, []string{c.RequestFile}, ctx.GlobalFlags)
 	})
 }
 
@@ -998,8 +998,8 @@ type CDPActivationTemplatesGetCmd struct {
 }
 
 func (c *CDPActivationTemplatesGetCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.activation_templates.get", []string{c.TemplateID}, func() {
-		handleCDPActivationTemplateGet(ctx.Context, ctx.Client, []string{c.TemplateID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.activation_templates.get", []string{c.TemplateID}, func() error {
+		return handleCDPActivationTemplateGet(ctx.Context, ctx.Client, []string{c.TemplateID}, ctx.GlobalFlags)
 	})
 }
 
@@ -1009,8 +1009,8 @@ type CDPActivationTemplatesUpdateCmd struct {
 }
 
 func (c *CDPActivationTemplatesUpdateCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.activation_templates.update", []string{c.TemplateID}, func() {
-		handleCDPActivationTemplateUpdate(ctx.Context, ctx.Client, []string{c.TemplateID, c.RequestFile}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.activation_templates.update", []string{c.TemplateID}, func() error {
+		return handleCDPActivationTemplateUpdate(ctx.Context, ctx.Client, []string{c.TemplateID, c.RequestFile}, ctx.GlobalFlags)
 	})
 }
 
@@ -1019,7 +1019,7 @@ type CDPActivationTemplatesDeleteCmd struct {
 }
 
 func (c *CDPActivationTemplatesDeleteCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "cdp.activation_templates.delete", []string{c.TemplateID}, func() {
-		handleCDPActivationTemplateDelete(ctx.Context, ctx.Client, []string{c.TemplateID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "cdp.activation_templates.delete", []string{c.TemplateID}, func() error {
+		return handleCDPActivationTemplateDelete(ctx.Context, ctx.Client, []string{c.TemplateID}, ctx.GlobalFlags)
 	})
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -11,16 +12,18 @@ import (
 	td "github.com/mickeey2525/treasuredata-go-sdk"
 )
 
-func handleLLMActionList(ctx context.Context, client *td.Client, flags Flags) {
+func handleLLMActionList(ctx context.Context, client *td.Client, flags Flags) error {
+	if client == nil {
+		return errors.New("client is not initialized")
+	}
 	resp, err := client.LLM.ListActions(ctx)
 	if err != nil {
-		handleError(err, "Failed to list LLM actions", flags.Verbose)
-		return
+		return wrapErr(err, "failed to list LLM actions", flags.Verbose)
 	}
 
 	if flags.Format == "json" {
 		printJSON(resp)
-		return
+		return nil
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
@@ -30,24 +33,25 @@ func handleLLMActionList(ctx context.Context, client *td.Client, flags Flags) {
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", action.ID, action.Type, action.IntegrationID, action.PromptID, tagStr)
 	}
 	w.Flush()
+	return nil
 }
 
-func handleLLMActionGet(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func handleLLMActionGet(ctx context.Context, client *td.Client, args []string, flags Flags) error {
+	if client == nil {
+		return errors.New("client is not initialized")
+	}
 	if len(args) < 1 {
-		fmt.Println("Usage: tdcli llm actions get <action-id>")
-		return
+		return errors.New("usage: tdcli llm actions get <action-id>")
 	}
 
-	actionID := args[0]
-	resp, err := client.LLM.GetAction(ctx, actionID)
+	resp, err := client.LLM.GetAction(ctx, args[0])
 	if err != nil {
-		handleError(err, "Failed to get LLM action", flags.Verbose)
-		return
+		return wrapErr(err, "failed to get LLM action", flags.Verbose)
 	}
 
 	if flags.Format == "json" {
 		printJSON(resp)
-		return
+		return nil
 	}
 
 	action := resp.Data
@@ -59,12 +63,15 @@ func handleLLMActionGet(ctx context.Context, client *td.Client, args []string, f
 	if len(action.UITags) > 0 {
 		fmt.Printf("UI Tags:     %s\n", strings.Join(action.UITags, ", "))
 	}
+	return nil
 }
 
-func handleLLMActionExecute(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func handleLLMActionExecute(ctx context.Context, client *td.Client, args []string, flags Flags) error {
+	if client == nil {
+		return errors.New("client is not initialized")
+	}
 	if len(args) < 2 {
-		fmt.Println("Usage: tdcli llm actions execute <action-id> <json-input>")
-		return
+		return errors.New("usage: tdcli llm actions execute <action-id> <json-input>")
 	}
 
 	actionID := args[0]
@@ -72,29 +79,30 @@ func handleLLMActionExecute(ctx context.Context, client *td.Client, args []strin
 
 	var input map[string]interface{}
 	if err := json.Unmarshal([]byte(inputStr), &input); err != nil {
-		handleError(err, "Failed to parse input JSON", flags.Verbose)
-		return
+		return wrapErr(err, "failed to parse input JSON", flags.Verbose)
 	}
 
 	resp, err := client.LLM.ExecuteAction(ctx, actionID, input)
 	if err != nil {
-		handleError(err, "Failed to execute LLM action", flags.Verbose)
-		return
+		return wrapErr(err, "failed to execute LLM action", flags.Verbose)
 	}
 
 	printJSON(resp)
+	return nil
 }
 
-func handleLLMIntegrationList(ctx context.Context, client *td.Client, flags Flags) {
+func handleLLMIntegrationList(ctx context.Context, client *td.Client, flags Flags) error {
+	if client == nil {
+		return errors.New("client is not initialized")
+	}
 	resp, err := client.LLM.ListIntegrations(ctx)
 	if err != nil {
-		handleError(err, "Failed to list LLM integrations", flags.Verbose)
-		return
+		return wrapErr(err, "failed to list LLM integrations", flags.Verbose)
 	}
 
 	if flags.Format == "json" {
 		printJSON(resp)
-		return
+		return nil
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
@@ -103,18 +111,21 @@ func handleLLMIntegrationList(ctx context.Context, client *td.Client, flags Flag
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", integration.ID, integration.Name, integration.Type, integration.Status)
 	}
 	w.Flush()
+	return nil
 }
 
-func handleLLMPromptList(ctx context.Context, client *td.Client, flags Flags) {
+func handleLLMPromptList(ctx context.Context, client *td.Client, flags Flags) error {
+	if client == nil {
+		return errors.New("client is not initialized")
+	}
 	resp, err := client.LLM.ListPrompts(ctx)
 	if err != nil {
-		handleError(err, "Failed to list LLM prompts", flags.Verbose)
-		return
+		return wrapErr(err, "failed to list LLM prompts", flags.Verbose)
 	}
 
 	if flags.Format == "json" {
 		printJSON(resp)
-		return
+		return nil
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
@@ -124,18 +135,21 @@ func handleLLMPromptList(ctx context.Context, client *td.Client, flags Flags) {
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", prompt.ID, prompt.Name, prompt.Status, varsStr)
 	}
 	w.Flush()
+	return nil
 }
 
-func handleLLMProjectList(ctx context.Context, client *td.Client, flags Flags) {
+func handleLLMProjectList(ctx context.Context, client *td.Client, flags Flags) error {
+	if client == nil {
+		return errors.New("client is not initialized")
+	}
 	resp, err := client.LLM.ListProjects(ctx)
 	if err != nil {
-		handleError(err, "Failed to list LLM projects", flags.Verbose)
-		return
+		return wrapErr(err, "failed to list LLM projects", flags.Verbose)
 	}
 
 	if flags.Format == "json" {
 		printJSON(resp)
-		return
+		return nil
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
@@ -144,24 +158,25 @@ func handleLLMProjectList(ctx context.Context, client *td.Client, flags Flags) {
 		fmt.Fprintf(w, "%s\t%s\t%s\n", project.ID, project.Name, project.Status)
 	}
 	w.Flush()
+	return nil
 }
 
-func handleLLMProjectGet(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func handleLLMProjectGet(ctx context.Context, client *td.Client, args []string, flags Flags) error {
+	if client == nil {
+		return errors.New("client is not initialized")
+	}
 	if len(args) < 1 {
-		fmt.Println("Usage: tdcli llm projects get <project-id>")
-		return
+		return errors.New("usage: tdcli llm projects get <project-id>")
 	}
 
-	projectID := args[0]
-	project, err := client.LLM.GetProject(ctx, projectID)
+	project, err := client.LLM.GetProject(ctx, args[0])
 	if err != nil {
-		handleError(err, "Failed to get LLM project", flags.Verbose)
-		return
+		return wrapErr(err, "failed to get LLM project", flags.Verbose)
 	}
 
 	if flags.Format == "json" {
 		printJSON(project)
-		return
+		return nil
 	}
 
 	fmt.Printf("ID:          %s\n", project.ID)
@@ -170,4 +185,5 @@ func handleLLMProjectGet(ctx context.Context, client *td.Client, args []string, 
 	if project.Description != "" {
 		fmt.Printf("Description: %s\n", project.Description)
 	}
+	return nil
 }

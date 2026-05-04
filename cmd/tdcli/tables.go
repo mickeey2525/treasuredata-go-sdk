@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"text/tabwriter"
@@ -9,67 +10,7 @@ import (
 	td "github.com/mickeey2525/treasuredata-go-sdk"
 )
 
-func handleTableCommands(ctx context.Context, client *td.Client, args []string, flags Flags) {
-	if len(args) == 0 || args[0] == "help" {
-		printTableUsage()
-		return
-	}
-
-	subcommand := args[0]
-	subArgs := args[1:]
-
-	switch subcommand {
-	case "list", "ls":
-		handleTableList(ctx, client, subArgs, flags)
-	case "get", "show":
-		handleTableGet(ctx, client, subArgs, flags)
-	case "create":
-		handleTableCreate(ctx, client, subArgs, flags)
-	case "delete", "rm":
-		handleTableDelete(ctx, client, subArgs, flags)
-	case "swap":
-		handleTableSwap(ctx, client, subArgs, flags)
-	case "rename", "mv":
-		handleTableRename(ctx, client, subArgs, flags)
-	default:
-		fmt.Printf("Unknown table subcommand: %s\n", subcommand)
-		printTableUsage()
-		os.Exit(1)
-	}
-}
-
-func printTableUsage() {
-	fmt.Printf(`Table Management Commands
-
-USAGE:
-    tdcli tables <subcommand> [options]
-    tdcli table <subcommand> [options]
-
-SUBCOMMANDS:
-    list, ls <database>           List tables in database
-    get, show <database> <table>  Get table details
-    create <database> <table>     Create a new table
-    delete, rm <database> <table> Delete a table
-    swap <database> <table1> <table2>  Swap two tables
-    rename, mv <database> <from> <to>  Rename a table
-
-OPTIONS:
-    --database DATABASE   Database name (alternative to positional arg)
-    --format FORMAT       Output format (json, table, csv)
-    --verbose, -v         Verbose output
-
-EXAMPLES:
-    tdcli table list my_database
-    tdcli table show my_database my_table
-    tdcli table create my_database new_table
-    tdcli table delete my_database old_table
-    tdcli table swap my_database table1 table2
-    tdcli table rename my_database old_name new_name
-
-`)
-}
-
-func handleTableList(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func handleTableList(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	var database string
 
 	if flags.Database != "" {
@@ -77,13 +18,13 @@ func handleTableList(ctx context.Context, client *td.Client, args []string, flag
 	} else if len(args) > 0 {
 		database = args[0]
 	} else {
-		fmt.Println("Error: Database name required")
-		fmt.Println("Usage: tdcli table list <database> OR tdcli table list --database <database>")
-		os.Exit(1)
+		return errors.New("database name required\nUsage: tdcli table list <database> OR tdcli table list --database <database>")
 	}
 
 	tables, err := client.Tables.List(ctx, database)
-	handleError(err, "Failed to list tables", flags.Verbose)
+	if err != nil {
+		return wrapErr(err, "failed to list tables", flags.Verbose)
+	}
 
 	switch flags.Format {
 	case "json":
@@ -93,20 +34,21 @@ func handleTableList(ctx context.Context, client *td.Client, args []string, flag
 	default:
 		printTablesTable(tables, database)
 	}
+	return nil
 }
 
-func handleTableGet(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func handleTableGet(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 2 {
-		fmt.Println("Error: Database and table names required")
-		fmt.Println("Usage: tdcli table get <database> <table>")
-		os.Exit(1)
+		return errors.New("database and table names required\nUsage: tdcli table get <database> <table>")
 	}
 
 	database := args[0]
 	tableName := args[1]
 
 	table, err := client.Tables.Get(ctx, database, tableName)
-	handleError(err, "Failed to get table", flags.Verbose)
+	if err != nil {
+		return wrapErr(err, "failed to get table", flags.Verbose)
+	}
 
 	switch flags.Format {
 	case "json":
@@ -116,20 +58,21 @@ func handleTableGet(ctx context.Context, client *td.Client, args []string, flags
 	default:
 		printTableDetails(*table)
 	}
+	return nil
 }
 
-func handleTableCreate(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func handleTableCreate(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 2 {
-		fmt.Println("Error: Database and table names required")
-		fmt.Println("Usage: tdcli table create <database> <table>")
-		os.Exit(1)
+		return errors.New("database and table names required\nUsage: tdcli table create <database> <table>")
 	}
 
 	database := args[0]
 	tableName := args[1]
 
 	table, err := client.Tables.Create(ctx, database, tableName, "")
-	handleError(err, "Failed to create table", flags.Verbose)
+	if err != nil {
+		return wrapErr(err, "failed to create table", flags.Verbose)
+	}
 
 	if flags.Verbose {
 		fmt.Printf("Successfully created table: %s.%s\n", database, table.Table)
@@ -141,50 +84,47 @@ func handleTableCreate(ctx context.Context, client *td.Client, args []string, fl
 	default:
 		fmt.Printf("Created table: %s.%s\n", database, table.Table)
 	}
+	return nil
 }
 
-func handleTableDelete(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func handleTableDelete(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 2 {
-		fmt.Println("Error: Database and table names required")
-		fmt.Println("Usage: tdcli table delete <database> <table>")
-		os.Exit(1)
+		return errors.New("database and table names required\nUsage: tdcli table delete <database> <table>")
 	}
 
 	database := args[0]
 	tableName := args[1]
 
-	// Confirm deletion
 	fmt.Printf("Are you sure you want to delete table '%s.%s'? (y/N): ", database, tableName)
 	var response string
 	fmt.Scanln(&response)
 
 	if response != "y" && response != "Y" && response != "yes" && response != "Yes" {
 		fmt.Println("Deletion cancelled")
-		return
+		return nil
 	}
 
-	err := client.Tables.Delete(ctx, database, tableName)
-	handleError(err, "Failed to delete table", flags.Verbose)
+	if err := client.Tables.Delete(ctx, database, tableName); err != nil {
+		return wrapErr(err, "failed to delete table", flags.Verbose)
+	}
 
 	if flags.Verbose {
 		fmt.Printf("Successfully deleted table: %s.%s\n", database, tableName)
 	} else {
 		fmt.Printf("Deleted table: %s.%s\n", database, tableName)
 	}
+	return nil
 }
 
-func handleTableSwap(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func handleTableSwap(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 3 {
-		fmt.Println("Error: Database and two table names required")
-		fmt.Println("Usage: tdcli table swap <database> <table1> <table2>")
-		os.Exit(1)
+		return errors.New("database and two table names required\nUsage: tdcli table swap <database> <table1> <table2>")
 	}
 
 	database := args[0]
 	table1 := args[1]
 	table2 := args[2]
 
-	// Confirm swap
 	fmt.Printf("Are you sure you want to swap tables '%s.%s' and '%s.%s'? (y/N): ",
 		database, table1, database, table2)
 	var response string
@@ -192,11 +132,12 @@ func handleTableSwap(ctx context.Context, client *td.Client, args []string, flag
 
 	if response != "y" && response != "Y" && response != "yes" && response != "Yes" {
 		fmt.Println("Swap cancelled")
-		return
+		return nil
 	}
 
-	err := client.Tables.Swap(ctx, database, table1, table2)
-	handleError(err, "Failed to swap tables", flags.Verbose)
+	if err := client.Tables.Swap(ctx, database, table1, table2); err != nil {
+		return wrapErr(err, "failed to swap tables", flags.Verbose)
+	}
 
 	if flags.Verbose {
 		fmt.Printf("Successfully initiated table swap: %s.%s <-> %s.%s\n",
@@ -205,20 +146,18 @@ func handleTableSwap(ctx context.Context, client *td.Client, args []string, flag
 		fmt.Printf("Swapped tables: %s.%s <-> %s.%s\n",
 			database, table1, database, table2)
 	}
+	return nil
 }
 
-func handleTableRename(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func handleTableRename(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 3 {
-		fmt.Println("Error: Database, old name, and new name required")
-		fmt.Println("Usage: tdcli table rename <database> <old_name> <new_name>")
-		os.Exit(1)
+		return errors.New("database, old name, and new name required\nUsage: tdcli table rename <database> <old_name> <new_name>")
 	}
 
 	database := args[0]
 	oldName := args[1]
 	newName := args[2]
 
-	// Confirm rename
 	fmt.Printf("Are you sure you want to rename table '%s.%s' to '%s.%s'? (y/N): ",
 		database, oldName, database, newName)
 	var response string
@@ -226,11 +165,12 @@ func handleTableRename(ctx context.Context, client *td.Client, args []string, fl
 
 	if response != "y" && response != "Y" && response != "yes" && response != "Yes" {
 		fmt.Println("Rename cancelled")
-		return
+		return nil
 	}
 
-	err := client.Tables.Rename(ctx, database, oldName, newName)
-	handleError(err, "Failed to rename table", flags.Verbose)
+	if err := client.Tables.Rename(ctx, database, oldName, newName); err != nil {
+		return wrapErr(err, "failed to rename table", flags.Verbose)
+	}
 
 	if flags.Verbose {
 		fmt.Printf("Successfully renamed table: %s.%s -> %s.%s\n",
@@ -239,6 +179,7 @@ func handleTableRename(ctx context.Context, client *td.Client, args []string, fl
 		fmt.Printf("Renamed table: %s.%s -> %s.%s\n",
 			database, oldName, database, newName)
 	}
+	return nil
 }
 
 func printTablesTable(tables []td.Table, database string) {
@@ -275,7 +216,6 @@ func printTableDetails(table td.Table) {
 	fmt.Fprintf(w, "Created\t%s\n", formatTDTime(table.CreatedAt))
 	fmt.Fprintf(w, "Updated\t%s\n", formatTDTime(table.UpdatedAt))
 
-	// LastImport field doesn't exist in the current API
 	if table.LastLogTimestamp.Value != nil {
 		fmt.Fprintf(w, "Last Log\t%d\n", *table.LastLogTimestamp.Value)
 	}

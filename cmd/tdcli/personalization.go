@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/csv"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"text/tabwriter"
@@ -11,11 +12,13 @@ import (
 	td "github.com/mickeey2525/treasuredata-go-sdk"
 )
 
-func handlePersonalizationSend(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func handlePersonalizationSend(ctx context.Context, client *td.Client, args []string, flags Flags) error {
+	if client == nil {
+		return errors.New("client is not initialized")
+	}
 	if len(args) < 3 {
-		fmt.Println("Usage: tdcli personalization send <database> <table> <json-data> [--token TOKEN]")
-		fmt.Println("Example: tdcli personalization send mydb mytable '{\"td_client_id\":\"abc123\"}'")
-		return
+		return errors.New("usage: tdcli personalization send <database> <table> <json-data> [--token TOKEN]\n" +
+			"Example: tdcli personalization send mydb mytable '{\"td_client_id\":\"abc123\"}'")
 	}
 
 	database := args[0]
@@ -28,8 +31,7 @@ func handlePersonalizationSend(ctx context.Context, client *td.Client, args []st
 
 	var event map[string]interface{}
 	if err := json.Unmarshal([]byte(dataStr), &event); err != nil {
-		handleError(err, "Failed to parse event JSON", flags.Verbose)
-		return
+		return wrapErr(err, "failed to parse event JSON", flags.Verbose)
 	}
 
 	var resp *td.PersonalizationResponse
@@ -41,32 +43,28 @@ func handlePersonalizationSend(ctx context.Context, client *td.Client, args []st
 	}
 
 	if err != nil {
-		handleError(err, "Failed to send personalization event", flags.Verbose)
-		return
+		return wrapErr(err, "failed to send personalization event", flags.Verbose)
 	}
 
 	if resp == nil || len(resp.Offers) == 0 {
 		fmt.Println("Event sent successfully. No offers returned.")
-		return
+		return nil
 	}
 
 	fmt.Println("Event sent successfully. Matching offers:")
 	outputPersonalizationResponse(resp, flags)
+	return nil
 }
 
 func outputPersonalizationResponse(resp *td.PersonalizationResponse, flags Flags) {
 	switch flags.Format {
 	case "json":
-		outputPersonalizationJSON(resp)
+		printJSON(resp)
 	case "csv":
 		outputPersonalizationCSV(resp)
 	default:
 		outputPersonalizationTable(resp)
 	}
-}
-
-func outputPersonalizationJSON(resp *td.PersonalizationResponse) {
-	printJSON(resp)
 }
 
 func outputPersonalizationCSV(resp *td.PersonalizationResponse) {

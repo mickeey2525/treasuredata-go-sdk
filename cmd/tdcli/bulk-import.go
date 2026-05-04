@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"text/tabwriter"
@@ -9,81 +10,11 @@ import (
 	td "github.com/mickeey2525/treasuredata-go-sdk"
 )
 
-func handleBulkImportCommands(ctx context.Context, client *td.Client, args []string, flags Flags) {
-	if len(args) == 0 || args[0] == "help" {
-		printBulkImportUsage()
-		return
-	}
-
-	subcommand := args[0]
-	subArgs := args[1:]
-
-	switch subcommand {
-	case "list", "ls":
-		handleBulkImportList(ctx, client, flags)
-	case "get", "show":
-		handleBulkImportGet(ctx, client, subArgs, flags)
-	case "create":
-		handleBulkImportCreate(ctx, client, subArgs, flags)
-	case "delete", "rm":
-		handleBulkImportDelete(ctx, client, subArgs, flags)
-	case "upload":
-		handleBulkImportUpload(ctx, client, subArgs, flags)
-	case "commit":
-		handleBulkImportCommit(ctx, client, subArgs, flags)
-	case "perform":
-		handleBulkImportPerform(ctx, client, subArgs, flags)
-	case "freeze":
-		handleBulkImportFreeze(ctx, client, subArgs, flags)
-	case "unfreeze":
-		handleBulkImportUnfreeze(ctx, client, subArgs, flags)
-	case "parts":
-		handleBulkImportParts(ctx, client, subArgs, flags)
-	default:
-		fmt.Printf("Unknown bulk import subcommand: %s\n", subcommand)
-		printBulkImportUsage()
-		os.Exit(1)
-	}
-}
-
-func printBulkImportUsage() {
-	fmt.Printf(`Bulk Import Management Commands
-
-USAGE:
-    tdcli bulk-import <subcommand> [options]
-    tdcli import <subcommand> [options]
-
-SUBCOMMANDS:
-    list, ls               List bulk import sessions
-    get, show <session>    Get bulk import session details
-    create <session> <database> <table>  Create a new bulk import session
-    delete, rm <session>   Delete a bulk import session
-    upload <session> <part> <file>  Upload a part to session
-    commit <session>       Commit a bulk import session
-    perform <session>      Perform bulk import job
-    freeze <session>       Freeze a bulk import session
-    unfreeze <session>     Unfreeze a bulk import session
-    parts <session>        List parts in a bulk import session
-
-OPTIONS:
-    --format FORMAT        Output format (json, table, csv)
-    --verbose, -v          Verbose output
-
-EXAMPLES:
-    tdcli import list
-    tdcli import show my_session
-    tdcli import create my_session my_db my_table
-    tdcli import upload my_session part1 data.csv
-    tdcli import commit my_session
-    tdcli import perform my_session
-    tdcli import parts my_session
-
-`)
-}
-
-func handleBulkImportList(ctx context.Context, client *td.Client, flags Flags) {
+func handleBulkImportList(ctx context.Context, client *td.Client, flags Flags) error {
 	bulkImports, err := client.BulkImport.List(ctx)
-	handleError(err, "Failed to list bulk import sessions", flags.Verbose)
+	if err != nil {
+		return wrapErr(err, "failed to list bulk import sessions", flags.Verbose)
+	}
 
 	switch flags.Format {
 	case "json":
@@ -93,18 +24,19 @@ func handleBulkImportList(ctx context.Context, client *td.Client, flags Flags) {
 	default:
 		printBulkImportsTable(bulkImports)
 	}
+	return nil
 }
 
-func handleBulkImportGet(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func handleBulkImportGet(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) == 0 {
-		fmt.Println("Error: Session name required")
-		fmt.Println("Usage: tdcli import get <session_name>")
-		os.Exit(1)
+		return errors.New("session name required\nUsage: tdcli import get <session_name>")
 	}
 
 	sessionName := args[0]
 	bulkImport, err := client.BulkImport.Show(ctx, sessionName)
-	handleError(err, "Failed to get bulk import session", flags.Verbose)
+	if err != nil {
+		return wrapErr(err, "failed to get bulk import session", flags.Verbose)
+	}
 
 	switch flags.Format {
 	case "json":
@@ -114,74 +46,70 @@ func handleBulkImportGet(ctx context.Context, client *td.Client, args []string, 
 	default:
 		printBulkImportDetails(*bulkImport)
 	}
+	return nil
 }
 
-func handleBulkImportCreate(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func handleBulkImportCreate(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 3 {
-		fmt.Println("Error: Session name, database, and table required")
-		fmt.Println("Usage: tdcli import create <session_name> <database> <table>")
-		os.Exit(1)
+		return errors.New("session name, database, and table required\nUsage: tdcli import create <session_name> <database> <table>")
 	}
 
 	sessionName := args[0]
 	database := args[1]
 	table := args[2]
 
-	err := client.BulkImport.Create(ctx, sessionName, database, table)
-	handleError(err, "Failed to create bulk import session", flags.Verbose)
+	if err := client.BulkImport.Create(ctx, sessionName, database, table); err != nil {
+		return wrapErr(err, "failed to create bulk import session", flags.Verbose)
+	}
 
 	if flags.Verbose {
 		fmt.Printf("Successfully created bulk import session: %s for %s.%s\n", sessionName, database, table)
 	} else {
 		fmt.Printf("Created bulk import session: %s\n", sessionName)
 	}
+	return nil
 }
 
-func handleBulkImportDelete(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func handleBulkImportDelete(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) == 0 {
-		fmt.Println("Error: Session name required")
-		fmt.Println("Usage: tdcli import delete <session_name>")
-		os.Exit(1)
+		return errors.New("session name required\nUsage: tdcli import delete <session_name>")
 	}
 
 	sessionName := args[0]
 
-	// Confirm deletion
 	fmt.Printf("Are you sure you want to delete bulk import session '%s'? (y/N): ", sessionName)
 	var response string
 	fmt.Scanln(&response)
 
 	if response != "y" && response != "Y" && response != "yes" && response != "Yes" {
 		fmt.Println("Deletion cancelled")
-		return
+		return nil
 	}
 
-	err := client.BulkImport.Delete(ctx, sessionName)
-	handleError(err, "Failed to delete bulk import session", flags.Verbose)
+	if err := client.BulkImport.Delete(ctx, sessionName); err != nil {
+		return wrapErr(err, "failed to delete bulk import session", flags.Verbose)
+	}
 
 	if flags.Verbose {
 		fmt.Printf("Successfully deleted bulk import session: %s\n", sessionName)
 	} else {
 		fmt.Printf("Deleted bulk import session: %s\n", sessionName)
 	}
+	return nil
 }
 
-func handleBulkImportUpload(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func handleBulkImportUpload(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 3 {
-		fmt.Println("Error: Session name, part name, and file path required")
-		fmt.Println("Usage: tdcli import upload <session_name> <part_name> <file_path>")
-		os.Exit(1)
+		return errors.New("session name, part name, and file path required\nUsage: tdcli import upload <session_name> <part_name> <file_path>")
 	}
 
 	sessionName := args[0]
 	partName := args[1]
 	filePath := args[2]
 
-	// Open file
 	file, err := os.Open(filePath)
 	if err != nil {
-		handleError(err, "Failed to open file", flags.Verbose)
-		return
+		return wrapErr(err, "failed to open file", flags.Verbose)
 	}
 	defer file.Close()
 
@@ -189,50 +117,49 @@ func handleBulkImportUpload(ctx context.Context, client *td.Client, args []strin
 		fmt.Printf("Uploading file %s as part %s to session %s...\n", filePath, partName, sessionName)
 	}
 
-	err = client.BulkImport.UploadPart(ctx, sessionName, partName, file)
-	handleError(err, "Failed to upload part", flags.Verbose)
+	if err := client.BulkImport.UploadPart(ctx, sessionName, partName, file); err != nil {
+		return wrapErr(err, "failed to upload part", flags.Verbose)
+	}
 
 	if flags.Verbose {
 		fmt.Printf("Successfully uploaded part %s to session %s\n", partName, sessionName)
 	} else {
 		fmt.Printf("Uploaded part: %s\n", partName)
 	}
+	return nil
 }
 
-func handleBulkImportCommit(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func handleBulkImportCommit(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) == 0 {
-		fmt.Println("Error: Session name required")
-		fmt.Println("Usage: tdcli import commit <session_name>")
-		os.Exit(1)
+		return errors.New("session name required\nUsage: tdcli import commit <session_name>")
 	}
 
 	sessionName := args[0]
 
-	// Confirm commit
 	fmt.Printf("Are you sure you want to commit bulk import session '%s'? (y/N): ", sessionName)
 	var response string
 	fmt.Scanln(&response)
 
 	if response != "y" && response != "Y" && response != "yes" && response != "Yes" {
 		fmt.Println("Commit cancelled")
-		return
+		return nil
 	}
 
-	err := client.BulkImport.Commit(ctx, sessionName)
-	handleError(err, "Failed to commit bulk import session", flags.Verbose)
+	if err := client.BulkImport.Commit(ctx, sessionName); err != nil {
+		return wrapErr(err, "failed to commit bulk import session", flags.Verbose)
+	}
 
 	if flags.Verbose {
 		fmt.Printf("Successfully committed bulk import session: %s\n", sessionName)
 	} else {
 		fmt.Printf("Committed bulk import session: %s\n", sessionName)
 	}
+	return nil
 }
 
-func handleBulkImportPerform(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func handleBulkImportPerform(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) == 0 {
-		fmt.Println("Error: Session name required")
-		fmt.Println("Usage: tdcli import perform <session_name>")
-		os.Exit(1)
+		return errors.New("session name required\nUsage: tdcli import perform <session_name>")
 	}
 
 	sessionName := args[0]
@@ -242,7 +169,9 @@ func handleBulkImportPerform(ctx context.Context, client *td.Client, args []stri
 	}
 
 	job, err := client.BulkImport.Perform(ctx, sessionName)
-	handleError(err, "Failed to perform bulk import", flags.Verbose)
+	if err != nil {
+		return wrapErr(err, "failed to perform bulk import", flags.Verbose)
+	}
 
 	if flags.Verbose {
 		fmt.Printf("Successfully started bulk import job for session: %s\n", sessionName)
@@ -250,56 +179,57 @@ func handleBulkImportPerform(ctx context.Context, client *td.Client, args []stri
 	} else {
 		fmt.Printf("Started bulk import job: %s\n", job.JobID)
 	}
+	return nil
 }
 
-func handleBulkImportFreeze(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func handleBulkImportFreeze(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) == 0 {
-		fmt.Println("Error: Session name required")
-		fmt.Println("Usage: tdcli import freeze <session_name>")
-		os.Exit(1)
+		return errors.New("session name required\nUsage: tdcli import freeze <session_name>")
 	}
 
 	sessionName := args[0]
 
-	err := client.BulkImport.Freeze(ctx, sessionName)
-	handleError(err, "Failed to freeze bulk import session", flags.Verbose)
+	if err := client.BulkImport.Freeze(ctx, sessionName); err != nil {
+		return wrapErr(err, "failed to freeze bulk import session", flags.Verbose)
+	}
 
 	if flags.Verbose {
 		fmt.Printf("Successfully froze bulk import session: %s\n", sessionName)
 	} else {
 		fmt.Printf("Froze bulk import session: %s\n", sessionName)
 	}
+	return nil
 }
 
-func handleBulkImportUnfreeze(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func handleBulkImportUnfreeze(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) == 0 {
-		fmt.Println("Error: Session name required")
-		fmt.Println("Usage: tdcli import unfreeze <session_name>")
-		os.Exit(1)
+		return errors.New("session name required\nUsage: tdcli import unfreeze <session_name>")
 	}
 
 	sessionName := args[0]
 
-	err := client.BulkImport.Unfreeze(ctx, sessionName)
-	handleError(err, "Failed to unfreeze bulk import session", flags.Verbose)
+	if err := client.BulkImport.Unfreeze(ctx, sessionName); err != nil {
+		return wrapErr(err, "failed to unfreeze bulk import session", flags.Verbose)
+	}
 
 	if flags.Verbose {
 		fmt.Printf("Successfully unfroze bulk import session: %s\n", sessionName)
 	} else {
 		fmt.Printf("Unfroze bulk import session: %s\n", sessionName)
 	}
+	return nil
 }
 
-func handleBulkImportParts(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func handleBulkImportParts(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) == 0 {
-		fmt.Println("Error: Session name required")
-		fmt.Println("Usage: tdcli import parts <session_name>")
-		os.Exit(1)
+		return errors.New("session name required\nUsage: tdcli import parts <session_name>")
 	}
 
 	sessionName := args[0]
 	parts, err := client.BulkImport.ListParts(ctx, sessionName)
-	handleError(err, "Failed to list bulk import parts", flags.Verbose)
+	if err != nil {
+		return wrapErr(err, "failed to list bulk import parts", flags.Verbose)
+	}
 
 	switch flags.Format {
 	case "json":
@@ -309,9 +239,9 @@ func handleBulkImportParts(ctx context.Context, client *td.Client, args []string
 	default:
 		printBulkImportPartsTable(parts, sessionName)
 	}
+	return nil
 }
 
-// Print functions
 func printBulkImportsTable(bulkImports []td.BulkImport) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(w, "NAME\tDATABASE\tTABLE\tSTATUS\tVALID_RECORDS\tERROR_RECORDS\tCREATED")

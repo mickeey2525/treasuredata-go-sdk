@@ -3,7 +3,6 @@ package workflow
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -12,16 +11,16 @@ import (
 	td "github.com/mickeey2525/treasuredata-go-sdk"
 )
 
-// Workflow project handlers
-func HandleWorkflowProjectList(ctx context.Context, client *td.Client, flags Flags) {
+// HandleWorkflowProjectList lists workflow projects.
+func HandleWorkflowProjectList(ctx context.Context, client *td.Client, flags Flags) error {
 	resp, err := client.Workflow.ListProjects(ctx)
 	if err != nil {
-		HandleError(err, "Failed to list workflow projects", flags.Verbose)
+		return wrapError(err, "failed to list workflow projects", flags.Verbose)
 	}
 
 	switch flags.Format {
 	case "json":
-		PrintJSON(resp)
+		return PrintJSON(resp)
 	case "csv":
 		fmt.Println("id,name,revision,archive_type,created_at,updated_at")
 		for _, project := range resp.Projects {
@@ -33,7 +32,7 @@ func HandleWorkflowProjectList(ctx context.Context, client *td.Client, flags Fla
 	default:
 		if len(resp.Projects) == 0 {
 			fmt.Println("No projects found")
-			return
+			return nil
 		}
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
@@ -46,33 +45,32 @@ func HandleWorkflowProjectList(ctx context.Context, client *td.Client, flags Fla
 		w.Flush()
 		fmt.Printf("\nTotal: %d projects\n", len(resp.Projects))
 	}
+	return nil
 }
 
-func HandleWorkflowProjectGet(ctx context.Context, client *td.Client, args []string, flags Flags) {
+// HandleWorkflowProjectGet retrieves a workflow project by ID or name.
+func HandleWorkflowProjectGet(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 1 {
-		log.Fatal("Project ID or name required")
+		return usageError("Project ID or name required")
 	}
 
 	projectIdentifier := args[0]
 	var project *td.WorkflowProject
 	var err error
 
-	// Try to parse as project ID first (numeric)
 	if _, parseErr := strconv.Atoi(projectIdentifier); parseErr == nil {
-		// It's a numeric ID
 		project, err = client.Workflow.GetProject(ctx, projectIdentifier)
 	} else {
-		// It's not numeric, try to get by name
 		project, err = client.Workflow.GetProjectByName(ctx, projectIdentifier)
 	}
 
 	if err != nil {
-		HandleError(err, "Failed to get workflow project", flags.Verbose)
+		return wrapError(err, "failed to get workflow project", flags.Verbose)
 	}
 
 	switch flags.Format {
 	case "json":
-		PrintJSON(project)
+		return PrintJSON(project)
 	case "csv":
 		fmt.Println("id,name,revision,archive_type,archive_md5,created_at,updated_at,deleted_at")
 		deletedAt := ""
@@ -97,62 +95,61 @@ func HandleWorkflowProjectGet(ctx context.Context, client *td.Client, args []str
 			fmt.Printf("Deleted: %s\n", project.DeletedAt.Time.UTC().Format("2006-01-02 15:04:05"))
 		}
 	}
+	return nil
 }
 
-func HandleWorkflowProjectCreate(ctx context.Context, client *td.Client, args []string, flags Flags) {
+// HandleWorkflowProjectCreate creates a workflow project from a directory or archive.
+func HandleWorkflowProjectCreate(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 2 {
-		log.Fatal("Project name and path (directory or archive file) required")
+		return usageError("Project name and path (directory or archive file) required")
 	}
 
 	path := args[1]
 
-	// Check if the path is a directory or file
 	fileInfo, err := os.Stat(path)
 	if err != nil {
-		log.Fatalf("Failed to access path %s: %v", path, err)
+		return wrapError(err, fmt.Sprintf("failed to access path %s", path), flags.Verbose)
 	}
 
 	var project *td.WorkflowProject
 
 	if fileInfo.IsDir() {
-		// Create project from directory
 		fmt.Printf("Creating project from directory: %s\n", path)
 		project, err = client.Workflow.CreateProjectFromDirectory(ctx, args[0], path)
 	} else {
-		// Create project from archive file
 		fmt.Printf("Creating project from archive file: %s\n", path)
 		archiveData, readErr := os.ReadFile(path)
 		if readErr != nil {
-			log.Fatalf("Failed to read archive file: %v", readErr)
+			return wrapError(readErr, "failed to read archive file", flags.Verbose)
 		}
 		project, err = client.Workflow.CreateProject(ctx, args[0], archiveData)
 	}
 
 	if err != nil {
-		HandleError(err, "Failed to create workflow project", flags.Verbose)
+		return wrapError(err, "failed to create workflow project", flags.Verbose)
 	}
 
 	fmt.Printf("Project created successfully\n")
 	fmt.Printf("ID: %s\n", project.ID)
 	fmt.Printf("Name: %s\n", project.Name)
 	fmt.Printf("Revision: %s\n", project.Revision)
+	return nil
 }
 
-func HandleWorkflowProjectWorkflows(ctx context.Context, client *td.Client, args []string, flags Flags) {
+// HandleWorkflowProjectWorkflows lists workflows belonging to a project.
+func HandleWorkflowProjectWorkflows(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 1 {
-		log.Fatal("Project ID required")
+		return usageError("Project ID required")
 	}
 
-	projectID := args[0]
-
-	resp, err := client.Workflow.ListProjectWorkflows(ctx, projectID)
+	resp, err := client.Workflow.ListProjectWorkflows(ctx, args[0])
 	if err != nil {
-		HandleError(err, "Failed to list project workflows", flags.Verbose)
+		return wrapError(err, "failed to list project workflows", flags.Verbose)
 	}
 
 	switch flags.Format {
 	case "json":
-		PrintJSON(resp)
+		return PrintJSON(resp)
 	case "csv":
 		fmt.Println("id,name,project,status,created_at,updated_at")
 		for _, workflow := range resp.Workflows {
@@ -171,7 +168,7 @@ func HandleWorkflowProjectWorkflows(ctx context.Context, client *td.Client, args
 	default:
 		if len(resp.Workflows) == 0 {
 			fmt.Println("No workflows found in this project")
-			return
+			return nil
 		}
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
@@ -184,23 +181,23 @@ func HandleWorkflowProjectWorkflows(ctx context.Context, client *td.Client, args
 		w.Flush()
 		fmt.Printf("\nTotal: %d workflows\n", len(resp.Workflows))
 	}
+	return nil
 }
 
-func HandleWorkflowProjectSecretsList(ctx context.Context, client *td.Client, args []string, flags Flags) {
+// HandleWorkflowProjectSecretsList lists project secrets.
+func HandleWorkflowProjectSecretsList(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 1 {
-		log.Fatal("Project ID required")
+		return usageError("Project ID required")
 	}
 
-	projectID := args[0]
-
-	resp, err := client.Workflow.GetProjectSecrets(ctx, projectID)
+	resp, err := client.Workflow.GetProjectSecrets(ctx, args[0])
 	if err != nil {
-		HandleError(err, "Failed to list project secrets", flags.Verbose)
+		return wrapError(err, "failed to list project secrets", flags.Verbose)
 	}
 
 	switch flags.Format {
 	case "json":
-		PrintJSON(resp)
+		return PrintJSON(resp)
 	case "csv":
 		fmt.Println("key,value")
 		for key, value := range resp.Secrets {
@@ -209,7 +206,7 @@ func HandleWorkflowProjectSecretsList(ctx context.Context, client *td.Client, ar
 	default:
 		if len(resp.Secrets) == 0 {
 			fmt.Println("No secrets found in this project")
-			return
+			return nil
 		}
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
@@ -220,84 +217,82 @@ func HandleWorkflowProjectSecretsList(ctx context.Context, client *td.Client, ar
 		w.Flush()
 		fmt.Printf("\nTotal: %d secrets\n", len(resp.Secrets))
 	}
+	return nil
 }
 
-func HandleWorkflowProjectSecretsSet(ctx context.Context, client *td.Client, args []string, flags Flags) {
+// HandleWorkflowProjectSecretsSet sets a project secret.
+func HandleWorkflowProjectSecretsSet(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 3 {
-		log.Fatal("Project ID, secret key, and secret value required")
+		return usageError("Project ID, secret key, and secret value required")
 	}
 
-	projectID := args[0]
-
-	err := client.Workflow.SetProjectSecret(ctx, projectID, args[1], args[2])
-	if err != nil {
-		HandleError(err, "Failed to set project secret", flags.Verbose)
+	if err := client.Workflow.SetProjectSecret(ctx, args[0], args[1], args[2]); err != nil {
+		return wrapError(err, "failed to set project secret", flags.Verbose)
 	}
 
-	fmt.Printf("Secret '%s' set successfully for project %s\n", args[1], projectID)
+	fmt.Printf("Secret '%s' set successfully for project %s\n", args[1], args[0])
+	return nil
 }
 
-func HandleWorkflowProjectSecretsDelete(ctx context.Context, client *td.Client, args []string, flags Flags) {
+// HandleWorkflowProjectSecretsDelete deletes a project secret.
+func HandleWorkflowProjectSecretsDelete(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 2 {
-		log.Fatal("Project ID and secret key required")
+		return usageError("Project ID and secret key required")
 	}
 
-	projectID := args[0]
-
-	err := client.Workflow.DeleteProjectSecret(ctx, projectID, args[1])
-	if err != nil {
-		HandleError(err, "Failed to delete project secret", flags.Verbose)
+	if err := client.Workflow.DeleteProjectSecret(ctx, args[0], args[1]); err != nil {
+		return wrapError(err, "failed to delete project secret", flags.Verbose)
 	}
 
-	fmt.Printf("Secret '%s' deleted successfully from project %s\n", args[1], projectID)
+	fmt.Printf("Secret '%s' deleted successfully from project %s\n", args[1], args[0])
+	return nil
 }
 
-// Wrapper functions for test compatibility
-func handleWorkflowProjectList(ctx context.Context, client *td.Client, flags Flags) {
-	HandleWorkflowProjectList(ctx, client, flags)
+// Lowercase wrappers preserved for test ergonomics. They return errors so
+// tests can assert against them directly.
+func handleWorkflowProjectList(ctx context.Context, client *td.Client, flags Flags) error {
+	return HandleWorkflowProjectList(ctx, client, flags)
 }
 
-func handleWorkflowProjectGet(ctx context.Context, client *td.Client, args []string, flags Flags) {
-	HandleWorkflowProjectGet(ctx, client, args, flags)
+func handleWorkflowProjectGet(ctx context.Context, client *td.Client, args []string, flags Flags) error {
+	return HandleWorkflowProjectGet(ctx, client, args, flags)
 }
 
-func handleWorkflowProjectCreate(ctx context.Context, client *td.Client, args []string, flags Flags) {
-	HandleWorkflowProjectCreate(ctx, client, args, flags)
+func handleWorkflowProjectCreate(ctx context.Context, client *td.Client, args []string, flags Flags) error {
+	return HandleWorkflowProjectCreate(ctx, client, args, flags)
 }
 
-func handleWorkflowProjectWorkflows(ctx context.Context, client *td.Client, args []string, flags Flags) {
-	HandleWorkflowProjectWorkflows(ctx, client, args, flags)
+func handleWorkflowProjectWorkflows(ctx context.Context, client *td.Client, args []string, flags Flags) error {
+	return HandleWorkflowProjectWorkflows(ctx, client, args, flags)
 }
 
-func handleWorkflowProjectSecretsList(ctx context.Context, client *td.Client, args []string, flags Flags) {
-	HandleWorkflowProjectSecretsList(ctx, client, args, flags)
+func handleWorkflowProjectSecretsList(ctx context.Context, client *td.Client, args []string, flags Flags) error {
+	return HandleWorkflowProjectSecretsList(ctx, client, args, flags)
 }
 
-func handleWorkflowProjectSecretsSet(ctx context.Context, client *td.Client, args []string, flags Flags) {
-	HandleWorkflowProjectSecretsSet(ctx, client, args, flags)
+func handleWorkflowProjectSecretsSet(ctx context.Context, client *td.Client, args []string, flags Flags) error {
+	return HandleWorkflowProjectSecretsSet(ctx, client, args, flags)
 }
 
-func handleWorkflowProjectSecretsDelete(ctx context.Context, client *td.Client, args []string, flags Flags) {
-	HandleWorkflowProjectSecretsDelete(ctx, client, args, flags)
+func handleWorkflowProjectSecretsDelete(ctx context.Context, client *td.Client, args []string, flags Flags) error {
+	return HandleWorkflowProjectSecretsDelete(ctx, client, args, flags)
 }
 
-func HandleWorkflowProjectDownload(ctx context.Context, client *td.Client, args []string, flags Flags) {
+// HandleWorkflowProjectDownload downloads a project archive to disk.
+func HandleWorkflowProjectDownload(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 1 {
-		log.Fatal("Project ID or name required")
+		return usageError("Project ID or name required")
 	}
 
 	projectIdentifier := args[0]
 	var outputDir string
 
-	// Determine output directory
 	if len(args) >= 2 {
 		outputDir = args[1]
 	} else {
-		// Default to project name if available, otherwise use identifier
 		outputDir = projectIdentifier
 	}
 
-	// Revision support (we'll extend this with proper flag support later)
 	var revision string
 
 	if flags.Verbose {
@@ -311,48 +306,40 @@ func HandleWorkflowProjectDownload(ctx context.Context, client *td.Client, args 
 	var err error
 	var projectInfo *td.WorkflowProject
 
-	// Try to parse as project ID first (numeric)
 	_, parseErr := strconv.Atoi(projectIdentifier)
 	if parseErr == nil {
-		// It's a numeric ID, use it directly
 		if flags.Verbose {
 			fmt.Printf("Using project ID: %s\n", projectIdentifier)
 		}
 
-		// Get project info for display
 		projectInfo, err = client.Workflow.GetProject(ctx, projectIdentifier)
 		if err != nil {
-			HandleError(err, "Failed to get project details", flags.Verbose)
+			return wrapError(err, "failed to get project details", flags.Verbose)
 		}
 
-		// Download by ID
 		if revision != "" {
 			err = client.Workflow.DownloadProjectToDirectoryWithRevision(ctx, projectIdentifier, revision, outputDir)
 		} else {
 			err = client.Workflow.DownloadProjectToDirectory(ctx, projectIdentifier, outputDir)
 		}
 	} else {
-		// It's not numeric, try to find by name
 		if flags.Verbose {
 			fmt.Printf("Searching for project by name: %s\n", projectIdentifier)
 		}
 
-		// Get project by name using direct API call
 		projectInfo, err = client.Workflow.GetProjectByName(ctx, projectIdentifier)
 		if err != nil {
-			HandleError(err, "Failed to get project by name", flags.Verbose)
+			return wrapError(err, "failed to get project by name", flags.Verbose)
 		}
 
 		if flags.Verbose {
 			fmt.Printf("Found project: %s (ID: %s)\n", projectInfo.Name, projectInfo.ID)
 		}
 
-		// Use the project name for the default output directory if not specified
 		if len(args) < 2 {
 			outputDir = projectInfo.Name
 		}
 
-		// Download by name
 		if revision != "" {
 			err = client.Workflow.DownloadProjectByNameToDirectoryWithRevision(ctx, projectIdentifier, revision, outputDir)
 		} else {
@@ -361,7 +348,7 @@ func HandleWorkflowProjectDownload(ctx context.Context, client *td.Client, args 
 	}
 
 	if err != nil {
-		HandleError(err, "Failed to download project", flags.Verbose)
+		return wrapError(err, "failed to download project", flags.Verbose)
 	}
 
 	fmt.Printf("Project downloaded successfully\n")
@@ -372,12 +359,11 @@ func HandleWorkflowProjectDownload(ctx context.Context, client *td.Client, args 
 	}
 	fmt.Printf("Output directory: %s\n", outputDir)
 
-	// Show directory contents if verbose
 	if flags.Verbose {
 		fmt.Printf("\nExtracted files:\n")
 		err := filepath.Walk(outputDir, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
-				return nil // Skip errors and continue
+				return nil
 			}
 			relPath, _ := filepath.Rel(outputDir, path)
 			if relPath == "." {
@@ -394,4 +380,5 @@ func HandleWorkflowProjectDownload(ctx context.Context, client *td.Client, args 
 			fmt.Printf("Warning: Failed to list extracted files: %v\n", err)
 		}
 	}
+	return nil
 }

@@ -4,34 +4,31 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"text/tabwriter"
 
 	td "github.com/mickeey2525/treasuredata-go-sdk"
 )
 
-// Workflow attempt handlers
-func HandleWorkflowAttemptList(ctx context.Context, client *td.Client, args []string, flags Flags) {
+// HandleWorkflowAttemptList lists workflow attempts
+func HandleWorkflowAttemptList(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 1 {
-		log.Fatal("Workflow ID required")
+		return usageError("Workflow ID required")
 	}
-
-	workflowID := args[0]
 
 	opts := &td.WorkflowAttemptListOptions{
 		Limit:  100,
 		Offset: 0,
 	}
 
-	resp, err := client.Workflow.ListWorkflowAttempts(ctx, workflowID, opts)
+	resp, err := client.Workflow.ListWorkflowAttempts(ctx, args[0], opts)
 	if err != nil {
-		HandleError(err, "Failed to list workflow attempts", flags.Verbose)
+		return wrapError(err, "failed to list workflow attempts", flags.Verbose)
 	}
 
 	switch flags.Format {
 	case "json":
-		PrintJSON(resp)
+		return PrintJSON(resp)
 	case "csv":
 		fmt.Println("id,index,status,created_at,finished_at")
 		for _, attempt := range resp.Attempts {
@@ -47,7 +44,7 @@ func HandleWorkflowAttemptList(ctx context.Context, client *td.Client, args []st
 	default:
 		if len(resp.Attempts) == 0 {
 			fmt.Println("No attempts found")
-			return
+			return nil
 		}
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
@@ -65,25 +62,23 @@ func HandleWorkflowAttemptList(ctx context.Context, client *td.Client, args []st
 		w.Flush()
 		fmt.Printf("\nTotal: %d attempts\n", len(resp.Attempts))
 	}
+	return nil
 }
 
-func HandleWorkflowAttemptGet(ctx context.Context, client *td.Client, args []string, flags Flags) {
+// HandleWorkflowAttemptGet retrieves a workflow attempt
+func HandleWorkflowAttemptGet(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 2 {
-		log.Fatal("Workflow ID and attempt ID required")
+		return usageError("Workflow ID and attempt ID required")
 	}
 
-	workflowID := args[0]
-
-	attemptID := args[1]
-
-	attempt, err := client.Workflow.GetWorkflowAttempt(ctx, workflowID, attemptID)
+	attempt, err := client.Workflow.GetWorkflowAttempt(ctx, args[0], args[1])
 	if err != nil {
-		HandleError(err, "Failed to get workflow attempt", flags.Verbose)
+		return wrapError(err, "failed to get workflow attempt", flags.Verbose)
 	}
 
 	switch flags.Format {
 	case "json":
-		PrintJSON(attempt)
+		return PrintJSON(attempt)
 	case "csv":
 		fmt.Println("id,index,status,created_at,finished_at,done,success")
 		finishedAt := ""
@@ -120,48 +115,43 @@ func HandleWorkflowAttemptGet(ctx context.Context, client *td.Client, args []str
 			fmt.Printf("  %s\n", paramsJSON)
 		}
 	}
+	return nil
 }
 
-func HandleWorkflowAttemptKill(ctx context.Context, client *td.Client, args []string, flags Flags) {
+// HandleWorkflowAttemptKill kills a workflow attempt
+func HandleWorkflowAttemptKill(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 2 {
-		log.Fatal("Workflow ID and attempt ID required")
+		return usageError("Workflow ID and attempt ID required")
 	}
 
-	workflowID := args[0]
-
-	attemptID := args[1]
-
-	err := client.Workflow.KillWorkflowAttempt(ctx, workflowID, attemptID)
-	if err != nil {
-		HandleError(err, "Failed to kill workflow attempt", flags.Verbose)
+	if err := client.Workflow.KillWorkflowAttempt(ctx, args[0], args[1]); err != nil {
+		return wrapError(err, "failed to kill workflow attempt", flags.Verbose)
 	}
 
-	fmt.Printf("Workflow attempt %s killed successfully\n", attemptID)
+	fmt.Printf("Workflow attempt %s killed successfully\n", args[1])
+	return nil
 }
 
-func HandleWorkflowAttemptRetry(ctx context.Context, client *td.Client, args []string, flags Flags) {
+// HandleWorkflowAttemptRetry retries a workflow attempt
+func HandleWorkflowAttemptRetry(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 2 {
-		log.Fatal("Workflow ID and attempt ID required")
+		return usageError("Workflow ID and attempt ID required")
 	}
-
-	workflowID := args[0]
-
-	attemptID := args[1]
 
 	var params map[string]interface{}
 	if len(args) > 2 {
-		err := json.Unmarshal([]byte(args[2]), &params)
-		if err != nil {
-			log.Fatalf("Invalid parameters JSON: %v", err)
+		if err := json.Unmarshal([]byte(args[2]), &params); err != nil {
+			return usageError(fmt.Sprintf("Invalid parameters JSON: %v", err))
 		}
 	}
 
-	attempt, err := client.Workflow.RetryWorkflowAttempt(ctx, workflowID, attemptID, params)
+	attempt, err := client.Workflow.RetryWorkflowAttempt(ctx, args[0], args[1], params)
 	if err != nil {
-		HandleError(err, "Failed to retry workflow attempt", flags.Verbose)
+		return wrapError(err, "failed to retry workflow attempt", flags.Verbose)
 	}
 
 	fmt.Printf("Workflow attempt retried successfully\n")
 	fmt.Printf("New Attempt ID: %s\n", attempt.ID)
 	fmt.Printf("Status: %s\n", attempt.Status)
+	return nil
 }
