@@ -219,6 +219,13 @@ func WithHTTPClient(httpClient *http.Client) ClientOption {
 	}
 }
 
+// HTTPClient returns the currently configured underlying HTTP client.
+// This reflects any options applied via WithHTTPClient, WithSSLOptions, or
+// WithOTEL. May be nil if no client has been configured.
+func (c *Client) HTTPClient() *http.Client {
+	return c.httpClient
+}
+
 // WithEndpoint sets a custom API endpoint
 func WithEndpoint(endpoint string) ClientOption {
 	return func(c *Client) error {
