@@ -14,10 +14,8 @@ type TablesListCmd struct {
 }
 
 func (t *TablesListCmd) Run(ctx *CLIContext) error {
-	return InstrumentedRun(ctx, "tables.list", []string{t.Database}, func(ctx *CLIContext) error {
-		return runHandlerWithErrorCapture(func() {
-			handleTableList(ctx.Context, ctx.Client, []string{t.Database}, ctx.GlobalFlags)
-		})
+	return runInstrumented(ctx, "tables.list", []string{t.Database}, func() {
+		handleTableList(ctx.Context, ctx.Client, []string{t.Database}, ctx.GlobalFlags)
 	})
 }
 
@@ -27,7 +25,7 @@ type TablesGetCmd struct {
 }
 
 func (t *TablesGetCmd) Run(ctx *CLIContext) error {
-	return runHandlerWithErrorCapture(func() {
+	return runInstrumented(ctx, "tables.get", []string{t.Database, t.Table}, func() {
 		handleTableGet(ctx.Context, ctx.Client, []string{t.Database, t.Table}, ctx.GlobalFlags)
 	})
 }
@@ -38,7 +36,7 @@ type TablesCreateCmd struct {
 }
 
 func (t *TablesCreateCmd) Run(ctx *CLIContext) error {
-	return runHandlerWithErrorCapture(func() {
+	return runInstrumented(ctx, "tables.create", []string{t.Database, t.Table}, func() {
 		handleTableCreate(ctx.Context, ctx.Client, []string{t.Database, t.Table}, ctx.GlobalFlags)
 	})
 }
@@ -49,7 +47,7 @@ type TablesDeleteCmd struct {
 }
 
 func (t *TablesDeleteCmd) Run(ctx *CLIContext) error {
-	return runHandlerWithErrorCapture(func() {
+	return runInstrumented(ctx, "tables.delete", []string{t.Database, t.Table}, func() {
 		handleTableDelete(ctx.Context, ctx.Client, []string{t.Database, t.Table}, ctx.GlobalFlags)
 	})
 }
@@ -61,7 +59,7 @@ type TablesSwapCmd struct {
 }
 
 func (t *TablesSwapCmd) Run(ctx *CLIContext) error {
-	return runHandlerWithErrorCapture(func() {
+	return runInstrumented(ctx, "tables.swap", []string{t.Database, t.Table1, t.Table2}, func() {
 		handleTableSwap(ctx.Context, ctx.Client, []string{t.Database, t.Table1, t.Table2}, ctx.GlobalFlags)
 	})
 }
@@ -73,7 +71,7 @@ type TablesRenameCmd struct {
 }
 
 func (t *TablesRenameCmd) Run(ctx *CLIContext) error {
-	return runHandlerWithErrorCapture(func() {
+	return runInstrumented(ctx, "tables.rename", []string{t.Database, t.OldName, t.NewName}, func() {
 		handleTableRename(ctx.Context, ctx.Client, []string{t.Database, t.OldName, t.NewName}, ctx.GlobalFlags)
 	})
 }

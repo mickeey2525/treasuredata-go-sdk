@@ -6,6 +6,8 @@ import (
 	"time"
 
 	td "github.com/mickeey2525/treasuredata-go-sdk"
+	"github.com/mickeey2525/treasuredata-go-sdk/cmd/tdcli/cdp"
+	"github.com/mickeey2525/treasuredata-go-sdk/cmd/tdcli/workflow"
 	"github.com/mickeey2525/treasuredata-go-sdk/otel"
 )
 
@@ -91,10 +93,16 @@ var captureHandlerErrors = false
 // runHandlerWithErrorCapture wraps handler functions to capture their errors.
 func runHandlerWithErrorCapture(handlerFunc func()) (err error) {
 	originalCaptureMode := captureHandlerErrors
+	originalCDPCapture := cdp.CaptureErrors
+	originalWorkflowCapture := workflow.CaptureErrors
 	captureHandlerErrors = true
+	cdp.CaptureErrors = true
+	workflow.CaptureErrors = true
 
 	defer func() {
 		captureHandlerErrors = originalCaptureMode
+		cdp.CaptureErrors = originalCDPCapture
+		workflow.CaptureErrors = originalWorkflowCapture
 		if r := recover(); r != nil {
 			if e, ok := r.(error); ok {
 				err = e

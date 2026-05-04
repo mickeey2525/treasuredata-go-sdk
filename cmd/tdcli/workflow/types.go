@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 
@@ -55,7 +56,19 @@ func PrintJSON(v interface{}) {
 	}
 }
 
+// CaptureErrors signals HandleError to panic instead of calling log.Fatalf.
+// Set by the main package's runHandlerWithErrorCapture when wrapping commands.
+var CaptureErrors = false
+
 func HandleError(err error, message string, verbose bool) {
+	if err != nil {
+		if CaptureErrors {
+			if verbose {
+				panic(fmt.Errorf("%s: %v", message, err))
+			}
+			panic(err)
+		}
+	}
 	if verbose {
 		if tdErr, ok := err.(*td.ErrorResponse); ok {
 			log.Printf("API Error: %s\n", tdErr.Error())

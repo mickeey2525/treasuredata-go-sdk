@@ -11,10 +11,8 @@ type DatabasesCmd struct {
 type DatabasesListCmd struct{}
 
 func (d *DatabasesListCmd) Run(ctx *CLIContext) error {
-	return InstrumentedRun(ctx, "databases.list", []string{}, func(ctx *CLIContext) error {
-		return runHandlerWithErrorCapture(func() {
-			handleDatabaseList(ctx.Context, ctx.Client, ctx.GlobalFlags)
-		})
+	return runInstrumented(ctx, "databases.list", []string{}, func() {
+		handleDatabaseList(ctx.Context, ctx.Client, ctx.GlobalFlags)
 	})
 }
 
@@ -23,10 +21,8 @@ type DatabasesGetCmd struct {
 }
 
 func (d *DatabasesGetCmd) Run(ctx *CLIContext) error {
-	return InstrumentedRun(ctx, "databases.get", []string{d.Name}, func(ctx *CLIContext) error {
-		return runHandlerWithErrorCapture(func() {
-			handleDatabaseGet(ctx.Context, ctx.Client, []string{d.Name}, ctx.GlobalFlags)
-		})
+	return runInstrumented(ctx, "databases.get", []string{d.Name}, func() {
+		handleDatabaseGet(ctx.Context, ctx.Client, []string{d.Name}, ctx.GlobalFlags)
 	})
 }
 
@@ -35,7 +31,7 @@ type DatabasesCreateCmd struct {
 }
 
 func (d *DatabasesCreateCmd) Run(ctx *CLIContext) error {
-	return runHandlerWithErrorCapture(func() {
+	return runInstrumented(ctx, "databases.create", []string{d.Name}, func() {
 		handleDatabaseCreate(ctx.Context, ctx.Client, []string{d.Name}, ctx.GlobalFlags)
 	})
 }
@@ -45,7 +41,7 @@ type DatabasesDeleteCmd struct {
 }
 
 func (d *DatabasesDeleteCmd) Run(ctx *CLIContext) error {
-	return runHandlerWithErrorCapture(func() {
+	return runInstrumented(ctx, "databases.delete", []string{d.Name}, func() {
 		handleDatabaseDelete(ctx.Context, ctx.Client, []string{d.Name}, ctx.GlobalFlags)
 	})
 }
@@ -55,7 +51,7 @@ type DatabasesUpdateCmd struct {
 }
 
 func (d *DatabasesUpdateCmd) Run(ctx *CLIContext) error {
-	return runHandlerWithErrorCapture(func() {
+	return runInstrumented(ctx, "databases.update", []string{d.Name}, func() {
 		handleDatabaseUpdate(ctx.Context, ctx.Client, []string{d.Name}, ctx.GlobalFlags)
 	})
 }

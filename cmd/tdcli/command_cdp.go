@@ -318,7 +318,7 @@ type CDPActivationsCreateCmd struct {
 }
 
 func (c *CDPActivationsCreateCmd) Run(ctx *CLIContext) error {
-	return runHandlerWithErrorCapture(func() {
+	return runInstrumented(ctx, "cdp.activations.create", []string{c.SegmentID, c.Name}, func() {
 		handleCDPActivationCreate(ctx.Context, ctx.Client, []string{c.SegmentID, c.Name, c.Description, c.Configuration}, ctx.GlobalFlags)
 	})
 }
@@ -332,7 +332,7 @@ type CDPActivationsCreateWithStructCmd struct {
 }
 
 func (c *CDPActivationsCreateWithStructCmd) Run(ctx *CLIContext) error {
-	return runHandlerWithErrorCapture(func() {
+	return runInstrumented(ctx, "cdp.activations.create_with_struct", []string{c.Name, c.SegmentID}, func() {
 		args := []string{c.Name, c.Type, c.SegmentID, c.Configuration}
 		if c.Description != "" {
 			args = append(args, c.Description)
@@ -346,7 +346,7 @@ type CDPActivationsListCmd struct {
 }
 
 func (c *CDPActivationsListCmd) Run(ctx *CLIContext) error {
-	return runHandlerWithErrorCapture(func() {
+	return runInstrumented(ctx, "cdp.activations.list", []string{}, func() {
 		handleCDPActivationListWithForce(ctx.Context, ctx.Client, ctx.GlobalFlags, c.Force)
 	})
 }
@@ -358,7 +358,7 @@ type CDPActivationsGetCmd struct {
 }
 
 func (c *CDPActivationsGetCmd) Run(ctx *CLIContext) error {
-	return runHandlerWithErrorCapture(func() {
+	return runInstrumented(ctx, "cdp.activations.get", []string{c.AudienceID, c.SegmentID, c.ActivationID}, func() {
 		handleCDPActivationGet(ctx.Context, ctx.Client, []string{c.AudienceID, c.SegmentID, c.ActivationID}, ctx.GlobalFlags)
 	})
 }
@@ -763,8 +763,9 @@ type CDPJourneysDuplicateCmd struct {
 }
 
 func (c *CDPJourneysDuplicateCmd) Run(ctx *CLIContext) error {
-	handleCDPJourneyDuplicate(ctx.Context, ctx.Client, []string{c.RequestFile}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.journeys.duplicate", []string{}, func() {
+		handleCDPJourneyDuplicate(ctx.Context, ctx.Client, []string{c.RequestFile}, ctx.GlobalFlags)
+	})
 }
 
 type CDPJourneysPauseCmd struct {
@@ -772,8 +773,9 @@ type CDPJourneysPauseCmd struct {
 }
 
 func (c *CDPJourneysPauseCmd) Run(ctx *CLIContext) error {
-	handleCDPJourneyPause(ctx.Context, ctx.Client, []string{c.JourneyID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.journeys.pause", []string{c.JourneyID}, func() {
+		handleCDPJourneyPause(ctx.Context, ctx.Client, []string{c.JourneyID}, ctx.GlobalFlags)
+	})
 }
 
 type CDPJourneysResumeCmd struct {
@@ -781,8 +783,9 @@ type CDPJourneysResumeCmd struct {
 }
 
 func (c *CDPJourneysResumeCmd) Run(ctx *CLIContext) error {
-	handleCDPJourneyResume(ctx.Context, ctx.Client, []string{c.JourneyID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.journeys.resume", []string{c.JourneyID}, func() {
+		handleCDPJourneyResume(ctx.Context, ctx.Client, []string{c.JourneyID}, ctx.GlobalFlags)
+	})
 }
 
 type CDPJourneysStatisticsCmd struct {
@@ -799,8 +802,9 @@ func (c *CDPJourneysStatisticsCmd) Run(ctx *CLIContext) error {
 	if c.To != "" {
 		args = append(args, "--to", c.To)
 	}
-	handleCDPJourneyStatistics(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.journeys.statistics", []string{c.JourneyID}, func() {
+		handleCDPJourneyStatistics(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
+	})
 }
 
 type CDPJourneysCustomersCmd struct {
@@ -811,8 +815,9 @@ type CDPJourneysCustomersCmd struct {
 
 func (c *CDPJourneysCustomersCmd) Run(ctx *CLIContext) error {
 	args := []string{c.JourneyID, fmt.Sprintf("--limit=%d", c.Limit), fmt.Sprintf("--offset=%d", c.Offset)}
-	handleCDPJourneyCustomers(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.journeys.customers", []string{c.JourneyID}, func() {
+		handleCDPJourneyCustomers(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
+	})
 }
 
 type CDPJourneysStageCustomersCmd struct {
@@ -824,8 +829,9 @@ type CDPJourneysStageCustomersCmd struct {
 
 func (c *CDPJourneysStageCustomersCmd) Run(ctx *CLIContext) error {
 	args := []string{c.JourneyID, c.StageID, fmt.Sprintf("--limit=%d", c.Limit), fmt.Sprintf("--offset=%d", c.Offset)}
-	handleCDPJourneyStageCustomers(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.journeys.stage_customers", []string{c.JourneyID, c.StageID}, func() {
+		handleCDPJourneyStageCustomers(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
+	})
 }
 
 type CDPJourneysConversionSankeyCmd struct {
@@ -929,8 +935,9 @@ type CDPJourneyActivationsCreateCmd struct {
 }
 
 func (c *CDPJourneyActivationsCreateCmd) Run(ctx *CLIContext) error {
-	handleCDPJourneyActivationCreate(ctx.Context, ctx.Client, []string{c.JourneyID, c.RequestFile}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.journeys.activations.create", []string{c.JourneyID}, func() {
+		handleCDPJourneyActivationCreate(ctx.Context, ctx.Client, []string{c.JourneyID, c.RequestFile}, ctx.GlobalFlags)
+	})
 }
 
 type CDPJourneyActivationsGetCmd struct {
@@ -939,8 +946,9 @@ type CDPJourneyActivationsGetCmd struct {
 }
 
 func (c *CDPJourneyActivationsGetCmd) Run(ctx *CLIContext) error {
-	handleCDPJourneyActivationGet(ctx.Context, ctx.Client, []string{c.JourneyID, c.ActivationStepID}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.journeys.activations.get", []string{c.JourneyID, c.ActivationStepID}, func() {
+		handleCDPJourneyActivationGet(ctx.Context, ctx.Client, []string{c.JourneyID, c.ActivationStepID}, ctx.GlobalFlags)
+	})
 }
 
 type CDPJourneyActivationsUpdateCmd struct {
@@ -950,8 +958,9 @@ type CDPJourneyActivationsUpdateCmd struct {
 }
 
 func (c *CDPJourneyActivationsUpdateCmd) Run(ctx *CLIContext) error {
-	handleCDPJourneyActivationUpdate(ctx.Context, ctx.Client, []string{c.JourneyID, c.ActivationStepID, c.RequestFile}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "cdp.journeys.activations.update", []string{c.JourneyID, c.ActivationStepID}, func() {
+		handleCDPJourneyActivationUpdate(ctx.Context, ctx.Client, []string{c.JourneyID, c.ActivationStepID, c.RequestFile}, ctx.GlobalFlags)
+	})
 }
 
 // --- Activation Templates ---

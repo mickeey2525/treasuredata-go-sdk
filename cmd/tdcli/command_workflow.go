@@ -166,8 +166,9 @@ type WorkflowScheduleGetCmd struct {
 
 func (w *WorkflowScheduleGetCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	workflow.HandleWorkflowScheduleGet(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID)}, flags)
-	return nil
+	return runInstrumented(ctx, "workflow.schedule.get", []string{fmt.Sprintf("%d", w.WorkflowID)}, func() {
+		workflow.HandleWorkflowScheduleGet(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID)}, flags)
+	})
 }
 
 type WorkflowScheduleEnableCmd struct {
@@ -176,8 +177,9 @@ type WorkflowScheduleEnableCmd struct {
 
 func (w *WorkflowScheduleEnableCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	workflow.HandleWorkflowScheduleEnable(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID)}, flags)
-	return nil
+	return runInstrumented(ctx, "workflow.schedule.enable", []string{fmt.Sprintf("%d", w.WorkflowID)}, func() {
+		workflow.HandleWorkflowScheduleEnable(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID)}, flags)
+	})
 }
 
 type WorkflowScheduleDisableCmd struct {
@@ -186,8 +188,9 @@ type WorkflowScheduleDisableCmd struct {
 
 func (w *WorkflowScheduleDisableCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	workflow.HandleWorkflowScheduleDisable(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID)}, flags)
-	return nil
+	return runInstrumented(ctx, "workflow.schedule.disable", []string{fmt.Sprintf("%d", w.WorkflowID)}, func() {
+		workflow.HandleWorkflowScheduleDisable(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID)}, flags)
+	})
 }
 
 type WorkflowScheduleUpdateCmd struct {
@@ -199,10 +202,11 @@ type WorkflowScheduleUpdateCmd struct {
 
 func (w *WorkflowScheduleUpdateCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	workflow.HandleWorkflowScheduleUpdate(ctx.Context, ctx.Client, []string{
-		fmt.Sprintf("%d", w.WorkflowID), w.Cron, w.Timezone, fmt.Sprintf("%d", w.Delay),
-	}, flags)
-	return nil
+	return runInstrumented(ctx, "workflow.schedule.update", []string{fmt.Sprintf("%d", w.WorkflowID)}, func() {
+		workflow.HandleWorkflowScheduleUpdate(ctx.Context, ctx.Client, []string{
+			fmt.Sprintf("%d", w.WorkflowID), w.Cron, w.Timezone, fmt.Sprintf("%d", w.Delay),
+		}, flags)
+	})
 }
 
 type WorkflowTasksCmd struct {
@@ -217,8 +221,9 @@ type WorkflowTasksListCmd struct {
 
 func (w *WorkflowTasksListCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	workflow.HandleWorkflowTaskList(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID)}, flags)
-	return nil
+	return runInstrumented(ctx, "workflow.tasks.list", []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID)}, func() {
+		workflow.HandleWorkflowTaskList(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID)}, flags)
+	})
 }
 
 type WorkflowTasksGetCmd struct {
@@ -229,8 +234,9 @@ type WorkflowTasksGetCmd struct {
 
 func (w *WorkflowTasksGetCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	workflow.HandleWorkflowTaskGet(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID), w.TaskID}, flags)
-	return nil
+	return runInstrumented(ctx, "workflow.tasks.get", []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID), w.TaskID}, func() {
+		workflow.HandleWorkflowTaskGet(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID), w.TaskID}, flags)
+	})
 }
 
 type WorkflowLogsCmd struct {
@@ -245,8 +251,9 @@ type WorkflowLogsAttemptCmd struct {
 
 func (w *WorkflowLogsAttemptCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	workflow.HandleWorkflowAttemptLog(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID)}, flags)
-	return nil
+	return runInstrumented(ctx, "workflow.logs.attempt", []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID)}, func() {
+		workflow.HandleWorkflowAttemptLog(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID)}, flags)
+	})
 }
 
 type WorkflowLogsTaskCmd struct {
@@ -257,8 +264,9 @@ type WorkflowLogsTaskCmd struct {
 
 func (w *WorkflowLogsTaskCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	workflow.HandleWorkflowTaskLog(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID), w.TaskID}, flags)
-	return nil
+	return runInstrumented(ctx, "workflow.logs.task", []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID), w.TaskID}, func() {
+		workflow.HandleWorkflowTaskLog(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID), w.TaskID}, flags)
+	})
 }
 
 type WorkflowInitCmd struct {
@@ -267,8 +275,9 @@ type WorkflowInitCmd struct {
 
 func (w *WorkflowInitCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	workflow.HandleWorkflowInit(ctx.Context, []string{w.ProjectName}, flags)
-	return nil
+	return runInstrumented(ctx, "workflow.init", []string{w.ProjectName}, func() {
+		workflow.HandleWorkflowInit(ctx.Context, []string{w.ProjectName}, flags)
+	})
 }
 
 type WorkflowProjectsCmd struct {

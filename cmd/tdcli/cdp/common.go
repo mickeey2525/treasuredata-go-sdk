@@ -32,8 +32,20 @@ type Flags struct {
 	CAFile             string
 }
 
+// CaptureErrors signals handleError to panic instead of calling log.Fatalf.
+// Set by the main package's runHandlerWithErrorCapture when wrapping commands.
+var CaptureErrors = false
+
 // handleError handles errors with optional verbose output
 func handleError(err error, message string, verbose bool) {
+	if err != nil {
+		if CaptureErrors {
+			if verbose {
+				panic(fmt.Errorf("%s: %v", message, err))
+			}
+			panic(err)
+		}
+	}
 	if verbose {
 		if tdErr, ok := err.(*td.ErrorResponse); ok {
 			log.Fatalf("%s: %v (Status: %d, Message: %s)", message, err, tdErr.Response.StatusCode, tdErr.Message)
