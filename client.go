@@ -707,31 +707,43 @@ func (c *Client) NewPostbackRequest(method, urlStr string, body interface{}) (*h
 	return req, nil
 }
 
-// NewStreamImportRequest creates an API request for Stream Import endpoints
+// NewStreamImportRequest creates an API request for Stream Import endpoints.
+// When body implements io.Reader, it is streamed directly instead of being JSON-encoded.
 func (c *Client) NewStreamImportRequest(method, urlStr string, body interface{}) (*http.Request, error) {
 	u, err := c.StreamImportURL.Parse(urlStr)
 	if err != nil {
 		return nil, err
 	}
 
-	var buf io.ReadWriter
+	var bodyReader io.Reader
+	var isBinary bool
 	if body != nil {
-		buf = new(bytes.Buffer)
-		enc := json.NewEncoder(buf)
-		enc.SetEscapeHTML(false)
-		err := enc.Encode(body)
-		if err != nil {
-			return nil, err
+		if r, ok := body.(io.Reader); ok {
+			bodyReader = r
+			isBinary = true
+		} else {
+			buf := new(bytes.Buffer)
+			enc := json.NewEncoder(buf)
+			enc.SetEscapeHTML(false)
+			if err := enc.Encode(body); err != nil {
+				return nil, err
+			}
+			bodyReader = buf
 		}
 	}
 
-	req, err := http.NewRequest(method, u.String(), buf)
+	req, err := http.NewRequest(method, u.String(), bodyReader)
 	if err != nil {
 		return nil, err
 	}
 
 	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
+		if isBinary {
+			req.Header.Set("Content-Type", "application/octet-stream")
+			req.Header.Set("Content-Encoding", "gzip")
+		} else {
+			req.Header.Set("Content-Type", "application/json")
+		}
 	}
 
 	req.Header.Set("Authorization", fmt.Sprintf("TD1 %s", c.APIKey))

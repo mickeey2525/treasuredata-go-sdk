@@ -1,7 +1,6 @@
 package treasuredata
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -28,23 +27,15 @@ type ImportResponse struct {
 }
 
 // ImportTable imports data into a table using the Stream Import API.
-// Data should be in msgpack.gz format.
+// Data should be in msgpack.gz format. The io.Reader is streamed directly
+// without being fully buffered in memory.
 func (s *StreamImportService) ImportTable(ctx context.Context, database, table string, data io.Reader) (*ImportResponse, error) {
 	u := fmt.Sprintf("v3/table/import/%s/%s", database, table)
 
-	// Read data into a buffer since we need to send it as bytes
-	var buf bytes.Buffer
-	if _, err := io.Copy(&buf, data); err != nil {
-		return nil, fmt.Errorf("failed to read import data: %w", err)
-	}
-
-	req, err := s.client.NewStreamImportRequest("POST", u, &buf)
+	req, err := s.client.NewStreamImportRequest("POST", u, data)
 	if err != nil {
 		return nil, err
 	}
-
-	req.Header.Set("Content-Type", "application/octet-stream")
-	req.Header.Set("Content-Encoding", "gzip")
 
 	var resp ImportResponse
 	_, err = s.client.Do(ctx, req, &resp)
@@ -56,23 +47,15 @@ func (s *StreamImportService) ImportTable(ctx context.Context, database, table s
 }
 
 // ImportTableWithID imports data into a table with a unique ID for deduplication.
-// Data should be in msgpack.gz format.
+// Data should be in msgpack.gz format. The io.Reader is streamed directly
+// without being fully buffered in memory.
 func (s *StreamImportService) ImportTableWithID(ctx context.Context, database, table, uniqueID string, data io.Reader) (*ImportResponse, error) {
 	u := fmt.Sprintf("v3/table/import_with_id/%s/%s/%s", database, table, uniqueID)
 
-	// Read data into a buffer since we need to send it as bytes
-	var buf bytes.Buffer
-	if _, err := io.Copy(&buf, data); err != nil {
-		return nil, fmt.Errorf("failed to read import data: %w", err)
-	}
-
-	req, err := s.client.NewStreamImportRequest("POST", u, &buf)
+	req, err := s.client.NewStreamImportRequest("POST", u, data)
 	if err != nil {
 		return nil, err
 	}
-
-	req.Header.Set("Content-Type", "application/octet-stream")
-	req.Header.Set("Content-Encoding", "gzip")
 
 	var resp ImportResponse
 	_, err = s.client.Do(ctx, req, &resp)
