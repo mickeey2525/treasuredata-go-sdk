@@ -16,8 +16,8 @@ type ImportCmd struct {
 type ImportListCmd struct{}
 
 func (i *ImportListCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "bulk-import.list", []string{}, func() {
-		handleBulkImportList(ctx.Context, ctx.Client, ctx.GlobalFlags)
+	return runInstrumented(ctx, "bulk-import.list", []string{}, func() error {
+		return handleBulkImportList(ctx.Context, ctx.Client, ctx.GlobalFlags)
 	})
 }
 
@@ -26,8 +26,8 @@ type ImportGetCmd struct {
 }
 
 func (i *ImportGetCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "bulk-import.get", []string{i.Session}, func() {
-		handleBulkImportGet(ctx.Context, ctx.Client, []string{i.Session}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "bulk-import.get", []string{i.Session}, func() error {
+		return handleBulkImportGet(ctx.Context, ctx.Client, []string{i.Session}, ctx.GlobalFlags)
 	})
 }
 
@@ -38,8 +38,8 @@ type ImportCreateCmd struct {
 }
 
 func (i *ImportCreateCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "bulk-import.create", []string{i.Session, i.Database, i.Table}, func() {
-		handleBulkImportCreate(ctx.Context, ctx.Client, []string{i.Session, i.Database, i.Table}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "bulk-import.create", []string{i.Session, i.Database, i.Table}, func() error {
+		return handleBulkImportCreate(ctx.Context, ctx.Client, []string{i.Session, i.Database, i.Table}, ctx.GlobalFlags)
 	})
 }
 
@@ -48,8 +48,8 @@ type ImportDeleteCmd struct {
 }
 
 func (i *ImportDeleteCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "bulk-import.delete", []string{i.Session}, func() {
-		handleBulkImportDelete(ctx.Context, ctx.Client, []string{i.Session}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "bulk-import.delete", []string{i.Session}, func() error {
+		return handleBulkImportDelete(ctx.Context, ctx.Client, []string{i.Session}, ctx.GlobalFlags)
 	})
 }
 
@@ -60,8 +60,8 @@ type ImportUploadCmd struct {
 }
 
 func (i *ImportUploadCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "bulk-import.upload", []string{i.Session, i.PartName, i.FilePath}, func() {
-		handleBulkImportUpload(ctx.Context, ctx.Client, []string{i.Session, i.PartName, i.FilePath}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "bulk-import.upload", []string{i.Session, i.PartName, i.FilePath}, func() error {
+		return handleBulkImportUpload(ctx.Context, ctx.Client, []string{i.Session, i.PartName, i.FilePath}, ctx.GlobalFlags)
 	})
 }
 
@@ -70,8 +70,8 @@ type ImportCommitCmd struct {
 }
 
 func (i *ImportCommitCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "bulk-import.commit", []string{i.Session}, func() {
-		handleBulkImportCommit(ctx.Context, ctx.Client, []string{i.Session}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "bulk-import.commit", []string{i.Session}, func() error {
+		return handleBulkImportCommit(ctx.Context, ctx.Client, []string{i.Session}, ctx.GlobalFlags)
 	})
 }
 
@@ -80,8 +80,8 @@ type ImportPerformCmd struct {
 }
 
 func (i *ImportPerformCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "bulk-import.perform", []string{i.Session}, func() {
-		handleBulkImportPerform(ctx.Context, ctx.Client, []string{i.Session}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "bulk-import.perform", []string{i.Session}, func() error {
+		return handleBulkImportPerform(ctx.Context, ctx.Client, []string{i.Session}, ctx.GlobalFlags)
 	})
 }
 
@@ -90,8 +90,8 @@ type ImportFreezeCmd struct {
 }
 
 func (i *ImportFreezeCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "bulk-import.freeze", []string{i.Session}, func() {
-		handleBulkImportFreeze(ctx.Context, ctx.Client, []string{i.Session}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "bulk-import.freeze", []string{i.Session}, func() error {
+		return handleBulkImportFreeze(ctx.Context, ctx.Client, []string{i.Session}, ctx.GlobalFlags)
 	})
 }
 
@@ -100,8 +100,8 @@ type ImportUnfreezeCmd struct {
 }
 
 func (i *ImportUnfreezeCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "bulk-import.unfreeze", []string{i.Session}, func() {
-		handleBulkImportUnfreeze(ctx.Context, ctx.Client, []string{i.Session}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "bulk-import.unfreeze", []string{i.Session}, func() error {
+		return handleBulkImportUnfreeze(ctx.Context, ctx.Client, []string{i.Session}, ctx.GlobalFlags)
 	})
 }
 
@@ -110,7 +110,7 @@ type ImportPartsCmd struct {
 }
 
 func (i *ImportPartsCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "bulk-import.parts", []string{i.Session}, func() {
-		handleBulkImportParts(ctx.Context, ctx.Client, []string{i.Session}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "bulk-import.parts", []string{i.Session}, func() error {
+		return handleBulkImportParts(ctx.Context, ctx.Client, []string{i.Session}, ctx.GlobalFlags)
 	})
 }

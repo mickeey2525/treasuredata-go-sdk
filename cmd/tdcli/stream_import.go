@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
@@ -10,11 +11,13 @@ import (
 
 const streamImportSizeWarningThreshold = 100 * 1024 * 1024 // 100 MB
 
-func handleStreamImport(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func handleStreamImport(ctx context.Context, client *td.Client, args []string, flags Flags) error {
+	if client == nil {
+		return errors.New("client is not initialized")
+	}
 	if len(args) < 3 {
-		fmt.Println("Usage: tdcli stream import <database> <table> <file-path> [unique-id]")
-		fmt.Println("Example: tdcli stream import mydb mytable data.msgpack.gz")
-		return
+		return errors.New("usage: tdcli stream import <database> <table> <file-path> [unique-id]\n" +
+			"Example: tdcli stream import mydb mytable data.msgpack.gz")
 	}
 
 	database := args[0]
@@ -27,8 +30,7 @@ func handleStreamImport(ctx context.Context, client *td.Client, args []string, f
 
 	file, err := os.Open(filePath)
 	if err != nil {
-		handleError(err, "Failed to open import file", flags.Verbose)
-		return
+		return wrapErr(err, "failed to open import file", flags.Verbose)
 	}
 	defer file.Close()
 
@@ -46,12 +48,12 @@ func handleStreamImport(ctx context.Context, client *td.Client, args []string, f
 	}
 
 	if err != nil {
-		handleError(err, "Failed to import data", flags.Verbose)
-		return
+		return wrapErr(err, "failed to import data", flags.Verbose)
 	}
 
 	fmt.Printf("Import completed successfully\n")
 	if resp != nil && resp.Status != "" {
 		fmt.Printf("Status: %s\n", resp.Status)
 	}
+	return nil
 }

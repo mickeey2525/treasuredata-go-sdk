@@ -25,8 +25,8 @@ type WorkflowListCmd struct{}
 
 func (w *WorkflowListCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	return runInstrumented(ctx, "workflow.list", []string{}, func() {
-		workflow.HandleWorkflowList(ctx.Context, ctx.Client, flags)
+	return runInstrumented(ctx, "workflow.list", []string{}, func() error {
+		return workflow.HandleWorkflowList(ctx.Context, ctx.Client, flags)
 	})
 }
 
@@ -36,8 +36,8 @@ type WorkflowGetCmd struct {
 
 func (w *WorkflowGetCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	return runInstrumented(ctx, "workflow.get", []string{fmt.Sprintf("%d", w.WorkflowID)}, func() {
-		workflow.HandleWorkflowGet(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID)}, flags)
+	return runInstrumented(ctx, "workflow.get", []string{fmt.Sprintf("%d", w.WorkflowID)}, func() error {
+		return workflow.HandleWorkflowGet(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID)}, flags)
 	})
 }
 
@@ -49,8 +49,8 @@ type WorkflowCreateCmd struct {
 
 func (w *WorkflowCreateCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	return runInstrumented(ctx, "workflow.create", []string{w.Name, w.Project}, func() {
-		workflow.HandleWorkflowCreate(ctx.Context, ctx.Client, []string{w.Name, w.Project, w.Config}, flags)
+	return runInstrumented(ctx, "workflow.create", []string{w.Name, w.Project}, func() error {
+		return workflow.HandleWorkflowCreate(ctx.Context, ctx.Client, []string{w.Name, w.Project, w.Config}, flags)
 	})
 }
 
@@ -62,8 +62,8 @@ type WorkflowUpdateCmd struct {
 func (w *WorkflowUpdateCmd) Run(ctx *CLIContext) error {
 	args := append([]string{fmt.Sprintf("%d", w.WorkflowID)}, w.Updates...)
 	flags := workflow.Flags(ctx.GlobalFlags)
-	return runInstrumented(ctx, "workflow.update", args, func() {
-		workflow.HandleWorkflowUpdate(ctx.Context, ctx.Client, args, flags)
+	return runInstrumented(ctx, "workflow.update", args, func() error {
+		return workflow.HandleWorkflowUpdate(ctx.Context, ctx.Client, args, flags)
 	})
 }
 
@@ -73,8 +73,8 @@ type WorkflowDeleteCmd struct {
 
 func (w *WorkflowDeleteCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	return runInstrumented(ctx, "workflow.delete", []string{fmt.Sprintf("%d", w.WorkflowID)}, func() {
-		workflow.HandleWorkflowDelete(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID)}, flags)
+	return runInstrumented(ctx, "workflow.delete", []string{fmt.Sprintf("%d", w.WorkflowID)}, func() error {
+		return workflow.HandleWorkflowDelete(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID)}, flags)
 	})
 }
 
@@ -89,8 +89,8 @@ func (w *WorkflowStartCmd) Run(ctx *CLIContext) error {
 		args = append(args, w.Params)
 	}
 	flags := workflow.Flags(ctx.GlobalFlags)
-	return runInstrumented(ctx, "workflow.start", []string{fmt.Sprintf("%d", w.WorkflowID)}, func() {
-		workflow.HandleWorkflowStart(ctx.Context, ctx.Client, args, flags)
+	return runInstrumented(ctx, "workflow.start", []string{fmt.Sprintf("%d", w.WorkflowID)}, func() error {
+		return workflow.HandleWorkflowStart(ctx.Context, ctx.Client, args, flags)
 	})
 }
 
@@ -107,8 +107,8 @@ type WorkflowAttemptsListCmd struct {
 
 func (w *WorkflowAttemptsListCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	return runInstrumented(ctx, "workflow.attempts.list", []string{fmt.Sprintf("%d", w.WorkflowID)}, func() {
-		workflow.HandleWorkflowAttemptList(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID)}, flags)
+	return runInstrumented(ctx, "workflow.attempts.list", []string{fmt.Sprintf("%d", w.WorkflowID)}, func() error {
+		return workflow.HandleWorkflowAttemptList(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID)}, flags)
 	})
 }
 
@@ -119,8 +119,8 @@ type WorkflowAttemptsGetCmd struct {
 
 func (w *WorkflowAttemptsGetCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	return runInstrumented(ctx, "workflow.attempts.get", []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID)}, func() {
-		workflow.HandleWorkflowAttemptGet(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID)}, flags)
+	return runInstrumented(ctx, "workflow.attempts.get", []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID)}, func() error {
+		return workflow.HandleWorkflowAttemptGet(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID)}, flags)
 	})
 }
 
@@ -131,8 +131,8 @@ type WorkflowAttemptsKillCmd struct {
 
 func (w *WorkflowAttemptsKillCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	return runInstrumented(ctx, "workflow.attempts.kill", []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID)}, func() {
-		workflow.HandleWorkflowAttemptKill(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID)}, flags)
+	return runInstrumented(ctx, "workflow.attempts.kill", []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID)}, func() error {
+		return workflow.HandleWorkflowAttemptKill(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID)}, flags)
 	})
 }
 
@@ -148,8 +148,8 @@ func (w *WorkflowAttemptsRetryCmd) Run(ctx *CLIContext) error {
 		args = append(args, w.Params)
 	}
 	flags := workflow.Flags(ctx.GlobalFlags)
-	return runInstrumented(ctx, "workflow.attempts.retry", []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID)}, func() {
-		workflow.HandleWorkflowAttemptRetry(ctx.Context, ctx.Client, args, flags)
+	return runInstrumented(ctx, "workflow.attempts.retry", []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID)}, func() error {
+		return workflow.HandleWorkflowAttemptRetry(ctx.Context, ctx.Client, args, flags)
 	})
 }
 
@@ -166,8 +166,8 @@ type WorkflowScheduleGetCmd struct {
 
 func (w *WorkflowScheduleGetCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	return runInstrumented(ctx, "workflow.schedule.get", []string{fmt.Sprintf("%d", w.WorkflowID)}, func() {
-		workflow.HandleWorkflowScheduleGet(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID)}, flags)
+	return runInstrumented(ctx, "workflow.schedule.get", []string{fmt.Sprintf("%d", w.WorkflowID)}, func() error {
+		return workflow.HandleWorkflowScheduleGet(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID)}, flags)
 	})
 }
 
@@ -177,8 +177,8 @@ type WorkflowScheduleEnableCmd struct {
 
 func (w *WorkflowScheduleEnableCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	return runInstrumented(ctx, "workflow.schedule.enable", []string{fmt.Sprintf("%d", w.WorkflowID)}, func() {
-		workflow.HandleWorkflowScheduleEnable(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID)}, flags)
+	return runInstrumented(ctx, "workflow.schedule.enable", []string{fmt.Sprintf("%d", w.WorkflowID)}, func() error {
+		return workflow.HandleWorkflowScheduleEnable(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID)}, flags)
 	})
 }
 
@@ -188,8 +188,8 @@ type WorkflowScheduleDisableCmd struct {
 
 func (w *WorkflowScheduleDisableCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	return runInstrumented(ctx, "workflow.schedule.disable", []string{fmt.Sprintf("%d", w.WorkflowID)}, func() {
-		workflow.HandleWorkflowScheduleDisable(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID)}, flags)
+	return runInstrumented(ctx, "workflow.schedule.disable", []string{fmt.Sprintf("%d", w.WorkflowID)}, func() error {
+		return workflow.HandleWorkflowScheduleDisable(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID)}, flags)
 	})
 }
 
@@ -202,8 +202,8 @@ type WorkflowScheduleUpdateCmd struct {
 
 func (w *WorkflowScheduleUpdateCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	return runInstrumented(ctx, "workflow.schedule.update", []string{fmt.Sprintf("%d", w.WorkflowID)}, func() {
-		workflow.HandleWorkflowScheduleUpdate(ctx.Context, ctx.Client, []string{
+	return runInstrumented(ctx, "workflow.schedule.update", []string{fmt.Sprintf("%d", w.WorkflowID)}, func() error {
+		return workflow.HandleWorkflowScheduleUpdate(ctx.Context, ctx.Client, []string{
 			fmt.Sprintf("%d", w.WorkflowID), w.Cron, w.Timezone, fmt.Sprintf("%d", w.Delay),
 		}, flags)
 	})
@@ -221,8 +221,8 @@ type WorkflowTasksListCmd struct {
 
 func (w *WorkflowTasksListCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	return runInstrumented(ctx, "workflow.tasks.list", []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID)}, func() {
-		workflow.HandleWorkflowTaskList(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID)}, flags)
+	return runInstrumented(ctx, "workflow.tasks.list", []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID)}, func() error {
+		return workflow.HandleWorkflowTaskList(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID)}, flags)
 	})
 }
 
@@ -234,8 +234,8 @@ type WorkflowTasksGetCmd struct {
 
 func (w *WorkflowTasksGetCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	return runInstrumented(ctx, "workflow.tasks.get", []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID), w.TaskID}, func() {
-		workflow.HandleWorkflowTaskGet(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID), w.TaskID}, flags)
+	return runInstrumented(ctx, "workflow.tasks.get", []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID), w.TaskID}, func() error {
+		return workflow.HandleWorkflowTaskGet(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID), w.TaskID}, flags)
 	})
 }
 
@@ -251,8 +251,8 @@ type WorkflowLogsAttemptCmd struct {
 
 func (w *WorkflowLogsAttemptCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	return runInstrumented(ctx, "workflow.logs.attempt", []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID)}, func() {
-		workflow.HandleWorkflowAttemptLog(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID)}, flags)
+	return runInstrumented(ctx, "workflow.logs.attempt", []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID)}, func() error {
+		return workflow.HandleWorkflowAttemptLog(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID)}, flags)
 	})
 }
 
@@ -264,8 +264,8 @@ type WorkflowLogsTaskCmd struct {
 
 func (w *WorkflowLogsTaskCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	return runInstrumented(ctx, "workflow.logs.task", []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID), w.TaskID}, func() {
-		workflow.HandleWorkflowTaskLog(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID), w.TaskID}, flags)
+	return runInstrumented(ctx, "workflow.logs.task", []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID), w.TaskID}, func() error {
+		return workflow.HandleWorkflowTaskLog(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.WorkflowID), fmt.Sprintf("%d", w.AttemptID), w.TaskID}, flags)
 	})
 }
 
@@ -275,8 +275,8 @@ type WorkflowInitCmd struct {
 
 func (w *WorkflowInitCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	return runInstrumented(ctx, "workflow.init", []string{w.ProjectName}, func() {
-		workflow.HandleWorkflowInit(ctx.Context, []string{w.ProjectName}, flags)
+	return runInstrumented(ctx, "workflow.init", []string{w.ProjectName}, func() error {
+		return workflow.HandleWorkflowInit(ctx.Context, []string{w.ProjectName}, flags)
 	})
 }
 
@@ -295,8 +295,8 @@ type WorkflowProjectsListCmd struct{}
 
 func (w *WorkflowProjectsListCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	return runInstrumented(ctx, "workflow.projects.list", []string{}, func() {
-		workflow.HandleWorkflowProjectList(ctx.Context, ctx.Client, flags)
+	return runInstrumented(ctx, "workflow.projects.list", []string{}, func() error {
+		return workflow.HandleWorkflowProjectList(ctx.Context, ctx.Client, flags)
 	})
 }
 
@@ -306,8 +306,8 @@ type WorkflowProjectsGetCmd struct {
 
 func (w *WorkflowProjectsGetCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	return runInstrumented(ctx, "workflow.projects.get", []string{w.ProjectID}, func() {
-		workflow.HandleWorkflowProjectGet(ctx.Context, ctx.Client, []string{w.ProjectID}, flags)
+	return runInstrumented(ctx, "workflow.projects.get", []string{w.ProjectID}, func() error {
+		return workflow.HandleWorkflowProjectGet(ctx.Context, ctx.Client, []string{w.ProjectID}, flags)
 	})
 }
 
@@ -318,8 +318,8 @@ type WorkflowProjectsCreateCmd struct {
 
 func (w *WorkflowProjectsCreateCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	return runInstrumented(ctx, "workflow.projects.create", []string{w.Name}, func() {
-		workflow.HandleWorkflowProjectCreate(ctx.Context, ctx.Client, []string{w.Name, w.Path}, flags)
+	return runInstrumented(ctx, "workflow.projects.create", []string{w.Name}, func() error {
+		return workflow.HandleWorkflowProjectCreate(ctx.Context, ctx.Client, []string{w.Name, w.Path}, flags)
 	})
 }
 
@@ -330,8 +330,8 @@ type WorkflowProjectsPushCmd struct {
 
 func (w *WorkflowProjectsPushCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	return runInstrumented(ctx, "workflow.projects.push", []string{w.Name}, func() {
-		workflow.HandleWorkflowProjectCreate(ctx.Context, ctx.Client, []string{w.Name, w.Path}, flags)
+	return runInstrumented(ctx, "workflow.projects.push", []string{w.Name}, func() error {
+		return workflow.HandleWorkflowProjectCreate(ctx.Context, ctx.Client, []string{w.Name, w.Path}, flags)
 	})
 }
 
@@ -347,8 +347,8 @@ func (w *WorkflowProjectsDownloadCmd) Run(ctx *CLIContext) error {
 		args = append(args, w.OutputDir)
 	}
 	flags := workflow.Flags(ctx.GlobalFlags)
-	return runInstrumented(ctx, "workflow.projects.download", []string{w.ProjectIdentifier}, func() {
-		workflow.HandleWorkflowProjectDownload(ctx.Context, ctx.Client, args, flags)
+	return runInstrumented(ctx, "workflow.projects.download", []string{w.ProjectIdentifier}, func() error {
+		return workflow.HandleWorkflowProjectDownload(ctx.Context, ctx.Client, args, flags)
 	})
 }
 
@@ -358,8 +358,8 @@ type WorkflowProjectsWorkflowsCmd struct {
 
 func (w *WorkflowProjectsWorkflowsCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	return runInstrumented(ctx, "workflow.projects.workflows", []string{fmt.Sprintf("%d", w.ProjectID)}, func() {
-		workflow.HandleWorkflowProjectWorkflows(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.ProjectID)}, flags)
+	return runInstrumented(ctx, "workflow.projects.workflows", []string{fmt.Sprintf("%d", w.ProjectID)}, func() error {
+		return workflow.HandleWorkflowProjectWorkflows(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.ProjectID)}, flags)
 	})
 }
 
@@ -375,8 +375,8 @@ type WorkflowProjectsSecretsListCmd struct {
 
 func (w *WorkflowProjectsSecretsListCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	return runInstrumented(ctx, "workflow.projects.secrets.list", []string{fmt.Sprintf("%d", w.ProjectID)}, func() {
-		workflow.HandleWorkflowProjectSecretsList(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.ProjectID)}, flags)
+	return runInstrumented(ctx, "workflow.projects.secrets.list", []string{fmt.Sprintf("%d", w.ProjectID)}, func() error {
+		return workflow.HandleWorkflowProjectSecretsList(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.ProjectID)}, flags)
 	})
 }
 
@@ -388,8 +388,8 @@ type WorkflowProjectsSecretsSetCmd struct {
 
 func (w *WorkflowProjectsSecretsSetCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	return runInstrumented(ctx, "workflow.projects.secrets.set", []string{fmt.Sprintf("%d", w.ProjectID), w.Key}, func() {
-		workflow.HandleWorkflowProjectSecretsSet(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.ProjectID), w.Key, w.Value}, flags)
+	return runInstrumented(ctx, "workflow.projects.secrets.set", []string{fmt.Sprintf("%d", w.ProjectID), w.Key}, func() error {
+		return workflow.HandleWorkflowProjectSecretsSet(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.ProjectID), w.Key, w.Value}, flags)
 	})
 }
 
@@ -400,8 +400,8 @@ type WorkflowProjectsSecretsDeleteCmd struct {
 
 func (w *WorkflowProjectsSecretsDeleteCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	return runInstrumented(ctx, "workflow.projects.secrets.delete", []string{fmt.Sprintf("%d", w.ProjectID), w.Key}, func() {
-		workflow.HandleWorkflowProjectSecretsDelete(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.ProjectID), w.Key}, flags)
+	return runInstrumented(ctx, "workflow.projects.secrets.delete", []string{fmt.Sprintf("%d", w.ProjectID), w.Key}, func() error {
+		return workflow.HandleWorkflowProjectSecretsDelete(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", w.ProjectID), w.Key}, flags)
 	})
 }
 
@@ -419,8 +419,8 @@ type WorkflowProjectsHooksShowCmd struct {
 
 func (w *WorkflowProjectsHooksShowCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	return runInstrumented(ctx, "workflow.projects.hooks.show", []string{w.Path}, func() {
-		workflow.HandleWorkflowHooksShow(ctx.Context, ctx.Client, []string{w.Path}, flags)
+	return runInstrumented(ctx, "workflow.projects.hooks.show", []string{w.Path}, func() error {
+		return workflow.HandleWorkflowHooksShow(ctx.Context, ctx.Client, []string{w.Path}, flags)
 	})
 }
 
@@ -430,8 +430,8 @@ type WorkflowProjectsHooksInitCmd struct {
 
 func (w *WorkflowProjectsHooksInitCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	return runInstrumented(ctx, "workflow.projects.hooks.init", []string{w.Path}, func() {
-		workflow.HandleWorkflowHooksInit(ctx.Context, ctx.Client, []string{w.Path}, flags)
+	return runInstrumented(ctx, "workflow.projects.hooks.init", []string{w.Path}, func() error {
+		return workflow.HandleWorkflowHooksInit(ctx.Context, ctx.Client, []string{w.Path}, flags)
 	})
 }
 
@@ -448,8 +448,8 @@ func (w *WorkflowProjectsHooksAddCmd) Run(ctx *CLIContext) error {
 	args := []string{w.Path, w.Name, fmt.Sprintf("%d", w.Timeout), fmt.Sprintf("%t", w.FailOnError), w.WorkingDir}
 	args = append(args, w.Command...)
 	flags := workflow.Flags(ctx.GlobalFlags)
-	return runInstrumented(ctx, "workflow.projects.hooks.add", []string{w.Path, w.Name}, func() {
-		workflow.HandleWorkflowHooksAdd(ctx.Context, ctx.Client, args, flags)
+	return runInstrumented(ctx, "workflow.projects.hooks.add", []string{w.Path, w.Name}, func() error {
+		return workflow.HandleWorkflowHooksAdd(ctx.Context, ctx.Client, args, flags)
 	})
 }
 
@@ -460,8 +460,8 @@ type WorkflowProjectsHooksRemoveCmd struct {
 
 func (w *WorkflowProjectsHooksRemoveCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	return runInstrumented(ctx, "workflow.projects.hooks.remove", []string{w.Path, w.Name}, func() {
-		workflow.HandleWorkflowHooksRemove(ctx.Context, ctx.Client, []string{w.Path, w.Name}, flags)
+	return runInstrumented(ctx, "workflow.projects.hooks.remove", []string{w.Path, w.Name}, func() error {
+		return workflow.HandleWorkflowHooksRemove(ctx.Context, ctx.Client, []string{w.Path, w.Name}, flags)
 	})
 }
 
@@ -471,7 +471,7 @@ type WorkflowProjectsHooksTestCmd struct {
 
 func (w *WorkflowProjectsHooksTestCmd) Run(ctx *CLIContext) error {
 	flags := workflow.Flags(ctx.GlobalFlags)
-	return runInstrumented(ctx, "workflow.projects.hooks.test", []string{w.Path}, func() {
-		workflow.HandleWorkflowHooksValidate(ctx.Context, ctx.Client, []string{w.Path}, flags)
+	return runInstrumented(ctx, "workflow.projects.hooks.test", []string{w.Path}, func() error {
+		return workflow.HandleWorkflowHooksValidate(ctx.Context, ctx.Client, []string{w.Path}, flags)
 	})
 }

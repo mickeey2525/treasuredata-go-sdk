@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"text/tabwriter"
@@ -9,63 +10,16 @@ import (
 	td "github.com/mickeey2525/treasuredata-go-sdk"
 )
 
-func handleJobCommands(ctx context.Context, client *td.Client, args []string, flags Flags) {
-	if len(args) == 0 || args[0] == "help" {
-		printJobUsage()
-		return
-	}
-
-	subcommand := args[0]
-	subArgs := args[1:]
-
-	switch subcommand {
-	case "list", "ls":
-		handleJobList(ctx, client, flags)
-	case "get", "show":
-		handleJobGet(ctx, client, subArgs, flags)
-	case "cancel", "kill":
-		handleJobCancel(ctx, client, subArgs, flags)
-	default:
-		fmt.Printf("Unknown job subcommand: %s\n", subcommand)
-		printJobUsage()
-		os.Exit(1)
-	}
-}
-
-func printJobUsage() {
-	fmt.Printf(`Job Management Commands
-
-USAGE:
-    tdcli jobs <subcommand> [options]
-    tdcli job <subcommand> [options]
-
-SUBCOMMANDS:
-    list, ls               List jobs
-    get, show <job_id>     Get job details
-    cancel, kill <job_id>  Cancel a running job
-
-OPTIONS:
-    --status STATUS        Filter by job status
-    --format FORMAT        Output format (json, table, csv)
-    --verbose, -v          Verbose output
-
-EXAMPLES:
-    tdcli job list
-    tdcli job list --status running
-    tdcli job show 12345
-    tdcli job cancel 12345
-
-`)
-}
-
-func handleJobList(ctx context.Context, client *td.Client, flags Flags) {
+func handleJobList(ctx context.Context, client *td.Client, flags Flags) error {
 	var opts *td.JobListOptions
 	if flags.Status != "" {
 		opts = &td.JobListOptions{Status: flags.Status}
 	}
 
 	jobsResp, err := client.Jobs.List(ctx, opts)
-	handleError(err, "Failed to list jobs", flags.Verbose)
+	if err != nil {
+		return wrapErr(err, "failed to list jobs", flags.Verbose)
+	}
 
 	switch flags.Format {
 	case "json":
@@ -75,18 +29,19 @@ func handleJobList(ctx context.Context, client *td.Client, flags Flags) {
 	default:
 		printJobsTable(jobsResp.Jobs)
 	}
+	return nil
 }
 
-func handleJobGet(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func handleJobGet(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) == 0 {
-		fmt.Println("Error: Job ID required")
-		fmt.Println("Usage: tdcli job get <job_id>")
-		os.Exit(1)
+		return errors.New("job ID required\nUsage: tdcli job get <job_id>")
 	}
 
 	jobID := args[0]
 	job, err := client.Jobs.Get(ctx, jobID)
-	handleError(err, "Failed to get job", flags.Verbose)
+	if err != nil {
+		return wrapErr(err, "failed to get job", flags.Verbose)
+	}
 
 	switch flags.Format {
 	case "json":
@@ -94,31 +49,31 @@ func handleJobGet(ctx context.Context, client *td.Client, args []string, flags F
 	default:
 		printJobDetails(*job)
 	}
+	return nil
 }
 
-func handleJobCancel(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func handleJobCancel(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) == 0 {
-		fmt.Println("Error: Job ID required")
-		fmt.Println("Usage: tdcli job cancel <job_id>")
-		os.Exit(1)
+		return errors.New("job ID required\nUsage: tdcli job cancel <job_id>")
 	}
 
 	jobID := args[0]
 
-	// Confirm cancellation
 	fmt.Printf("Are you sure you want to cancel job '%s'? (y/N): ", jobID)
 	var response string
 	fmt.Scanln(&response)
 
 	if response != "y" && response != "Y" && response != "yes" && response != "Yes" {
 		fmt.Println("Cancellation cancelled")
-		return
+		return nil
 	}
 
-	err := client.Jobs.Kill(ctx, jobID)
-	handleError(err, "Failed to cancel job", flags.Verbose)
+	if err := client.Jobs.Kill(ctx, jobID); err != nil {
+		return wrapErr(err, "failed to cancel job", flags.Verbose)
+	}
 
 	fmt.Printf("Job %s cancelled\n", jobID)
+	return nil
 }
 
 func printJobDetails(job td.Job) {

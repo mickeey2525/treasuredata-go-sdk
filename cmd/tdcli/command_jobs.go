@@ -11,9 +11,9 @@ type JobsListCmd struct {
 }
 
 func (j *JobsListCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "jobs.list", []string{}, func() {
+	return runInstrumented(ctx, "jobs.list", []string{}, func() error {
 		ctx.GlobalFlags.Status = j.Status
-		handleJobList(ctx.Context, ctx.Client, ctx.GlobalFlags)
+		return handleJobList(ctx.Context, ctx.Client, ctx.GlobalFlags)
 	})
 }
 
@@ -22,8 +22,8 @@ type JobsGetCmd struct {
 }
 
 func (j *JobsGetCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "jobs.get", []string{j.JobID}, func() {
-		handleJobGet(ctx.Context, ctx.Client, []string{j.JobID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "jobs.get", []string{j.JobID}, func() error {
+		return handleJobGet(ctx.Context, ctx.Client, []string{j.JobID}, ctx.GlobalFlags)
 	})
 }
 
@@ -32,7 +32,7 @@ type JobsCancelCmd struct {
 }
 
 func (j *JobsCancelCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "jobs.cancel", []string{j.JobID}, func() {
-		handleJobCancel(ctx.Context, ctx.Client, []string{j.JobID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "jobs.cancel", []string{j.JobID}, func() error {
+		return handleJobCancel(ctx.Context, ctx.Client, []string{j.JobID}, ctx.GlobalFlags)
 	})
 }

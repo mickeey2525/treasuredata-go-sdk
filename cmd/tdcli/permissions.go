@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -10,109 +11,11 @@ import (
 	td "github.com/mickeey2525/treasuredata-go-sdk"
 )
 
-func handlePermissionCommands(ctx context.Context, client *td.Client, args []string, flags Flags) {
-	if len(args) == 0 || args[0] == "help" {
-		printPermissionUsage()
-		return
-	}
-
-	subcommand := args[0]
-	subArgs := args[1:]
-
-	switch subcommand {
-	case "policies":
-		handlePolicyCommands(ctx, client, subArgs, flags)
-	case "groups":
-		handlePolicyGroupCommands(ctx, client, subArgs, flags)
-	case "users":
-		handleAccessControlUserCommands(ctx, client, subArgs, flags)
-	default:
-		fmt.Printf("Unknown permission subcommand: %s\n", subcommand)
-		printPermissionUsage()
-		os.Exit(1)
-	}
-}
-
-func printPermissionUsage() {
-	fmt.Printf(`Access Control and Permissions Commands
-
-USAGE:
-    tdcli permissions <subcommand> [options]
-    tdcli perms <subcommand> [options]
-    tdcli acl <subcommand> [options]
-
-SUBCOMMANDS:
-    policies               Policy management
-    groups                 Policy group management
-    users                  Access control user management
-
-OPTIONS:
-    --format FORMAT        Output format (json, table, csv)
-    --verbose, -v          Verbose output
-
-EXAMPLES:
-    tdcli perms policies list
-    tdcli perms policies create "My Policy"
-    tdcli perms groups list
-    tdcli perms users list
-
-For detailed help on each subcommand:
-    tdcli perms policies help
-    tdcli perms groups help
-    tdcli perms users help
-
-`)
-}
-
-func handlePolicyCommands(ctx context.Context, client *td.Client, args []string, flags Flags) {
-	if len(args) == 0 || args[0] == "help" {
-		printPolicyUsage()
-		return
-	}
-
-	subcommand := args[0]
-	subArgs := args[1:]
-
-	switch subcommand {
-	case "list", "ls":
-		handlePolicyList(ctx, client, flags)
-	case "get", "show":
-		handlePolicyGet(ctx, client, subArgs, flags)
-	case "create":
-		handlePolicyCreate(ctx, client, subArgs, flags)
-	case "delete", "rm":
-		handlePolicyDelete(ctx, client, subArgs, flags)
-	default:
-		fmt.Printf("Unknown policy subcommand: %s\n", subcommand)
-		printPolicyUsage()
-		os.Exit(1)
-	}
-}
-
-func printPolicyUsage() {
-	fmt.Printf(`Policy Management Commands
-
-USAGE:
-    tdcli perms policies <subcommand> [options]
-
-SUBCOMMANDS:
-    list, ls               List all policies
-    get, show <id>         Get policy details
-    create <name>          Create a new policy
-    delete, rm <id>        Delete a policy
-
-EXAMPLES:
-    tdcli perms policies list
-    tdcli perms policies show 123
-    tdcli perms policies create "Analytics Policy"
-    tdcli perms policies delete 123
-
-`)
-}
-
-func handlePolicyList(ctx context.Context, client *td.Client, flags Flags) {
+func handlePolicyList(ctx context.Context, client *td.Client, flags Flags) error {
 	policies, err := client.Permissions.ListPolicies(ctx, nil)
-	handleError(err, "Failed to list policies", flags.Verbose)
+	if err != nil {
+		return wrapErr(err, "failed to list policies", flags.Verbose)
+	}
 
 	switch flags.Format {
 	case "json":
@@ -122,24 +25,23 @@ func handlePolicyList(ctx context.Context, client *td.Client, flags Flags) {
 	default:
 		printPoliciesTable(policies)
 	}
+	return nil
 }
 
-func handlePolicyGet(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func handlePolicyGet(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) == 0 {
-		fmt.Println("Error: Policy ID required")
-		fmt.Println("Usage: tdcli perms policies get <policy_id>")
-		os.Exit(1)
+		return errors.New("policy ID required\nUsage: tdcli perms policies get <policy_id>")
 	}
 
-	policyIDStr := args[0]
-	policyID, err := strconv.Atoi(policyIDStr)
+	policyID, err := strconv.Atoi(args[0])
 	if err != nil {
-		fmt.Printf("Error: Invalid policy ID: %s\n", policyIDStr)
-		os.Exit(1)
+		return fmt.Errorf("invalid policy ID: %s", args[0])
 	}
 
 	policy, err := client.Permissions.GetPolicy(ctx, policyID)
-	handleError(err, "Failed to get policy", flags.Verbose)
+	if err != nil {
+		return wrapErr(err, "failed to get policy", flags.Verbose)
+	}
 
 	switch flags.Format {
 	case "json":
@@ -147,13 +49,12 @@ func handlePolicyGet(ctx context.Context, client *td.Client, args []string, flag
 	default:
 		printPolicyDetails(*policy)
 	}
+	return nil
 }
 
-func handlePolicyCreate(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func handlePolicyCreate(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) == 0 {
-		fmt.Println("Error: Policy name required")
-		fmt.Println("Usage: tdcli perms policies create <name> [description]")
-		os.Exit(1)
+		return errors.New("policy name required\nUsage: tdcli perms policies create <name> [description]")
 	}
 
 	name := args[0]
@@ -163,93 +64,50 @@ func handlePolicyCreate(ctx context.Context, client *td.Client, args []string, f
 	}
 
 	policy, err := client.Permissions.CreatePolicy(ctx, name, description)
-	handleError(err, "Failed to create policy", flags.Verbose)
+	if err != nil {
+		return wrapErr(err, "failed to create policy", flags.Verbose)
+	}
 
 	fmt.Printf("Created policy: %s (ID: %d)\n", policy.Name, policy.ID)
 	if flags.Verbose {
 		printPolicyDetails(*policy)
 	}
+	return nil
 }
 
-func handlePolicyDelete(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func handlePolicyDelete(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) == 0 {
-		fmt.Println("Error: Policy ID required")
-		fmt.Println("Usage: tdcli perms policies delete <policy_id>")
-		os.Exit(1)
+		return errors.New("policy ID required\nUsage: tdcli perms policies delete <policy_id>")
 	}
 
-	policyIDStr := args[0]
-	policyID, err := strconv.Atoi(policyIDStr)
+	policyID, err := strconv.Atoi(args[0])
 	if err != nil {
-		fmt.Printf("Error: Invalid policy ID: %s\n", policyIDStr)
-		os.Exit(1)
+		return fmt.Errorf("invalid policy ID: %s", args[0])
 	}
 
-	// Confirm deletion
 	fmt.Printf("Are you sure you want to delete policy %d? (y/N): ", policyID)
 	var response string
 	fmt.Scanln(&response)
 
 	if response != "y" && response != "Y" && response != "yes" && response != "Yes" {
 		fmt.Println("Deletion cancelled")
-		return
+		return nil
 	}
 
 	deletedPolicy, err := client.Permissions.DeletePolicy(ctx, policyID)
-	handleError(err, "Failed to delete policy", flags.Verbose)
+	if err != nil {
+		return wrapErr(err, "failed to delete policy", flags.Verbose)
+	}
 
 	fmt.Printf("Deleted policy: %s (ID: %d)\n", deletedPolicy.Name, deletedPolicy.ID)
+	return nil
 }
 
-func handlePolicyGroupCommands(ctx context.Context, client *td.Client, args []string, flags Flags) {
-	if len(args) == 0 || args[0] == "help" {
-		printPolicyGroupUsage()
-		return
-	}
-
-	subcommand := args[0]
-	subArgs := args[1:]
-
-	switch subcommand {
-	case "list", "ls":
-		handlePolicyGroupList(ctx, client, flags)
-	case "get", "show":
-		handlePolicyGroupGet(ctx, client, subArgs, flags)
-	case "create":
-		handlePolicyGroupCreate(ctx, client, subArgs, flags)
-	case "delete", "rm":
-		handlePolicyGroupDelete(ctx, client, subArgs, flags)
-	default:
-		fmt.Printf("Unknown policy group subcommand: %s\n", subcommand)
-		printPolicyGroupUsage()
-		os.Exit(1)
-	}
-}
-
-func printPolicyGroupUsage() {
-	fmt.Printf(`Policy Group Management Commands
-
-USAGE:
-    tdcli perms groups <subcommand> [options]
-
-SUBCOMMANDS:
-    list, ls               List all policy groups
-    get, show <id>         Get policy group details
-    create <name>          Create a new policy group
-    delete, rm <id>        Delete a policy group
-
-EXAMPLES:
-    tdcli perms groups list
-    tdcli perms groups show 123
-    tdcli perms groups create "Analytics Group"
-    tdcli perms groups delete 123
-
-`)
-}
-
-func handlePolicyGroupList(ctx context.Context, client *td.Client, flags Flags) {
+func handlePolicyGroupList(ctx context.Context, client *td.Client, flags Flags) error {
 	groups, err := client.Permissions.ListPolicyGroups(ctx)
-	handleError(err, "Failed to list policy groups", flags.Verbose)
+	if err != nil {
+		return wrapErr(err, "failed to list policy groups", flags.Verbose)
+	}
 
 	switch flags.Format {
 	case "json":
@@ -259,18 +117,18 @@ func handlePolicyGroupList(ctx context.Context, client *td.Client, flags Flags) 
 	default:
 		printPolicyGroupsTable(groups)
 	}
+	return nil
 }
 
-func handlePolicyGroupGet(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func handlePolicyGroupGet(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) == 0 {
-		fmt.Println("Error: Policy group ID required")
-		fmt.Println("Usage: tdcli perms groups get <group_id>")
-		os.Exit(1)
+		return errors.New("policy group ID required\nUsage: tdcli perms groups get <group_id>")
 	}
 
-	groupID := args[0]
-	group, err := client.Permissions.GetPolicyGroup(ctx, groupID)
-	handleError(err, "Failed to get policy group", flags.Verbose)
+	group, err := client.Permissions.GetPolicyGroup(ctx, args[0])
+	if err != nil {
+		return wrapErr(err, "failed to get policy group", flags.Verbose)
+	}
 
 	switch flags.Format {
 	case "json":
@@ -278,117 +136,69 @@ func handlePolicyGroupGet(ctx context.Context, client *td.Client, args []string,
 	default:
 		printPolicyGroupDetails(*group)
 	}
+	return nil
 }
 
-func handlePolicyGroupCreate(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func handlePolicyGroupCreate(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) == 0 {
-		fmt.Println("Error: Policy group name required")
-		fmt.Println("Usage: tdcli perms groups create <name>")
-		os.Exit(1)
+		return errors.New("policy group name required\nUsage: tdcli perms groups create <name>")
 	}
 
-	name := args[0]
-	group, err := client.Permissions.CreatePolicyGroup(ctx, name)
-	handleError(err, "Failed to create policy group", flags.Verbose)
+	group, err := client.Permissions.CreatePolicyGroup(ctx, args[0])
+	if err != nil {
+		return wrapErr(err, "failed to create policy group", flags.Verbose)
+	}
 
 	fmt.Printf("Created policy group: %s (ID: %d)\n", group.Name, group.ID)
 	if flags.Verbose {
 		printPolicyGroupDetails(*group)
 	}
+	return nil
 }
 
-func handlePolicyGroupDelete(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func handlePolicyGroupDelete(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) == 0 {
-		fmt.Println("Error: Policy group ID required")
-		fmt.Println("Usage: tdcli perms groups delete <group_id>")
-		os.Exit(1)
+		return errors.New("policy group ID required\nUsage: tdcli perms groups delete <group_id>")
 	}
 
 	groupID := args[0]
 
-	// Confirm deletion
 	fmt.Printf("Are you sure you want to delete policy group %s? (y/N): ", groupID)
 	var response string
 	fmt.Scanln(&response)
 
 	if response != "y" && response != "Y" && response != "yes" && response != "Yes" {
 		fmt.Println("Deletion cancelled")
-		return
+		return nil
 	}
 
-	err := client.Permissions.DeletePolicyGroup(ctx, groupID)
-	handleError(err, "Failed to delete policy group", flags.Verbose)
+	if err := client.Permissions.DeletePolicyGroup(ctx, groupID); err != nil {
+		return wrapErr(err, "failed to delete policy group", flags.Verbose)
+	}
 
 	fmt.Printf("Deleted policy group: %s\n", groupID)
+	return nil
 }
 
-func handleAccessControlUserCommands(ctx context.Context, client *td.Client, args []string, flags Flags) {
-	if len(args) == 0 || args[0] == "help" {
-		printAccessControlUserUsage()
-		return
-	}
-
-	subcommand := args[0]
-	subArgs := args[1:]
-
-	switch subcommand {
-	case "list", "ls":
-		handleAccessControlUserList(ctx, client, flags)
-	case "get", "show":
-		handleAccessControlUserGet(ctx, client, subArgs, flags)
-	default:
-		fmt.Printf("Unknown access control user subcommand: %s\n", subcommand)
-		printAccessControlUserUsage()
-		os.Exit(1)
-	}
-}
-
-func printAccessControlUserUsage() {
-	fmt.Printf(`Access Control User Management Commands
-
-USAGE:
-    tdcli perms users <subcommand> [options]
-
-SUBCOMMANDS:
-    list, ls               List access control users
-    get, show <user_id>    Get user access control details
-
-OPTIONS:
-    --with-details         Include user email and name details (default: true)
-    --format FORMAT        Output format (json, table, csv)
-    --verbose, -v          Verbose output
-
-EXAMPLES:
-    tdcli perms users list
-    tdcli perms users list --no-with-details
-    tdcli perms users list --format json
-    tdcli perms users show 12345
-
-`)
-}
-
-func handleAccessControlUserList(ctx context.Context, client *td.Client, flags Flags) {
+func handleAccessControlUserList(ctx context.Context, client *td.Client, flags Flags) error {
 	users, err := client.Permissions.ListAccessControlUsers(ctx)
-	handleError(err, "Failed to list access control users", flags.Verbose)
+	if err != nil {
+		return wrapErr(err, "failed to list access control users", flags.Verbose)
+	}
 
 	var userDetailsMap map[int]td.User
 	if flags.WithDetails {
-		// Only fetch user details for the access control users we have
 		userDetailsMap = make(map[int]td.User)
 
-		// Get all users first to avoid N+1 query problem
-		// TODO: Add a method to get user details by specific IDs to optimize further
 		allUsers, err := client.Users.List(ctx)
 		if err != nil && flags.Verbose {
 			fmt.Printf("Warning: Failed to fetch user details: %v\n", err)
 		} else {
-			// Create a set of user IDs we need
 			neededUserIDs := make(map[int]bool)
 			for _, user := range users {
 				neededUserIDs[user.UserID] = true
 			}
 
-			// Only add users we actually need to the map
 			for _, user := range allUsers {
 				if neededUserIDs[user.ID] {
 					userDetailsMap[user.ID] = user
@@ -409,24 +219,23 @@ func handleAccessControlUserList(ctx context.Context, client *td.Client, flags F
 	default:
 		printAccessControlUsersTable(users, userDetailsMap)
 	}
+	return nil
 }
 
-func handleAccessControlUserGet(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func handleAccessControlUserGet(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) == 0 {
-		fmt.Println("Error: User ID required")
-		fmt.Println("Usage: tdcli perms users get <user_id>")
-		os.Exit(1)
+		return errors.New("user ID required\nUsage: tdcli perms users get <user_id>")
 	}
 
-	userIDStr := args[0]
-	userID, err := strconv.Atoi(userIDStr)
+	userID, err := strconv.Atoi(args[0])
 	if err != nil {
-		fmt.Printf("Error: Invalid user ID: %s\n", userIDStr)
-		os.Exit(1)
+		return fmt.Errorf("invalid user ID: %s", args[0])
 	}
 
 	user, err := client.Permissions.GetAccessControlUser(ctx, userID)
-	handleError(err, "Failed to get access control user", flags.Verbose)
+	if err != nil {
+		return wrapErr(err, "failed to get access control user", flags.Verbose)
+	}
 
 	switch flags.Format {
 	case "json":
@@ -434,6 +243,7 @@ func handleAccessControlUserGet(ctx context.Context, client *td.Client, args []s
 	default:
 		printAccessControlUserDetails(*user)
 	}
+	return nil
 }
 
 // Print functions

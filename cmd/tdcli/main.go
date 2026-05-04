@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -207,11 +208,9 @@ func main() {
 		OTELManager: otelManager,
 	}
 
-	// Execute the command
+	// Execute the command. Handlers return errors which we display here.
 	err = ctx.Run(cliContext)
-	if err != nil {
-		handleError(err, "Command failed", cli.Verbose)
-	}
+	reportError(err, "Command failed", cli.Verbose)
 }
 
 func isValidAPIKey(apiKey string) bool {
@@ -221,23 +220,32 @@ func isValidAPIKey(apiKey string) bool {
 	return len(parts) == 2 && len(parts[0]) > 0 && len(parts[1]) > 0
 }
 
-func handleError(err error, message string, verbose bool) {
-	if err != nil {
-		if captureHandlerErrors {
-			// When in capture mode, panic with the error instead of calling os.Exit
-			if verbose {
-				panic(fmt.Errorf("%s: %v", message, err))
-			} else {
-				panic(err)
-			}
-		} else {
-			// Original behavior - exit the program
-			if verbose {
-				log.Fatalf("%s: %v", message, err)
-			} else {
-				fmt.Printf("Error: %s\n", err.Error())
-				os.Exit(1)
-			}
+// reportError displays a top-level command error and exits non-zero.
+// Used only by main() once Kong has finished dispatch; handlers themselves
+// return errors so they propagate naturally up the call stack.
+func reportError(err error, message string, verbose bool) {
+	if err == nil {
+		return
+	}
+	if verbose {
+		log.Fatalf("%s: %v", message, err)
+	}
+	fmt.Printf("Error: %s\n", err.Error())
+	os.Exit(1)
+}
+
+// wrapErr formats an error with context for propagation. When verbose, it
+// includes status/message details for TD API errors so verbose runs surface
+// the same information the previous log.Fatal helpers used to print.
+func wrapErr(err error, message string, verbose bool) error {
+	if err == nil {
+		return nil
+	}
+	if verbose {
+		var tdErr *td.ErrorResponse
+		if errors.As(err, &tdErr) && tdErr.Response != nil {
+			return fmt.Errorf("%s: %w (status: %d, message: %s)", message, err, tdErr.Response.StatusCode, tdErr.Message)
 		}
 	}
+	return fmt.Errorf("%s: %w", message, err)
 }

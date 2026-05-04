@@ -16,8 +16,8 @@ type LLMActionsCmd struct {
 type LLMActionsListCmd struct{}
 
 func (l *LLMActionsListCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "llm.actions.list", []string{}, func() {
-		handleLLMActionList(ctx.Context, ctx.Client, ctx.GlobalFlags)
+	return runInstrumented(ctx, "llm.actions.list", []string{}, func() error {
+		return handleLLMActionList(ctx.Context, ctx.Client, ctx.GlobalFlags)
 	})
 }
 
@@ -26,8 +26,8 @@ type LLMActionsGetCmd struct {
 }
 
 func (l *LLMActionsGetCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "llm.actions.get", []string{l.ActionID}, func() {
-		handleLLMActionGet(ctx.Context, ctx.Client, []string{l.ActionID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "llm.actions.get", []string{l.ActionID}, func() error {
+		return handleLLMActionGet(ctx.Context, ctx.Client, []string{l.ActionID}, ctx.GlobalFlags)
 	})
 }
 
@@ -37,8 +37,8 @@ type LLMActionsExecuteCmd struct {
 }
 
 func (l *LLMActionsExecuteCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "llm.actions.execute", []string{l.ActionID}, func() {
-		handleLLMActionExecute(ctx.Context, ctx.Client, []string{l.ActionID, l.Input}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "llm.actions.execute", []string{l.ActionID}, func() error {
+		return handleLLMActionExecute(ctx.Context, ctx.Client, []string{l.ActionID, l.Input}, ctx.GlobalFlags)
 	})
 }
 
@@ -49,8 +49,8 @@ type LLMIntegrationsCmd struct {
 type LLMIntegrationsListCmd struct{}
 
 func (l *LLMIntegrationsListCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "llm.integrations.list", []string{}, func() {
-		handleLLMIntegrationList(ctx.Context, ctx.Client, ctx.GlobalFlags)
+	return runInstrumented(ctx, "llm.integrations.list", []string{}, func() error {
+		return handleLLMIntegrationList(ctx.Context, ctx.Client, ctx.GlobalFlags)
 	})
 }
 
@@ -61,8 +61,8 @@ type LLMPromptsCmd struct {
 type LLMPromptsListCmd struct{}
 
 func (l *LLMPromptsListCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "llm.prompts.list", []string{}, func() {
-		handleLLMPromptList(ctx.Context, ctx.Client, ctx.GlobalFlags)
+	return runInstrumented(ctx, "llm.prompts.list", []string{}, func() error {
+		return handleLLMPromptList(ctx.Context, ctx.Client, ctx.GlobalFlags)
 	})
 }
 
@@ -74,8 +74,8 @@ type LLMProjectsCmd struct {
 type LLMProjectsListCmd struct{}
 
 func (l *LLMProjectsListCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "llm.projects.list", []string{}, func() {
-		handleLLMProjectList(ctx.Context, ctx.Client, ctx.GlobalFlags)
+	return runInstrumented(ctx, "llm.projects.list", []string{}, func() error {
+		return handleLLMProjectList(ctx.Context, ctx.Client, ctx.GlobalFlags)
 	})
 }
 
@@ -84,7 +84,7 @@ type LLMProjectsGetCmd struct {
 }
 
 func (l *LLMProjectsGetCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "llm.projects.get", []string{l.ProjectID}, func() {
-		handleLLMProjectGet(ctx.Context, ctx.Client, []string{l.ProjectID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "llm.projects.get", []string{l.ProjectID}, func() error {
+		return handleLLMProjectGet(ctx.Context, ctx.Client, []string{l.ProjectID}, ctx.GlobalFlags)
 	})
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 	"text/tabwriter"
@@ -12,24 +11,20 @@ import (
 	td "github.com/mickeey2525/treasuredata-go-sdk"
 )
 
-// Workflow task handlers
-func HandleWorkflowTaskList(ctx context.Context, client *td.Client, args []string, flags Flags) {
+// HandleWorkflowTaskList lists tasks for a workflow attempt.
+func HandleWorkflowTaskList(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 2 {
-		log.Fatal("Workflow ID and attempt ID required")
+		return usageError("Workflow ID and attempt ID required")
 	}
 
-	workflowID := args[0]
-
-	attemptID := args[1]
-
-	resp, err := client.Workflow.ListWorkflowTasks(ctx, workflowID, attemptID)
+	resp, err := client.Workflow.ListWorkflowTasks(ctx, args[0], args[1])
 	if err != nil {
-		HandleError(err, "Failed to list workflow tasks", flags.Verbose)
+		return wrapError(err, "failed to list workflow tasks", flags.Verbose)
 	}
 
 	switch flags.Format {
 	case "json":
-		PrintJSON(resp)
+		return PrintJSON(resp)
 	case "csv":
 		fmt.Println("id,full_name,state,is_group,started_at,updated_at")
 		for _, task := range resp.Tasks {
@@ -44,7 +39,7 @@ func HandleWorkflowTaskList(ctx context.Context, client *td.Client, args []strin
 	default:
 		if len(resp.Tasks) == 0 {
 			fmt.Println("No tasks found")
-			return
+			return nil
 		}
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
@@ -60,25 +55,23 @@ func HandleWorkflowTaskList(ctx context.Context, client *td.Client, args []strin
 		w.Flush()
 		fmt.Printf("\nTotal: %d tasks\n", len(resp.Tasks))
 	}
+	return nil
 }
 
-func HandleWorkflowTaskGet(ctx context.Context, client *td.Client, args []string, flags Flags) {
+// HandleWorkflowTaskGet retrieves a single workflow task.
+func HandleWorkflowTaskGet(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 3 {
-		log.Fatal("Workflow ID, attempt ID, and task ID required")
+		return usageError("Workflow ID, attempt ID, and task ID required")
 	}
 
-	workflowID := args[0]
-
-	attemptID := args[1]
-
-	task, err := client.Workflow.GetWorkflowTask(ctx, workflowID, attemptID, args[2])
+	task, err := client.Workflow.GetWorkflowTask(ctx, args[0], args[1], args[2])
 	if err != nil {
-		HandleError(err, "Failed to get workflow task", flags.Verbose)
+		return wrapError(err, "failed to get workflow task", flags.Verbose)
 	}
 
 	switch flags.Format {
 	case "json":
-		PrintJSON(task)
+		return PrintJSON(task)
 	case "csv":
 		fmt.Println("id,full_name,state,is_group,started_at,updated_at")
 		startedAt := ""
@@ -109,4 +102,5 @@ func HandleWorkflowTaskGet(ctx context.Context, client *td.Client, args []string
 			fmt.Printf("  %s\n", configJSON)
 		}
 	}
+	return nil
 }

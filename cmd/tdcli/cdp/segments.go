@@ -10,25 +10,26 @@ import (
 )
 
 // HandleSegmentCreate creates a new CDP segment
-func HandleSegmentCreate(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleSegmentCreate(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 4 {
-		handleUsageError("Usage: cdp segment create <audience-id> <name> <description> <query>", flags.Verbose)
+		return usageError("Usage: cdp segment create <audience-id> <name> <description> <query>")
 	}
 
 	segment, err := client.CDP.CreateSegment(ctx, args[0], args[1], args[2], args[3])
 	if err != nil {
-		handleError(err, "Failed to create segment", flags.Verbose)
+		return wrapError(err, "failed to create segment", flags.Verbose)
 	}
 
 	fmt.Printf("Segment created successfully\n")
 	fmt.Printf("ID: %s\n", segment.ID)
 	fmt.Printf("Name: %s\n", segment.Name)
+	return nil
 }
 
 // HandleSegmentList lists CDP segments
-func HandleSegmentList(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleSegmentList(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 1 {
-		handleUsageError("Usage: cdp segment list <audience-id>", flags.Verbose)
+		return usageError("Usage: cdp segment list <audience-id>")
 	}
 
 	opts := &td.CDPSegmentListOptions{
@@ -38,7 +39,7 @@ func HandleSegmentList(ctx context.Context, client *td.Client, args []string, fl
 
 	resp, err := client.CDP.ListSegments(ctx, args[0], opts)
 	if err != nil {
-		handleError(err, "Failed to list segments", flags.Verbose)
+		return wrapError(err, "failed to list segments", flags.Verbose)
 	}
 
 	csvFormatter := func(data interface{}) string {
@@ -72,24 +73,25 @@ func HandleSegmentList(ctx context.Context, client *td.Client, args []string, fl
 	}
 
 	if err := formatAndWriteOutput(resp, flags.Format, flags.Output, "id,name,population,created_at,updated_at", csvFormatter, tableFormatter); err != nil {
-		handleError(err, "Failed to write output", flags.Verbose)
+		return wrapError(err, "failed to write output", flags.Verbose)
 	}
+	return nil
 }
 
 // HandleSegmentGet retrieves a specific CDP segment
-func HandleSegmentGet(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleSegmentGet(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 2 {
-		handleUsageError("Usage: cdp segment get <audience-id> <segment-id>", flags.Verbose)
+		return usageError("Usage: cdp segment get <audience-id> <segment-id>")
 	}
 
 	segment, err := client.CDP.GetSegment(ctx, args[0], args[1])
 	if err != nil {
-		handleError(err, "Failed to get segment", flags.Verbose)
+		return wrapError(err, "failed to get segment", flags.Verbose)
 	}
 
 	switch flags.Format {
 	case "json":
-		printJSON(segment)
+		return printJSON(segment)
 	case "csv":
 		fmt.Println("id,name,profile_count,created_at,updated_at")
 		fmt.Printf("%s,%s,%d,%s,%s\n",
@@ -107,53 +109,54 @@ func HandleSegmentGet(ctx context.Context, client *td.Client, args []string, fla
 			fmt.Printf("\nQuery:\n%s\n", segment.Query)
 		}
 	}
+	return nil
 }
 
 // HandleSegmentUpdate updates a CDP segment
-func HandleSegmentUpdate(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleSegmentUpdate(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 3 {
-		handleUsageError("Usage: cdp segment update <audience-id> <segment-id> <key=value>...", flags.Verbose)
+		return usageError("Usage: cdp segment update <audience-id> <segment-id> <key=value>...")
 	}
 
 	audienceID := args[0]
 	segmentID := args[1]
 	updates := make(map[string]string)
 
-	// Parse key=value pairs
 	for _, arg := range args[2:] {
 		parts := strings.SplitN(arg, "=", 2)
 		if len(parts) != 2 {
-			handleUsageError(fmt.Sprintf("Invalid update format: %s (expected key=value)", arg), flags.Verbose)
+			return usageError(fmt.Sprintf("Invalid update format: %s (expected key=value)", arg))
 		}
 		updates[parts[0]] = parts[1]
 	}
 
 	segment, err := client.CDP.UpdateSegment(ctx, audienceID, segmentID, updates)
 	if err != nil {
-		handleError(err, "Failed to update segment", flags.Verbose)
+		return wrapError(err, "failed to update segment", flags.Verbose)
 	}
 
 	fmt.Printf("Segment %s updated successfully\n", segment.ID)
+	return nil
 }
 
 // HandleSegmentDelete deletes a CDP segment
-func HandleSegmentDelete(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleSegmentDelete(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 2 {
-		handleUsageError("Usage: cdp segment delete <audience-id> <segment-id>", flags.Verbose)
+		return usageError("Usage: cdp segment delete <audience-id> <segment-id>")
 	}
 
-	err := client.CDP.DeleteSegment(ctx, args[0], args[1])
-	if err != nil {
-		handleError(err, "Failed to delete segment", flags.Verbose)
+	if err := client.CDP.DeleteSegment(ctx, args[0], args[1]); err != nil {
+		return wrapError(err, "failed to delete segment", flags.Verbose)
 	}
 
 	fmt.Printf("Segment %s deleted successfully\n", args[0])
+	return nil
 }
 
 // HandleSegmentFolders lists segments in a folder
-func HandleSegmentFolders(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleSegmentFolders(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 2 {
-		handleUsageError("Usage: cdp segment folders <audience-id> <folder-id>", flags.Verbose)
+		return usageError("Usage: cdp segment folders <audience-id> <folder-id>")
 	}
 
 	opts := &td.CDPSegmentListOptions{
@@ -163,7 +166,7 @@ func HandleSegmentFolders(ctx context.Context, client *td.Client, args []string,
 
 	response, err := client.CDP.ListSegmentsInFolder(ctx, args[0], args[1], opts)
 	if err != nil {
-		handleError(err, "Failed to get segments in folder", flags.Verbose)
+		return wrapError(err, "failed to get segments in folder", flags.Verbose)
 	}
 
 	csvFormatter := func(data interface{}) string {
@@ -197,19 +200,20 @@ func HandleSegmentFolders(ctx context.Context, client *td.Client, args []string,
 	}
 
 	if err := formatAndWriteOutput(response.Segments, flags.Format, flags.Output, "id,name,population,created_at,updated_at", csvFormatter, tableFormatter); err != nil {
-		handleError(err, "Failed to write output", flags.Verbose)
+		return wrapError(err, "failed to write output", flags.Verbose)
 	}
+	return nil
 }
 
 // HandleSegmentQuery executes a query for a segment
-func HandleSegmentQuery(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleSegmentQuery(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 2 {
-		handleUsageError("Usage: cdp segment query <audience-id> <query>", flags.Verbose)
+		return usageError("Usage: cdp segment query <audience-id> <query>")
 	}
 
 	resp, err := client.CDP.CreateSegmentQuery(ctx, args[0], args[1])
 	if err != nil {
-		handleError(err, "Failed to query segment", flags.Verbose)
+		return wrapError(err, "failed to query segment", flags.Verbose)
 	}
 
 	csvFormatter := func(data interface{}) string {
@@ -231,34 +235,36 @@ func HandleSegmentQuery(ctx context.Context, client *td.Client, args []string, f
 	}
 
 	if err := formatAndWriteOutput(resp, flags.Format, flags.Output, "query_id,status,error,created_at", csvFormatter, tableFormatter); err != nil {
-		handleError(err, "Failed to write output", flags.Verbose)
+		return wrapError(err, "failed to write output", flags.Verbose)
 	}
+	return nil
 }
 
 // HandleSegmentNewQuery creates a new segment query
-func HandleSegmentNewQuery(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleSegmentNewQuery(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 2 {
-		handleUsageError("Usage: cdp segment new-query <audience-id> <query>", flags.Verbose)
+		return usageError("Usage: cdp segment new-query <audience-id> <query>")
 	}
 
 	segmentQuery, err := client.CDP.CreateSegmentQuery(ctx, args[0], args[1])
 	if err != nil {
-		handleError(err, "Failed to create segment query", flags.Verbose)
+		return wrapError(err, "failed to create segment query", flags.Verbose)
 	}
 
 	fmt.Printf("Query started successfully\n")
 	fmt.Printf("Query ID: %s\n", segmentQuery.ID)
+	return nil
 }
 
 // HandleSegmentQueryStatus gets the status of a segment query
-func HandleSegmentQueryStatus(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleSegmentQueryStatus(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 2 {
-		handleUsageError("Usage: cdp segment query-status <audience-id> <query-id>", flags.Verbose)
+		return usageError("Usage: cdp segment query-status <audience-id> <query-id>")
 	}
 
 	status, err := client.CDP.GetSegmentQueryStatus(ctx, args[0], args[1])
 	if err != nil {
-		handleError(err, "Failed to get query status", flags.Verbose)
+		return wrapError(err, "failed to get query status", flags.Verbose)
 	}
 
 	csvFormatter := func(data interface{}) string {
@@ -280,28 +286,29 @@ func HandleSegmentQueryStatus(ctx context.Context, client *td.Client, args []str
 	}
 
 	if err := formatAndWriteOutput(status, flags.Format, flags.Output, "query_id,status,error,created_at", csvFormatter, tableFormatter); err != nil {
-		handleError(err, "Failed to write output", flags.Verbose)
+		return wrapError(err, "failed to write output", flags.Verbose)
 	}
+	return nil
 }
 
 // HandleSegmentKillQuery kills a running segment query
-func HandleSegmentKillQuery(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleSegmentKillQuery(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 2 {
-		handleUsageError("Usage: cdp segment kill-query <audience-id> <query-id>", flags.Verbose)
+		return usageError("Usage: cdp segment kill-query <audience-id> <query-id>")
 	}
 
-	err := client.CDP.KillSegmentQuery(ctx, args[0], args[1])
-	if err != nil {
-		handleError(err, "Failed to kill segment query", flags.Verbose)
+	if err := client.CDP.KillSegmentQuery(ctx, args[0], args[1]); err != nil {
+		return wrapError(err, "failed to kill segment query", flags.Verbose)
 	}
 
 	fmt.Printf("Query %s killed successfully\n", args[1])
+	return nil
 }
 
 // HandleSegmentCustomers gets customers in a segment
-func HandleSegmentCustomers(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleSegmentCustomers(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 2 {
-		handleUsageError("Usage: cdp segment customers <audience-id> <segment-id>", flags.Verbose)
+		return usageError("Usage: cdp segment customers <audience-id> <segment-id>")
 	}
 
 	opts := &td.CDPSegmentCustomerListOptions{
@@ -310,7 +317,7 @@ func HandleSegmentCustomers(ctx context.Context, client *td.Client, args []strin
 
 	resp, err := client.CDP.GetSegmentQueryCustomers(ctx, args[0], args[1], opts)
 	if err != nil {
-		handleError(err, "Failed to get segment customers", flags.Verbose)
+		return wrapError(err, "failed to get segment customers", flags.Verbose)
 	}
 
 	csvFormatter := func(data interface{}) string {
@@ -337,24 +344,25 @@ func HandleSegmentCustomers(ctx context.Context, client *td.Client, args []strin
 	}
 
 	if err := formatAndWriteOutput(resp, flags.Format, flags.Output, "customer_id", csvFormatter, tableFormatter); err != nil {
-		handleError(err, "Failed to write output", flags.Verbose)
+		return wrapError(err, "failed to write output", flags.Verbose)
 	}
+	return nil
 }
 
 // HandleSegmentStatistics gets statistics for a segment
-func HandleSegmentStatistics(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleSegmentStatistics(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 2 {
-		handleUsageError("Usage: cdp segment statistics <audience-id> <segment-id>", flags.Verbose)
+		return usageError("Usage: cdp segment statistics <audience-id> <segment-id>")
 	}
 
 	stats, err := client.CDP.GetSegmentStatistics(ctx, args[0], args[1])
 	if err != nil {
-		handleError(err, "Failed to get segment statistics", flags.Verbose)
+		return wrapError(err, "failed to get segment statistics", flags.Verbose)
 	}
 
 	switch flags.Format {
 	case "json":
-		printJSON(stats)
+		return printJSON(stats)
 	case "csv":
 		fmt.Println("timestamp,count,has_data")
 		for _, point := range stats {
@@ -374,12 +382,13 @@ func HandleSegmentStatistics(ctx context.Context, client *td.Client, args []stri
 			}
 		}
 	}
+	return nil
 }
 
 // HandleCreateEntitySegment creates a new entity segment
-func HandleCreateEntitySegment(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleCreateEntitySegment(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 4 {
-		handleUsageError("Usage: cdp segment create-entity <name> <description> <segment-type> <parent-folder-id>", flags.Verbose)
+		return usageError("Usage: cdp segment create-entity <name> <description> <segment-type> <parent-folder-id>")
 	}
 
 	attributes := make(map[string]interface{})
@@ -389,7 +398,7 @@ func HandleCreateEntitySegment(ctx context.Context, client *td.Client, args []st
 
 	segment, err := client.CDP.CreateEntitySegment(ctx, args[0], args[1], args[2], args[3], attributes)
 	if err != nil {
-		handleError(err, "Failed to create entity segment", flags.Verbose)
+		return wrapError(err, "failed to create entity segment", flags.Verbose)
 	}
 
 	fmt.Printf("Entity segment created successfully\n")
@@ -403,22 +412,23 @@ func HandleCreateEntitySegment(ctx context.Context, client *td.Client, args []st
 			}
 		}
 	}
+	return nil
 }
 
 // HandleGetEntitySegment retrieves an entity segment
-func HandleGetEntitySegment(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleGetEntitySegment(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 1 {
-		handleUsageError("Usage: cdp segment get-entity <segment-id>", flags.Verbose)
+		return usageError("Usage: cdp segment get-entity <segment-id>")
 	}
 
 	segment, err := client.CDP.GetEntitySegment(ctx, args[0])
 	if err != nil {
-		handleError(err, "Failed to get entity segment", flags.Verbose)
+		return wrapError(err, "failed to get entity segment", flags.Verbose)
 	}
 
 	switch flags.Format {
 	case "json":
-		printJSON(segment)
+		return printJSON(segment)
 	default:
 		if data, ok := segment.Data.(map[string]interface{}); ok {
 			if id, ok := data["id"]; ok {
@@ -443,13 +453,14 @@ func HandleGetEntitySegment(ctx context.Context, client *td.Client, args []strin
 			}
 		}
 	}
+	return nil
 }
 
 // HandleListEntitySegments lists all entity segments
-func HandleListEntitySegments(ctx context.Context, client *td.Client, flags Flags) {
+func HandleListEntitySegments(ctx context.Context, client *td.Client, flags Flags) error {
 	segments, err := client.CDP.ListEntitySegments(ctx)
 	if err != nil {
-		handleError(err, "Failed to list entity segments", flags.Verbose)
+		return wrapError(err, "failed to list entity segments", flags.Verbose)
 	}
 
 	csvFormatter := func(data interface{}) string {
@@ -493,19 +504,19 @@ func HandleListEntitySegments(ctx context.Context, client *td.Client, flags Flag
 	}
 
 	if err := formatAndWriteOutput(segments, flags.Format, flags.Output, "id,name,profile_count", csvFormatter, tableFormatter); err != nil {
-		handleError(err, "Failed to write output", flags.Verbose)
+		return wrapError(err, "failed to write output", flags.Verbose)
 	}
+	return nil
 }
 
 // HandleUpdateEntitySegment updates an entity segment
-func HandleUpdateEntitySegment(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleUpdateEntitySegment(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 1 {
-		handleUsageError("Usage: cdp segment update-entity <segment-id> [options]", flags.Verbose)
+		return usageError("Usage: cdp segment update-entity <segment-id> [options]")
 	}
 
 	updates := make(map[string]interface{})
 
-	// Parse flags for updates
 	if flags.Name != "" {
 		updates["name"] = flags.Name
 	}
@@ -518,7 +529,7 @@ func HandleUpdateEntitySegment(ctx context.Context, client *td.Client, args []st
 
 	segment, err := client.CDP.UpdateEntitySegment(ctx, args[0], updates)
 	if err != nil {
-		handleError(err, "Failed to update entity segment", flags.Verbose)
+		return wrapError(err, "failed to update entity segment", flags.Verbose)
 	}
 
 	fmt.Printf("Entity segment updated successfully\n")
@@ -527,18 +538,19 @@ func HandleUpdateEntitySegment(ctx context.Context, client *td.Client, args []st
 			fmt.Printf("ID: %v\n", id)
 		}
 	}
+	return nil
 }
 
 // HandleDeleteEntitySegment deletes an entity segment
-func HandleDeleteEntitySegment(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleDeleteEntitySegment(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 1 {
-		handleUsageError("Usage: cdp segment delete-entity <segment-id>", flags.Verbose)
+		return usageError("Usage: cdp segment delete-entity <segment-id>")
 	}
 
-	err := client.CDP.DeleteEntitySegment(ctx, args[0])
-	if err != nil {
-		handleError(err, "Failed to delete entity segment", flags.Verbose)
+	if err := client.CDP.DeleteEntitySegment(ctx, args[0]); err != nil {
+		return wrapError(err, "failed to delete entity segment", flags.Verbose)
 	}
 
 	fmt.Printf("Entity segment %s deleted successfully\n", args[0])
+	return nil
 }

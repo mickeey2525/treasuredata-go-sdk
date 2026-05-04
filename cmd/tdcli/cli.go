@@ -6,8 +6,6 @@ import (
 	"time"
 
 	td "github.com/mickeey2525/treasuredata-go-sdk"
-	"github.com/mickeey2525/treasuredata-go-sdk/cmd/tdcli/cdp"
-	"github.com/mickeey2525/treasuredata-go-sdk/cmd/tdcli/workflow"
 	"github.com/mickeey2525/treasuredata-go-sdk/otel"
 )
 
@@ -87,39 +85,11 @@ type CLIContext struct {
 	OTELManager *otel.OTELManager
 }
 
-// captureHandlerErrors signals handleError to panic instead of os.Exit.
-var captureHandlerErrors = false
-
-// runHandlerWithErrorCapture wraps handler functions to capture their errors.
-func runHandlerWithErrorCapture(handlerFunc func()) (err error) {
-	originalCaptureMode := captureHandlerErrors
-	originalCDPCapture := cdp.CaptureErrors
-	originalWorkflowCapture := workflow.CaptureErrors
-	captureHandlerErrors = true
-	cdp.CaptureErrors = true
-	workflow.CaptureErrors = true
-
-	defer func() {
-		captureHandlerErrors = originalCaptureMode
-		cdp.CaptureErrors = originalCDPCapture
-		workflow.CaptureErrors = originalWorkflowCapture
-		if r := recover(); r != nil {
-			if e, ok := r.(error); ok {
-				err = e
-			} else {
-				err = fmt.Errorf("command failed: %v", r)
-			}
-		}
-	}()
-
-	handlerFunc()
-	return nil
-}
-
-// runInstrumented wraps a handler with OTEL CLI instrumentation + error capture.
-func runInstrumented(ctx *CLIContext, commandName string, args []string, handlerFunc func()) error {
+// runInstrumented wraps a handler with OTEL CLI instrumentation. Handlers
+// return errors directly; instrumentation records the result on the span.
+func runInstrumented(ctx *CLIContext, commandName string, args []string, handlerFunc func() error) error {
 	return InstrumentedRun(ctx, commandName, args, func(ctx *CLIContext) error {
-		return runHandlerWithErrorCapture(handlerFunc)
+		return handlerFunc()
 	})
 }
 

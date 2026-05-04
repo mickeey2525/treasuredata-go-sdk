@@ -8,8 +8,8 @@ type UsersCmd struct {
 type UsersListCmd struct{}
 
 func (u *UsersListCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "users.list", []string{}, func() {
-		handleUserList(ctx.Context, ctx.Client, ctx.GlobalFlags)
+	return runInstrumented(ctx, "users.list", []string{}, func() error {
+		return handleUserList(ctx.Context, ctx.Client, ctx.GlobalFlags)
 	})
 }
 
@@ -18,7 +18,7 @@ type UsersGetCmd struct {
 }
 
 func (u *UsersGetCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "users.get", []string{u.UserID}, func() {
-		handleUserGet(ctx.Context, ctx.Client, []string{u.UserID}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "users.get", []string{u.UserID}, func() error {
+		return handleUserGet(ctx.Context, ctx.Client, []string{u.UserID}, ctx.GlobalFlags)
 	})
 }

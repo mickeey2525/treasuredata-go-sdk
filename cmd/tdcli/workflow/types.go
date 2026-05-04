@@ -3,8 +3,8 @@ package workflow
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"log"
 	"os"
 
 	td "github.com/mickeey2525/treasuredata-go-sdk"
@@ -42,40 +42,36 @@ type WorkflowInitCmd struct {
 }
 
 func (w *WorkflowInitCmd) Run(ctx *CLIContext) error {
-	HandleWorkflowInit(ctx.Context, []string{w.ProjectName}, ctx.GlobalFlags)
-	return nil
+	return HandleWorkflowInit(ctx.Context, []string{w.ProjectName}, ctx.GlobalFlags)
 }
 
-// Helper functions for consistent output
-func PrintJSON(v interface{}) {
+// PrintJSON encodes the value as indented JSON to stdout.
+func PrintJSON(v interface{}) error {
 	encoder := json.NewEncoder(os.Stdout)
 	encoder.SetIndent("", "  ")
 	encoder.SetEscapeHTML(false)
 	if err := encoder.Encode(v); err != nil {
-		log.Fatalf("Failed to marshal JSON: %v", err)
+		return fmt.Errorf("failed to marshal JSON: %w", err)
 	}
+	return nil
 }
 
-// CaptureErrors signals HandleError to panic instead of calling log.Fatalf.
-// Set by the main package's runHandlerWithErrorCapture when wrapping commands.
-var CaptureErrors = false
-
-func HandleError(err error, message string, verbose bool) {
-	if err != nil {
-		if CaptureErrors {
-			if verbose {
-				panic(fmt.Errorf("%s: %v", message, err))
-			}
-			panic(err)
-		}
+// wrapError formats an error with context for propagation up the call stack.
+// When verbose, it appends TD API status details when available.
+func wrapError(err error, message string, verbose bool) error {
+	if err == nil {
+		return nil
 	}
 	if verbose {
-		if tdErr, ok := err.(*td.ErrorResponse); ok {
-			log.Printf("API Error: %s\n", tdErr.Error())
-			if tdErr.Response != nil {
-				log.Printf("Status: %s\n", tdErr.Response.Status)
-			}
+		var tdErr *td.ErrorResponse
+		if errors.As(err, &tdErr) && tdErr.Response != nil {
+			return fmt.Errorf("%s: %w (status: %s)", message, err, tdErr.Response.Status)
 		}
 	}
-	log.Fatalf("%s: %v", message, err)
+	return fmt.Errorf("%s: %w", message, err)
+}
+
+// usageError builds an error for a missing/invalid argument.
+func usageError(message string) error {
+	return errors.New(message)
 }

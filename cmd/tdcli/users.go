@@ -2,64 +2,18 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"text/tabwriter"
 
 	td "github.com/mickeey2525/treasuredata-go-sdk"
 )
 
-func handleUserCommands(ctx context.Context, client *td.Client, args []string, flags Flags) {
-	if len(args) == 0 || args[0] == "help" {
-		printUserUsage()
-		return
-	}
-
-	subcommand := args[0]
-	subArgs := args[1:]
-
-	switch subcommand {
-	case "list", "ls":
-		handleUserList(ctx, client, flags)
-	case "get", "show":
-		handleUserGet(ctx, client, subArgs, flags)
-	default:
-		fmt.Printf("Unknown user subcommand: %s\n", subcommand)
-		printUserUsage()
-		os.Exit(1)
-	}
-}
-
-func printUserUsage() {
-	fmt.Printf(`User Management Commands
-
-USAGE:
-    tdcli users <subcommand> [options]
-    tdcli user <subcommand> [options]
-
-SUBCOMMANDS:
-    list, ls               List users
-    get, show <email>      Get user details by email
-
-OPTIONS:
-    --format FORMAT        Output format (json, table, csv)
-    --output FILE          Write output to file
-    --verbose, -v          Verbose output
-
-EXAMPLES:
-    tdcli user list
-    tdcli user show user@example.com
-    tdcli user list --format csv --output users.csv
-
-`)
-}
-
-func handleUserList(ctx context.Context, client *td.Client, flags Flags) {
+func handleUserList(ctx context.Context, client *td.Client, flags Flags) error {
 	users, err := client.Users.List(ctx)
 	if err != nil {
-		handleError(err, "Failed to list users", flags.Verbose)
-		return
+		return wrapErr(err, "failed to list users", flags.Verbose)
 	}
 
 	csvFormatter := func(data interface{}) string {
@@ -104,22 +58,20 @@ func handleUserList(ctx context.Context, client *td.Client, flags Flags) {
 	}
 
 	if err := formatAndWriteOutput(users, flags.Format, flags.Output, "id,name,email,account_id,created_at,administrator,email_verified,restricted", csvFormatter, tableFormatter); err != nil {
-		handleError(err, "Failed to write output", flags.Verbose)
+		return wrapErr(err, "failed to write output", flags.Verbose)
 	}
+	return nil
 }
 
-func handleUserGet(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func handleUserGet(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) == 0 {
-		fmt.Println("Error: User email required")
-		fmt.Println("Usage: tdcli user get <email>")
-		os.Exit(1)
+		return errors.New("user email required\nUsage: tdcli user get <email>")
 	}
 
 	email := args[0]
 	user, err := client.Users.Get(ctx, email)
 	if err != nil {
-		handleError(err, "Failed to get user", flags.Verbose)
-		return
+		return wrapErr(err, "failed to get user", flags.Verbose)
 	}
 
 	csvFormatter := func(data interface{}) string {
@@ -155,6 +107,7 @@ func handleUserGet(ctx context.Context, client *td.Client, args []string, flags 
 	}
 
 	if err := formatAndWriteOutput(user, flags.Format, flags.Output, "id,name,email,account_id,created_at,administrator,email_verified,restricted", csvFormatter, tableFormatter); err != nil {
-		handleError(err, "Failed to write output", flags.Verbose)
+		return wrapErr(err, "failed to write output", flags.Verbose)
 	}
+	return nil
 }

@@ -20,8 +20,7 @@ type CDPTokensListCmd struct {
 }
 
 // HandleListTokens lists CDP tokens
-func HandleListTokens(ctx context.Context, client *td.Client, cmd interface{}, flags Flags) {
-	// Type assertion to get the command with filters
+func HandleListTokens(ctx context.Context, client *td.Client, cmd interface{}, flags Flags) error {
 	var opts *td.CDPTokenListOptions
 	var audienceID string
 	switch c := cmd.(type) {
@@ -42,7 +41,7 @@ func HandleListTokens(ctx context.Context, client *td.Client, cmd interface{}, f
 
 	resp, err := client.CDP.ListTokens(ctx, audienceID, opts)
 	if err != nil {
-		handleError(err, "Failed to list tokens", flags.Verbose)
+		return wrapError(err, "failed to list tokens", flags.Verbose)
 	}
 
 	csvFormatter := func(data interface{}) string {
@@ -76,24 +75,25 @@ func HandleListTokens(ctx context.Context, client *td.Client, cmd interface{}, f
 	}
 
 	if err := formatAndWriteOutput(resp, flags.Format, flags.Output, "id,name,type,status,created_at,updated_at", csvFormatter, tableFormatter); err != nil {
-		handleError(err, "Failed to write output", flags.Verbose)
+		return wrapError(err, "failed to write output", flags.Verbose)
 	}
+	return nil
 }
 
 // HandleGetEntityToken gets an entity token
-func HandleGetEntityToken(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleGetEntityToken(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 1 {
-		handleUsageError("Token ID required", flags.Verbose)
+		return usageError("Token ID required")
 	}
 
 	token, err := client.CDP.GetEntityToken(ctx, args[0])
 	if err != nil {
-		handleError(err, "Failed to get entity token", flags.Verbose)
+		return wrapError(err, "failed to get entity token", flags.Verbose)
 	}
 
 	switch flags.Format {
 	case "json":
-		printJSON(token)
+		return printJSON(token)
 	case "csv":
 		fmt.Println("id,name,type,status,created_at,updated_at")
 		fmt.Printf("%s,%s,%s,%s,%s,%s\n",
@@ -120,22 +120,22 @@ func HandleGetEntityToken(ctx context.Context, client *td.Client, args []string,
 			fmt.Printf("  %s\n", metadataJSON)
 		}
 	}
+	return nil
 }
 
 // HandleUpdateEntityToken updates an entity token
-func HandleUpdateEntityToken(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleUpdateEntityToken(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 2 {
-		handleUsageError("Token ID and updates (key=value) required", flags.Verbose)
+		return usageError("Token ID and updates (key=value) required")
 	}
 
 	tokenID := args[0]
 	req := &td.CDPTokenUpdateRequest{}
 
-	// Parse key=value pairs
 	for _, arg := range args[1:] {
 		parts := strings.SplitN(arg, "=", 2)
 		if len(parts) != 2 {
-			handleUsageError(fmt.Sprintf("Invalid update format: %s (expected key=value)", arg), flags.Verbose)
+			return usageError(fmt.Sprintf("Invalid update format: %s (expected key=value)", arg))
 		}
 		switch parts[0] {
 		case "name":
@@ -145,52 +145,50 @@ func HandleUpdateEntityToken(ctx context.Context, client *td.Client, args []stri
 		case "status":
 			req.Status = parts[1]
 		case "scopes":
-			// Parse comma-separated scopes
 			req.Scopes = strings.Split(parts[1], ",")
 		case "metadata":
 			var metadata map[string]interface{}
-			err := json.Unmarshal([]byte(parts[1]), &metadata)
-			if err != nil {
-				handleUsageError(fmt.Sprintf("Invalid metadata JSON: %v", err), flags.Verbose)
+			if err := json.Unmarshal([]byte(parts[1]), &metadata); err != nil {
+				return usageError(fmt.Sprintf("Invalid metadata JSON: %v", err))
 			}
 			req.Metadata = metadata
 		default:
-			handleUsageError(fmt.Sprintf("Unknown field: %s", parts[0]), flags.Verbose)
+			return usageError(fmt.Sprintf("Unknown field: %s", parts[0]))
 		}
 	}
 
 	token, err := client.CDP.UpdateEntityToken(ctx, tokenID, req)
 	if err != nil {
-		handleError(err, "Failed to update entity token", flags.Verbose)
+		return wrapError(err, "failed to update entity token", flags.Verbose)
 	}
 
 	fmt.Printf("Entity token %s updated successfully\n", token.ID)
+	return nil
 }
 
 // HandleDeleteEntityToken deletes an entity token
-func HandleDeleteEntityToken(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleDeleteEntityToken(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 1 {
-		handleUsageError("Token ID required", flags.Verbose)
+		return usageError("Token ID required")
 	}
 
-	err := client.CDP.DeleteEntityToken(ctx, args[0])
-	if err != nil {
-		handleError(err, "Failed to delete entity token", flags.Verbose)
+	if err := client.CDP.DeleteEntityToken(ctx, args[0]); err != nil {
+		return wrapError(err, "failed to delete entity token", flags.Verbose)
 	}
 
 	fmt.Printf("Entity token %s deleted successfully\n", args[0])
+	return nil
 }
 
 // HandleCreateToken creates a legacy token (audience-level)
-func HandleCreateToken(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleCreateToken(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 4 {
-		handleUsageError("Usage: cdp token create <audience-id> <key-column> <attribute-columns-json> [description]", flags.Verbose)
+		return usageError("Usage: cdp token create <audience-id> <key-column> <attribute-columns-json> [description]")
 	}
 
 	var attributeColumns []string
-	err := json.Unmarshal([]byte(args[2]), &attributeColumns)
-	if err != nil {
-		handleUsageError(fmt.Sprintf("Invalid attribute columns JSON: %v", err), flags.Verbose)
+	if err := json.Unmarshal([]byte(args[2]), &attributeColumns); err != nil {
+		return usageError(fmt.Sprintf("Invalid attribute columns JSON: %v", err))
 	}
 
 	req := &td.CDPLegacyTokenRequest{
@@ -203,28 +201,29 @@ func HandleCreateToken(ctx context.Context, client *td.Client, args []string, fl
 
 	token, err := client.CDP.CreateToken(ctx, args[0], req)
 	if err != nil {
-		handleError(err, "Failed to create token", flags.Verbose)
+		return wrapError(err, "failed to create token", flags.Verbose)
 	}
 
 	fmt.Printf("Token created successfully\n")
 	fmt.Printf("ID: %s\n", token.ID)
 	fmt.Printf("Name: %s\n", token.Name)
+	return nil
 }
 
 // HandleGetToken gets a legacy token
-func HandleGetToken(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleGetToken(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 2 {
-		handleUsageError("Usage: cdp token get <audience-id> <token-id>", flags.Verbose)
+		return usageError("Usage: cdp token get <audience-id> <token-id>")
 	}
 
 	token, err := client.CDP.GetToken(ctx, args[0], args[1])
 	if err != nil {
-		handleError(err, "Failed to get token", flags.Verbose)
+		return wrapError(err, "failed to get token", flags.Verbose)
 	}
 
 	switch flags.Format {
 	case "json":
-		printJSON(token)
+		return printJSON(token)
 	case "csv":
 		fmt.Println("id,name,type,status,description,created_at,updated_at")
 		fmt.Printf("%s,%s,%s,%s,%s,%s,%s\n",
@@ -243,18 +242,18 @@ func HandleGetToken(ctx context.Context, client *td.Client, args []string, flags
 		fmt.Printf("Created: %s\n", token.CreatedAt.Format("2006-01-02 15:04:05"))
 		fmt.Printf("Updated: %s\n", token.UpdatedAt.Format("2006-01-02 15:04:05"))
 	}
+	return nil
 }
 
 // HandleUpdateToken updates a legacy token
-func HandleUpdateToken(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleUpdateToken(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 3 {
-		handleUsageError("Usage: cdp token update <audience-id> <token-id> <key-column> <attribute-columns-json> [description]", flags.Verbose)
+		return usageError("Usage: cdp token update <audience-id> <token-id> <key-column> <attribute-columns-json> [description]")
 	}
 
 	var attributeColumns []string
-	err := json.Unmarshal([]byte(args[3]), &attributeColumns)
-	if err != nil {
-		handleUsageError(fmt.Sprintf("Invalid attribute columns JSON: %v", err), flags.Verbose)
+	if err := json.Unmarshal([]byte(args[3]), &attributeColumns); err != nil {
+		return usageError(fmt.Sprintf("Invalid attribute columns JSON: %v", err))
 	}
 
 	req := &td.CDPLegacyTokenRequest{
@@ -267,44 +266,45 @@ func HandleUpdateToken(ctx context.Context, client *td.Client, args []string, fl
 
 	token, err := client.CDP.UpdateToken(ctx, args[0], args[1], req)
 	if err != nil {
-		handleError(err, "Failed to update token", flags.Verbose)
+		return wrapError(err, "failed to update token", flags.Verbose)
 	}
 
 	fmt.Printf("Token %s updated successfully\n", token.ID)
+	return nil
 }
 
 // HandleDeleteToken deletes a legacy token
-func HandleDeleteToken(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleDeleteToken(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 2 {
-		handleUsageError("Usage: cdp token delete <audience-id> <token-id>", flags.Verbose)
+		return usageError("Usage: cdp token delete <audience-id> <token-id>")
 	}
 
-	err := client.CDP.DeleteToken(ctx, args[0], args[1])
-	if err != nil {
-		handleError(err, "Failed to delete token", flags.Verbose)
+	if err := client.CDP.DeleteToken(ctx, args[0], args[1]); err != nil {
+		return wrapError(err, "failed to delete token", flags.Verbose)
 	}
 
 	fmt.Printf("Token %s deleted successfully\n", args[1])
+	return nil
 }
 
 // HandleCreateEntityToken creates an entity token
-func HandleCreateEntityToken(ctx context.Context, client *td.Client, args []string, flags Flags) {
+func HandleCreateEntityToken(ctx context.Context, client *td.Client, args []string, flags Flags) error {
 	if len(args) < 1 {
-		handleUsageError("JSON string with token details required", flags.Verbose)
+		return usageError("JSON string with token details required")
 	}
 
 	var req td.CDPTokenCreateRequest
-	err := json.Unmarshal([]byte(args[0]), &req)
-	if err != nil {
-		handleUsageError(fmt.Sprintf("Invalid JSON: %v", err), flags.Verbose)
+	if err := json.Unmarshal([]byte(args[0]), &req); err != nil {
+		return usageError(fmt.Sprintf("Invalid JSON: %v", err))
 	}
 
 	token, err := client.CDP.CreateEntityToken(ctx, &req)
 	if err != nil {
-		handleError(err, "Failed to create entity token", flags.Verbose)
+		return wrapError(err, "failed to create entity token", flags.Verbose)
 	}
 
 	fmt.Printf("Entity token created successfully\n")
 	fmt.Printf("ID: %s\n", token.ID)
 	fmt.Printf("Name: %s\n", token.Name)
+	return nil
 }

@@ -11,7 +11,7 @@ type PostbackSendCmd struct {
 }
 
 func (p *PostbackSendCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "postback.send", []string{p.Database, p.Table}, func() {
-		handlePostbackSend(ctx.Context, ctx.Client, []string{p.Database, p.Table, p.Data}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "postback.send", []string{p.Database, p.Table}, func() error {
+		return handlePostbackSend(ctx.Context, ctx.Client, []string{p.Database, p.Table, p.Data}, ctx.GlobalFlags)
 	})
 }

@@ -12,7 +12,7 @@ type PersonalizationSendCmd struct {
 }
 
 func (p *PersonalizationSendCmd) Run(ctx *CLIContext) error {
-	return runInstrumented(ctx, "personalization.send", []string{p.Database, p.Table}, func() {
-		handlePersonalizationSend(ctx.Context, ctx.Client, []string{p.Database, p.Table, p.Data, p.Token}, ctx.GlobalFlags)
+	return runInstrumented(ctx, "personalization.send", []string{p.Database, p.Table}, func() error {
+		return handlePersonalizationSend(ctx.Context, ctx.Client, []string{p.Database, p.Table, p.Data, p.Token}, ctx.GlobalFlags)
 	})
 }
