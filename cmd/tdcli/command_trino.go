@@ -20,12 +20,13 @@ type TrinoQueryCmd struct {
 func (t *TrinoQueryCmd) Run(ctx *CLIContext) error {
 	ctx.GlobalFlags.Database = t.Database
 	ctx.GlobalFlags.Limit = t.Limit
-	if t.PageSize > 0 {
-		handleTrinoQueryWithPagination(ctx.Context, ctx.Client, []string{t.Query}, ctx.GlobalFlags, t.PageSize)
-	} else {
-		handleTrinoQuery(ctx.Context, ctx.Client, []string{t.Query}, ctx.GlobalFlags)
-	}
-	return nil
+	return runInstrumented(ctx, "trino.query", []string{t.Query}, func() {
+		if t.PageSize > 0 {
+			handleTrinoQueryWithPagination(ctx.Context, ctx.Client, []string{t.Query}, ctx.GlobalFlags, t.PageSize)
+		} else {
+			handleTrinoQuery(ctx.Context, ctx.Client, []string{t.Query}, ctx.GlobalFlags)
+		}
+	})
 }
 
 type TrinoInteractiveCmd struct {
@@ -34,8 +35,9 @@ type TrinoInteractiveCmd struct {
 
 func (t *TrinoInteractiveCmd) Run(ctx *CLIContext) error {
 	ctx.GlobalFlags.Database = t.Database
-	handleTrinoInteractive(ctx.Context, ctx.Client, []string{}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "trino.interactive", []string{}, func() {
+		handleTrinoInteractive(ctx.Context, ctx.Client, []string{}, ctx.GlobalFlags)
+	})
 }
 
 type TrinoTestCmd struct {
@@ -44,8 +46,9 @@ type TrinoTestCmd struct {
 
 func (t *TrinoTestCmd) Run(ctx *CLIContext) error {
 	ctx.GlobalFlags.Database = t.Database
-	handleTrinoTest(ctx.Context, ctx.Client, []string{}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "trino.test", []string{}, func() {
+		handleTrinoTest(ctx.Context, ctx.Client, []string{}, ctx.GlobalFlags)
+	})
 }
 
 type TrinoDescribeCmd struct {
@@ -55,8 +58,9 @@ type TrinoDescribeCmd struct {
 
 func (t *TrinoDescribeCmd) Run(ctx *CLIContext) error {
 	ctx.GlobalFlags.Database = t.Database
-	handleTrinoDescribe(ctx.Context, ctx.Client, []string{t.Table}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "trino.describe", []string{t.Table}, func() {
+		handleTrinoDescribe(ctx.Context, ctx.Client, []string{t.Table}, ctx.GlobalFlags)
+	})
 }
 
 type TrinoShowCmd struct {
@@ -71,8 +75,9 @@ func (t *TrinoShowCmd) Run(ctx *CLIContext) error {
 	if t.Table != "" {
 		args = append(args, t.Table)
 	}
-	handleTrinoShow(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "trino.show", args, func() {
+		handleTrinoShow(ctx.Context, ctx.Client, args, ctx.GlobalFlags)
+	})
 }
 
 type TrinoExplainCmd struct {
@@ -82,8 +87,9 @@ type TrinoExplainCmd struct {
 
 func (t *TrinoExplainCmd) Run(ctx *CLIContext) error {
 	ctx.GlobalFlags.Database = t.Database
-	handleTrinoExplain(ctx.Context, ctx.Client, []string{t.Query}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "trino.explain", []string{t.Query}, func() {
+		handleTrinoExplain(ctx.Context, ctx.Client, []string{t.Query}, ctx.GlobalFlags)
+	})
 }
 
 type TrinoVersionCmd struct {
@@ -92,6 +98,7 @@ type TrinoVersionCmd struct {
 
 func (t *TrinoVersionCmd) Run(ctx *CLIContext) error {
 	ctx.GlobalFlags.Database = t.Database
-	handleTrinoVersion(ctx.Context, ctx.Client, []string{}, ctx.GlobalFlags)
-	return nil
+	return runInstrumented(ctx, "trino.version", []string{}, func() {
+		handleTrinoVersion(ctx.Context, ctx.Client, []string{}, ctx.GlobalFlags)
+	})
 }

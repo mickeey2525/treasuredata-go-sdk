@@ -18,7 +18,7 @@ type PermsPoliciesCmd struct {
 type PermsPoliciesListCmd struct{}
 
 func (p *PermsPoliciesListCmd) Run(ctx *CLIContext) error {
-	return runHandlerWithErrorCapture(func() {
+	return runInstrumented(ctx, "permissions.policies.list", []string{}, func() {
 		handlePolicyList(ctx.Context, ctx.Client, ctx.GlobalFlags)
 	})
 }
@@ -28,7 +28,7 @@ type PermsPoliciesGetCmd struct {
 }
 
 func (p *PermsPoliciesGetCmd) Run(ctx *CLIContext) error {
-	return runHandlerWithErrorCapture(func() {
+	return runInstrumented(ctx, "permissions.policies.get", []string{fmt.Sprintf("%d", p.PolicyID)}, func() {
 		handlePolicyGet(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", p.PolicyID)}, ctx.GlobalFlags)
 	})
 }
@@ -39,7 +39,7 @@ type PermsPoliciesCreateCmd struct {
 }
 
 func (p *PermsPoliciesCreateCmd) Run(ctx *CLIContext) error {
-	return runHandlerWithErrorCapture(func() {
+	return runInstrumented(ctx, "permissions.policies.create", []string{p.Name}, func() {
 		args := []string{p.Name}
 		if p.Description != "" {
 			args = append(args, p.Description)
@@ -53,7 +53,7 @@ type PermsPoliciesDeleteCmd struct {
 }
 
 func (p *PermsPoliciesDeleteCmd) Run(ctx *CLIContext) error {
-	return runHandlerWithErrorCapture(func() {
+	return runInstrumented(ctx, "permissions.policies.delete", []string{fmt.Sprintf("%d", p.PolicyID)}, func() {
 		handlePolicyDelete(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", p.PolicyID)}, ctx.GlobalFlags)
 	})
 }
@@ -68,7 +68,7 @@ type PermsGroupsCmd struct {
 type PermsGroupsListCmd struct{}
 
 func (p *PermsGroupsListCmd) Run(ctx *CLIContext) error {
-	return runHandlerWithErrorCapture(func() {
+	return runInstrumented(ctx, "permissions.groups.list", []string{}, func() {
 		handlePolicyGroupList(ctx.Context, ctx.Client, ctx.GlobalFlags)
 	})
 }
@@ -78,7 +78,7 @@ type PermsGroupsGetCmd struct {
 }
 
 func (p *PermsGroupsGetCmd) Run(ctx *CLIContext) error {
-	return runHandlerWithErrorCapture(func() {
+	return runInstrumented(ctx, "permissions.groups.get", []string{p.GroupID}, func() {
 		handlePolicyGroupGet(ctx.Context, ctx.Client, []string{p.GroupID}, ctx.GlobalFlags)
 	})
 }
@@ -88,7 +88,7 @@ type PermsGroupsCreateCmd struct {
 }
 
 func (p *PermsGroupsCreateCmd) Run(ctx *CLIContext) error {
-	return runHandlerWithErrorCapture(func() {
+	return runInstrumented(ctx, "permissions.groups.create", []string{p.Name}, func() {
 		handlePolicyGroupCreate(ctx.Context, ctx.Client, []string{p.Name}, ctx.GlobalFlags)
 	})
 }
@@ -98,7 +98,7 @@ type PermsGroupsDeleteCmd struct {
 }
 
 func (p *PermsGroupsDeleteCmd) Run(ctx *CLIContext) error {
-	return runHandlerWithErrorCapture(func() {
+	return runInstrumented(ctx, "permissions.groups.delete", []string{p.GroupID}, func() {
 		handlePolicyGroupDelete(ctx.Context, ctx.Client, []string{p.GroupID}, ctx.GlobalFlags)
 	})
 }
@@ -113,7 +113,7 @@ type PermsUsersListCmd struct {
 }
 
 func (p *PermsUsersListCmd) Run(ctx *CLIContext) error {
-	return runHandlerWithErrorCapture(func() {
+	return runInstrumented(ctx, "permissions.users.list", []string{}, func() {
 		ctx.GlobalFlags.WithDetails = p.WithDetails
 		handleAccessControlUserList(ctx.Context, ctx.Client, ctx.GlobalFlags)
 	})
@@ -124,7 +124,7 @@ type PermsUsersGetCmd struct {
 }
 
 func (p *PermsUsersGetCmd) Run(ctx *CLIContext) error {
-	return runHandlerWithErrorCapture(func() {
+	return runInstrumented(ctx, "permissions.users.get", []string{fmt.Sprintf("%d", p.UserID)}, func() {
 		handleAccessControlUserGet(ctx.Context, ctx.Client, []string{fmt.Sprintf("%d", p.UserID)}, ctx.GlobalFlags)
 	})
 }
