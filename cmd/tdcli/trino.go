@@ -23,7 +23,10 @@ import (
 )
 
 // handleTrinoQuery executes a Trino query and displays results
-func handleTrinoQuery(ctx context.Context, _ *td.Client, args []string, flags Flags) {
+func handleTrinoQuery(ctx context.Context, client *td.Client, args []string, flags Flags) {
+	if client == nil {
+		log.Fatal("Client is not initialized")
+	}
 	if len(args) == 0 {
 		log.Fatal("Query is required")
 	}
@@ -33,12 +36,16 @@ func handleTrinoQuery(ctx context.Context, _ *td.Client, args []string, flags Fl
 		fmt.Printf("Executing query: %s\n", query)
 	}
 
-	// Create Trino client
+	// Create Trino client using the SDK client's HTTP transport and OTEL config
 	trinoConfig := td.TDTrinoClientConfig{
-		APIKey:   flags.APIKey,
-		Region:   flags.Region,
-		Database: flags.Database,
-		Source:   "tdcli",
+		APIKey:        flags.APIKey,
+		Region:        flags.Region,
+		Database:      flags.Database,
+		Source:        "tdcli",
+		HTTPClient:    client.HTTPClient(),
+		EnableTracing: client.IsOTELEnabled(),
+		Tracer:        client.GetTracer(),
+		Meter:         client.GetMeter(),
 	}
 
 	trinoClient, err := td.NewTDTrinoClient(trinoConfig)
@@ -412,15 +419,22 @@ func handleTrinoQueryCSV(rows *sql.Rows, columns []string, output io.Writer, fla
 }
 
 // handleTrinoTest tests the Trino connection
-func handleTrinoTest(ctx context.Context, _ *td.Client, _ []string, flags Flags) {
+func handleTrinoTest(ctx context.Context, client *td.Client, _ []string, flags Flags) {
+	if client == nil {
+		log.Fatal("Client is not initialized")
+	}
 	fmt.Println("Testing Trino connection...")
 
-	// Create Trino client
+	// Create Trino client using the SDK client's HTTP transport and OTEL config
 	trinoConfig := td.TDTrinoClientConfig{
-		APIKey:   flags.APIKey,
-		Region:   flags.Region,
-		Database: flags.Database,
-		Source:   "tdcli",
+		APIKey:        flags.APIKey,
+		Region:        flags.Region,
+		Database:      flags.Database,
+		Source:        "tdcli",
+		HTTPClient:    client.HTTPClient(),
+		EnableTracing: client.IsOTELEnabled(),
+		Tracer:        client.GetTracer(),
+		Meter:         client.GetMeter(),
 	}
 
 	trinoClient, err := td.NewTDTrinoClient(trinoConfig)
@@ -459,7 +473,10 @@ func handleTrinoTest(ctx context.Context, _ *td.Client, _ []string, flags Flags)
 }
 
 // handleTrinoInteractive starts an enhanced interactive Trino session with history and auto-completion
-func handleTrinoInteractive(ctx context.Context, _ *td.Client, _ []string, flags Flags) {
+func handleTrinoInteractive(ctx context.Context, client *td.Client, _ []string, flags Flags) {
+	if client == nil {
+		log.Fatal("Client is not initialized")
+	}
 	currentDatabase := flags.Database
 
 	fmt.Println("Treasure Data Trino Interactive Session")
@@ -467,12 +484,16 @@ func handleTrinoInteractive(ctx context.Context, _ *td.Client, _ []string, flags
 	fmt.Printf("Database: %s, Region: %s\n", currentDatabase, flags.Region)
 	fmt.Println()
 
-	// Create initial Trino client
+	// Create initial Trino client using the SDK client's HTTP transport and OTEL config
 	trinoConfig := td.TDTrinoClientConfig{
-		APIKey:   flags.APIKey,
-		Region:   flags.Region,
-		Database: currentDatabase,
-		Source:   "tdcli-interactive",
+		APIKey:        flags.APIKey,
+		Region:        flags.Region,
+		Database:      currentDatabase,
+		Source:        "tdcli-interactive",
+		HTTPClient:    client.HTTPClient(),
+		EnableTracing: client.IsOTELEnabled(),
+		Tracer:        client.GetTracer(),
+		Meter:         client.GetMeter(),
 	}
 
 	trinoClient, err := td.NewTDTrinoClient(trinoConfig)
@@ -1208,7 +1229,10 @@ func handleTrinoExplain(ctx context.Context, client *td.Client, args []string, f
 }
 
 // handleTrinoQueryWithPagination executes a Trino query with pagination support
-func handleTrinoQueryWithPagination(ctx context.Context, _ *td.Client, args []string, flags Flags, pageSize int) {
+func handleTrinoQueryWithPagination(ctx context.Context, client *td.Client, args []string, flags Flags, pageSize int) {
+	if client == nil {
+		log.Fatal("Client is not initialized")
+	}
 	if len(args) == 0 {
 		log.Fatal("Query is required")
 	}
@@ -1218,12 +1242,16 @@ func handleTrinoQueryWithPagination(ctx context.Context, _ *td.Client, args []st
 		fmt.Printf("Executing query with pagination (page size: %d): %s\n", pageSize, query)
 	}
 
-	// Create Trino client
+	// Create Trino client using the SDK client's HTTP transport and OTEL config
 	trinoConfig := td.TDTrinoClientConfig{
-		APIKey:   flags.APIKey,
-		Region:   flags.Region,
-		Database: flags.Database,
-		Source:   "tdcli",
+		APIKey:        flags.APIKey,
+		Region:        flags.Region,
+		Database:      flags.Database,
+		Source:        "tdcli",
+		HTTPClient:    client.HTTPClient(),
+		EnableTracing: client.IsOTELEnabled(),
+		Tracer:        client.GetTracer(),
+		Meter:         client.GetMeter(),
 	}
 
 	trinoClient, err := td.NewTDTrinoClient(trinoConfig)
