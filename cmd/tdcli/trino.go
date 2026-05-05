@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -153,44 +154,33 @@ func handleTrinoQueryTable(rows *sql.Rows, columns []string, output io.Writer, f
 
 // handleTrinoQueryTableWithPagination formats query results as a table with pagination support using buffered streaming
 func handleTrinoQueryTableWithPagination(rows *sql.Rows, columns []string, output io.Writer, pageSize int) (int, error) {
-	var bufferedOutput *bufio.Writer
-	var isBuffered bool
+	bufferedOutput := bufio.NewWriterSize(output, 65536)
+	defer bufferedOutput.Flush()
 
-	if output == os.Stdout || output == os.Stderr {
-		bufferedOutput = bufio.NewWriterSize(output, 8192)
-		isBuffered = true
-		defer bufferedOutput.Flush()
-	} else {
-		bufferedOutput = bufio.NewWriterSize(output, 8192)
-		isBuffered = true
-		defer bufferedOutput.Flush()
-	}
-
-	actualOutput := io.Writer(bufferedOutput)
-	if !isBuffered {
-		actualOutput = output
-	}
-
-	fmt.Fprint(actualOutput, strings.Join(columns, "\t"))
-	fmt.Fprintln(actualOutput)
-
+	var headerBuilder strings.Builder
+	headerBuilder.Grow(256)
 	for i, col := range columns {
 		if i > 0 {
-			fmt.Fprint(actualOutput, "\t")
+			headerBuilder.WriteByte('\t')
 		}
-		fmt.Fprint(actualOutput, strings.Repeat("-", len(col)))
+		headerBuilder.WriteString(col)
 	}
-	fmt.Fprintln(actualOutput)
-
-	if isBuffered {
-		bufferedOutput.Flush()
+	headerBuilder.WriteByte('\n')
+	for i, col := range columns {
+		if i > 0 {
+			headerBuilder.WriteByte('\t')
+		}
+		headerBuilder.WriteString(strings.Repeat("-", len(col)))
 	}
+	headerBuilder.WriteByte('\n')
+	bufferedOutput.WriteString(headerBuilder.String())
+	bufferedOutput.Flush()
 
 	totalRows := 0
 	pageRows := 0
 	scanner := bufio.NewScanner(os.Stdin)
 
-	var rowBuilder strings.Builder
+	rowBuilder := strings.Builder{}
 	rowBuilder.Grow(1024)
 
 	for rows.Next() {
@@ -207,25 +197,19 @@ func handleTrinoQueryTableWithPagination(rows *sql.Rows, columns []string, outpu
 		rowBuilder.Reset()
 		for i, val := range values {
 			if i > 0 {
-				rowBuilder.WriteString("\t")
+				rowBuilder.WriteByte('\t')
 			}
-			if val == nil {
-				rowBuilder.WriteString("NULL")
-			} else {
-				rowBuilder.WriteString(fmt.Sprintf("%v", val))
-			}
+			formatValue(&rowBuilder, val)
 		}
-		rowBuilder.WriteString("\n")
+		rowBuilder.WriteByte('\n')
 
-		actualOutput.Write([]byte(rowBuilder.String()))
+		bufferedOutput.WriteString(rowBuilder.String())
 
 		totalRows++
 		pageRows++
 
 		if pageSize > 0 && pageRows >= pageSize {
-			if isBuffered {
-				bufferedOutput.Flush()
-			}
+			bufferedOutput.Flush()
 
 			fmt.Printf("\n--- Page end (%d rows shown, %d total so far) ---\n", pageRows, totalRows)
 			fmt.Print("Press Enter to continue, 'q' to quit, 'a' to show all: ")
@@ -242,17 +226,38 @@ func handleTrinoQueryTableWithPagination(rows *sql.Rows, columns []string, outpu
 			}
 			pageRows = 0
 		}
-
-		if pageSize == 0 && totalRows%10 == 0 && isBuffered {
-			bufferedOutput.Flush()
-		}
 	}
+
+	bufferedOutput.Flush()
 
 	if err := rows.Err(); err != nil {
 		return totalRows, fmt.Errorf("row iteration error: %w", err)
 	}
 
 	return totalRows, nil
+}
+
+func formatValue(b *strings.Builder, val any) {
+	if val == nil {
+		b.WriteString("NULL")
+		return
+	}
+	switch v := val.(type) {
+	case string:
+		b.WriteString(v)
+	case []byte:
+		b.Write(v)
+	case int64:
+		b.WriteString(strconv.FormatInt(v, 10))
+	case float64:
+		b.WriteString(strconv.FormatFloat(v, 'f', -1, 64))
+	case bool:
+		b.WriteString(strconv.FormatBool(v))
+	case time.Time:
+		b.WriteString(v.Format(time.RFC3339))
+	default:
+		b.WriteString(fmt.Sprintf("%v", val))
+	}
 }
 
 // handleTrinoQueryJSON formats query results as streaming JSON array
