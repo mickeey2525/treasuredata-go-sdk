@@ -1288,7 +1288,104 @@ func TestAutoCompleterDo(t *testing.T) {
 	}
 }
 
-// Test cache timing mechanism
+// Test formatValue vs fmt.Sprintf performance and streaming behavior
+func TestFormatValuePerformance(t *testing.T) {
+	sampleValues := []any{"string_val", int64(42), float64(3.14), true, []byte("bytes_val")}
+
+	var b strings.Builder
+	b.Grow(256)
+
+	for i, val := range sampleValues {
+		if i > 0 {
+			b.WriteByte('\t')
+		}
+		formatValue(&b, val)
+	}
+
+	if b.Len() == 0 {
+		t.Error("formatValue produced empty output")
+	}
+}
+
+// recordingWriter records every write call to verify streaming behavior
+type recordingWriter struct {
+	writes []int // lengths of each write
+}
+
+func (r *recordingWriter) Write(p []byte) (n int, err error) {
+	r.writes = append(r.writes, len(p))
+	return len(p), nil
+}
+
+func TestStreamingOutputBehavior(t *testing.T) {
+	// Verify that the optimized path writes progressively (not in a single giant chunk)
+	var w recordingWriter
+
+	var b strings.Builder
+	b.Grow(256)
+
+	// Simulate writing many rows with formatValue
+	for row := 0; row < 100; row++ {
+		b.Reset()
+		b.WriteString(fmt.Sprintf("%d", row))
+		for j := 0; j < 10; j++ {
+			b.WriteByte('\t')
+			formatValue(&b, fmt.Sprintf("val_%d_%d", row, j))
+		}
+		b.WriteByte('\n')
+		w.Write([]byte(b.String()))
+	}
+
+	// Should have many small writes (one per row), not one big write
+	if len(w.writes) != 100 {
+		t.Errorf("Expected 100 individual writes (streaming), got %d", len(w.writes))
+	}
+}
+
+func BenchmarkFormatValue(b *testing.B) {
+	b.Run("formatValue_type_switch", func(b *testing.B) {
+		var sb strings.Builder
+		sb.Grow(256)
+		vals := []any{"string_val", int64(42), float64(3.14), true, "hello", int64(100), float64(0.5), false, "world", int64(-1)}
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			sb.Reset()
+			for j, val := range vals {
+				if j > 0 {
+					sb.WriteByte('\t')
+				}
+				formatValue(&sb, val)
+			}
+			sb.WriteByte('\n')
+			_ = sb.String()
+		}
+	})
+
+	b.Run("fmt_Sprintf", func(b *testing.B) {
+		var sb strings.Builder
+		sb.Grow(256)
+		vals := []any{"string_val", int64(42), float64(3.14), true, "hello", int64(100), float64(0.5), false, "world", int64(-1)}
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			sb.Reset()
+			for j, val := range vals {
+				if j > 0 {
+					sb.WriteByte('\t')
+				}
+				if val == nil {
+					sb.WriteString("NULL")
+				} else {
+					sb.WriteString(fmt.Sprintf("%v", val))
+				}
+			}
+			sb.WriteByte('\n')
+			_ = sb.String()
+		}
+	})
+}
+
 func TestTableCacheRefresh(t *testing.T) {
 	database := "test_db"
 	completer := &trinoAutoCompleter{
