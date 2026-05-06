@@ -96,7 +96,8 @@ homebrew_casks:
     description: "Treasure Data CLI tool - A comprehensive command-line interface for Treasure Data"
     homepage: "https://github.com/mickeey2525/treasuredata-go-sdk"
     license: "MIT"
-    binary: tdcli
+    binaries:
+      - tdcli
     hooks:
       post:
         install: |
